@@ -38,7 +38,9 @@
       "id": "djone-mixxx",
       "cell": "core-communications",
       "repository": "ingtrader21-spec/DJONE",
-      "command_prefixes": ["djone."],
+      "command_prefixes": [
+        "djone."
+      ],
       "direct_n8n": false
     },
     {
@@ -134,6 +136,15 @@
         "connect.provisioning.",
         "connect.webhook.",
         "connect.audit."
+      ],
+      "direct_n8n": false
+    },
+    {
+      "id": "evolution-whatsapp",
+      "cell": "core-communications",
+      "repository": "ingtrader21-spec/Evolution-API",
+      "command_prefixes": [
+        "whatsapp."
       ],
       "direct_n8n": false
     }
