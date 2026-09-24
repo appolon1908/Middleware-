@@ -23,7 +23,8 @@
     "TELEPHONY_ADMIN_WRITE": false,
     "AUDIT_EXPORT": false,
     "NOTIFICATION_DELIVERY": false,
-    "WEBHOOK_DELIVERY": false
+    "WEBHOOK_DELIVERY": false,
+    "WHATSAPP_DELIVERY": false
   },
   "activation_requirements": [
     "protected_merged_sha",

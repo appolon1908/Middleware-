@@ -247,6 +247,21 @@
         "production"
       ],
       "campaign_scoped": false
+    },
+    "WHATSAPP_DELIVERY": {
+      "classification": "external_effect",
+      "effect_flags": [
+        "ENABLE_EXTERNAL_DELIVERY",
+        "WHATSAPP_DELIVERY_ENABLED"
+      ],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging",
+        "production"
+      ],
+      "campaign_scoped": true
     }
   },
   "limits": {
