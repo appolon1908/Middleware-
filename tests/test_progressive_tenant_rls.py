@@ -6,6 +6,7 @@ from app.platform.tenant_inventory import scan_tenant_inventory
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "migrations/versions/0069_progressive_tenant_rls.py"
 CORE_SQL = ROOT / "migrations/0012_tenant_rls.sql"
+RECOVERY_SQL = ROOT / "migrations/0013_command_recovery.sql"
 AUTOMATION_SQL = ROOT / "migrations/automation/0002_tenant_rls.sql"
 
 
@@ -29,18 +30,31 @@ def _source_tables(prefix: str) -> set[str]:
 def test_progressive_rls_coverage_is_partitioned_by_migration_authority() -> None:
     namespace = _migration_namespace()
     alembic = set(namespace["RLS_TABLES"])
-    expected_alembic = _source_tables("migrations/versions/")
-    expected_core = _source_tables("migrations/") - expected_alembic - _source_tables(
-        "migrations/automation/"
+    expected_alembic = _source_tables("migrations/versions/") - {
+        "agent_provisioning_repair_intent",
+        "agent_webrtc_session",
+    }
+    section6 = {"agent_provisioning_repair_intent", "agent_webrtc_session"}
+    expected_recovery = _source_tables("migrations/0013_command_recovery.sql")
+    expected_core = (
+        _source_tables("migrations/")
+        - expected_alembic
+        - section6
+        - expected_recovery
+        - _source_tables("migrations/automation/")
     )
     expected_automation = _source_tables("migrations/automation/")
 
     assert alembic == expected_alembic
     core_sql = CORE_SQL.read_text(encoding="utf-8")
+    recovery_sql = RECOVERY_SQL.read_text(encoding="utf-8")
     automation_sql = AUTOMATION_SQL.read_text(encoding="utf-8")
     for table in expected_core:
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in core_sql
         assert f"CREATE POLICY codestra_tenant_isolation ON {table}" in core_sql
+    for table in expected_recovery:
+        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in recovery_sql
+        assert f"CREATE POLICY codestra_tenant_isolation ON {table}" in recovery_sql
     for table in expected_automation:
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in automation_sql
         assert f"CREATE POLICY codestra_tenant_isolation ON {table}" in automation_sql
@@ -69,3 +83,13 @@ def test_sql_rls_migrations_are_forward_only_and_receipted() -> None:
         assert "DISABLE ROW LEVEL SECURITY" not in text
         assert "BYPASSRLS" in text
         assert "WITH CHECK" in text
+
+
+def test_section6_successor_owns_new_rls_tables() -> None:
+    source = (ROOT / "migrations/versions/0070_agent_provisioning_lifecycle.py").read_text()
+    for table in ("agent_provisioning_repair_intent", "agent_webrtc_session"):
+        assert table in source
+    assert 'for table in ("agent_provisioning_repair_intent", "agent_webrtc_session")' in source
+    assert 'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY' in source
+    assert 'CREATE POLICY codestra_tenant_isolation ON {table}' in source
+    assert "current_setting('app.tenant_id', true)" in source
