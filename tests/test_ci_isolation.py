@@ -12,9 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def isolated():
     return {
+        "CI_POSTGRES_PORT": "5432",
+        "CI_REDIS_PORT": "6379",
         "DATABASE_URL": "postgresql+asyncpg://ci:synthetic@127.0.0.1:5432/middleware_rehearsal",
         "TEST_DATABASE_URL": "postgresql+asyncpg://ci:synthetic@127.0.0.1:5432/middleware_rehearsal",
-        "REDIS_URL": "redis://127.0.0.1:6379/15", **{name: "false" for name in FLAGS},
+        "REDIS_URL": "redis://127.0.0.1:6379/15",
+        **{name: "false" for name in FLAGS},
     }
 
 
@@ -23,7 +26,10 @@ def test_validated_isolation_cli():
     assert result.returncode == 0
 
 
-@pytest.mark.parametrize("name", [*FLAGS, "DATABASE_URL", "TEST_DATABASE_URL", "REDIS_URL"])
+@pytest.mark.parametrize(
+    "name",
+    [*FLAGS, "CI_POSTGRES_PORT", "CI_REDIS_PORT", "DATABASE_URL", "TEST_DATABASE_URL", "REDIS_URL"],
+)
 def test_missing_guard_variable_fails_closed(name):
     environ = isolated()
     environ.pop(name)
@@ -42,12 +48,11 @@ def test_nonisolated_connection_target_is_rejected(target):
         validate({**isolated(), "DATABASE_URL": target})
 
 
-def test_workflow_blocks_real_runner_and_container_egress_without_rg_dependency():
+def test_workflow_uses_governed_root_owned_egress_guard():
     source = (ROOT / ".github/workflows/required-ci.yml").read_text()
     assert "python scripts/validate_ci_isolation.py" in source
-    assert "for chain in OUTPUT FORWARD" in source
-    assert 'iptables -I "$chain" 1 -d "$target" -j REJECT' in source
-    assert 'iptables -C "$chain" -d "$target" -j REJECT' in source
+    assert "sudo -n /usr/local/sbin/codestra-ci-egress-guard" in source
+    assert "sudo -n iptables" not in source
     assert "! rg -n" not in source
 
 
@@ -71,3 +76,36 @@ def test_manifest_gate_runs_after_locked_dependencies_and_before_pytest():
     assert install < validate < tests
     assert "scripts/project_ci.sh" in bootstrap
     assert "python3 scripts/validate_codestra_manifest.py" not in bootstrap
+
+
+def test_dynamic_runner_ports_remain_isolated():
+    environ = isolated()
+    environ["CI_POSTGRES_PORT"] = "32783"
+    environ["CI_REDIS_PORT"] = "32784"
+    environ["DATABASE_URL"] = "postgresql+asyncpg://ci:synthetic@127.0.0.1:32783/middleware_rehearsal"
+    environ["TEST_DATABASE_URL"] = "postgresql+asyncpg://ci:synthetic@127.0.0.1:32783/middleware_rehearsal"
+    environ["REDIS_URL"] = "redis://127.0.0.1:32784/15"
+    validate(environ)
+
+
+def test_required_ci_rollback_uses_assigned_postgres_port():
+    source = (ROOT / ".github/workflows/required-ci.yml").read_text()
+    rollback = source.split("- name: Verify rollback by isolated restoration", 1)[1].split("- name: Application startup and disabled defaults", 1)[0]
+    assert "PGPORT: ${{ job.services.postgres.ports[5432] }}" in rollback
+    assert rollback.count('-p "${PGPORT}"') == 4
+    assert rollback.count("-e PGPASSWORD -e PGPORT") == 4
+
+
+def test_required_ci_uses_disk_backed_runner_temp_for_heavy_python_steps():
+    source = (ROOT / ".github/workflows/required-ci.yml").read_text()
+    assert source.count("TMPDIR: ${{ runner.temp }}") >= 2
+
+
+def test_middleware_ci_uses_dynamic_service_ports_on_self_hosted_runner():
+    source = (ROOT / ".github/workflows/middleware-ci.yml").read_text()
+    assert source.count("- 5432/tcp") >= 2
+    assert source.count("- 6379/tcp") >= 2
+    assert "5432:5432" not in source
+    assert "6379:6379" not in source
+    assert "job.services.postgres.ports[5432]" in source
+    assert "job.services.redis.ports[6379]" in source
