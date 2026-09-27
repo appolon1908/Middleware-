@@ -39,7 +39,12 @@ fi
 local_head="$(git rev-parse HEAD)"
 upstream_head="$(git rev-parse '@{u}')"
 
-remote_head="$(git ls-remote origin "refs/heads/$branch" | awk 'NR==1{print $1}')"
+if [[ "$mode" == "ci" ]]; then
+  remote_head="${CODESTRA_CI_REMOTE_HEAD:-}"
+  [[ -n "$remote_head" ]] || fail "ci_remote_head_missing branch=$branch"
+else
+  remote_head="$(git ls-remote origin "refs/heads/$branch" | awk 'NR==1{print $1}')"
+fi
 [[ -n "$remote_head" ]] || fail "remote_branch_missing branch=$branch"
 [[ "$remote_head" == "$upstream_head" ]] || fail "stale_remote upstream=$upstream_head remote=$remote_head"
 
