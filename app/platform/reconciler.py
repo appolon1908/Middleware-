@@ -70,6 +70,7 @@ class ReconciliationDecision:
     readback: ReadbackResult | None
     action: str
     final_state: str
+    drift_class: str | None = None
 
 
 class Reconciler:
@@ -140,6 +141,7 @@ class Reconciler:
             await self.source.release(claim, reconciler_id=self.reconciler_id, reason="no adapter owns this command in this process")
             return ReconciliationDecision(claim.command_id, None, None, "release", operation.state)
         adapter = self.registry.adapter(ownership.adapter_id)
+        advertised = self.registry.advertised(ownership.adapter_id)
         attempt = await self.commands.latest_attempt(claim.tenant_id, claim.command_id)
         envelope = await self.commands.load_envelope(claim.tenant_id, claim.command_id)
         context = AdapterContext(
@@ -182,15 +184,34 @@ class Reconciler:
             self.metrics.commands_completed.labels(command_family=family, adapter=adapter.adapter_id).inc()
             return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "complete", "completed")
 
-        if readback.status is ReadbackStatus.NOT_FOUND and not exhausted:
-            # The provider has no trace of the effect: re-executing is safe.
+        if readback.status is ReadbackStatus.NOT_FOUND and not exhausted and advertised.safe_reexecution:
+            # Absence is repairable only when the adapter explicitly advertises
+            # that repeating the provider effect is safe.
             await self.commands.transition(
                 claim.tenant_id, claim.command_id, new_state="queued", actor_id=actor,
                 reason="reconciliation proved no provider effect; re-queued", expected_attempt=attempt,
             )
             await self.source.resolve(claim, reconciler_id=actor, action="retry", reason="reconciliation proved no provider effect")
             self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="requeued").inc()
-            return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "retry", "queued")
+            return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "retry", "queued", "provider_missing_repairable")
+
+        if readback.status is ReadbackStatus.NOT_FOUND and not advertised.safe_reexecution:
+            await self.commands.reconcile(
+                claim.tenant_id, claim.command_id, matched=False, actor_id=actor,
+                reason="provider state missing; automatic repair is not safe",
+                provider_operation_id=readback.provider_operation_id, evidence=evidence,
+            )
+            reason = "provider state missing and adapter does not permit safe automatic re-execution"
+            await self.commands.transition(
+                claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=actor, reason=reason,
+            )
+            await self.source.resolve(claim, reconciler_id=actor, action="dead_letter", reason=reason)
+            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="missing_unsafe").inc()
+            self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
+            return ReconciliationDecision(
+                claim.command_id, adapter.adapter_id, readback, "dead_letter", "dead_lettered",
+                "provider_missing_manual_repair",
+            )
 
         if readback.status is ReadbackStatus.MISMATCH:
             await self.commands.reconcile(
