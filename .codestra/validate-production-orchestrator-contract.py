@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "cdc5b64fbf0368ba9f9bcfec45ac44addf9053b98e5ee40d087f707258eacac8"
+    "7ebcca309b727821c5283df913c188bc4d55052e68736163c45a6208b6a138c9"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -671,8 +671,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "50caaed769389cb30fc725766ea6bed6"
         ),
         ".github/workflows/middleware-ci.yml": (
-            "07c6ef01f58418915e2cc6a47401063d3"
-            "aecf7881813adbb292d2fcf86fa8cf3"
+            "48c0f36e2e9419a8ddaa7bbad02bf1e72"
+            "724c9e340f4e697891199a3663064b1"
         ),
         ".github/workflows/integration-main-release-authorities.yml": (
             "910acf0149a0b9060544817a71577222a"
@@ -683,17 +683,17 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "394b93a7ac5290dd684e0ede090d58de"
         ),
         ".github/workflows/python-quality-baseline.yml": (
-            "cb89cb69636dc79a6a03e5df98abeb798"
-            "6a823e30c2d52b1d03980dddac58cca"
+            "35ecd2dac4328dea5615d5939d39e5682"
+            "5794cedf919d80abb92a4272ccf81ca"
         ),
         ".github/workflows/required-ci.yml": "9df422458d1165fe7a61e8c2a223ab9dc9db949eaa37f152fdcc306fa2f41dd5",
         ".github/workflows/production-route-contract.yml": (
-            "21595e66413a34de195d914405373b84"
-            "2c8f631d053973910e6b78f63c269c7c"
+            "a12d81e9c8d3d1e14a68f4c9ef7f55e8"
+            "487e09a83578e35bc3f2457bdb76bdb2"
         ),
         ".github/workflows/release-component-ci.yml": (
-            "d3d6d5dd03cc9c8b2d0630ef6e1b9f"
-            "df31ff2da8175d2a63e881696b25b0ee63"
+            "da08eeeeae9bfc97f9e5215935caba"
+            "cf3d9337d7c9233d931556e5c3ea3e0463"
         ),
     },
     "appolon1908-hue/beyvra-backend": {
