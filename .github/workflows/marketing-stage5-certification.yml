@@ -17,7 +17,7 @@ permissions:
 jobs:
   certify:
     name: Marketing Stage 5 exact-head certification
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, middleware-ci]
     timeout-minutes: 10
 
     steps:
