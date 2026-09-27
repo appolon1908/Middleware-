@@ -44,6 +44,7 @@ COPY --chown=65532:65532 connectors ./connectors
 COPY --chown=65532:65532 contracts ./contracts
 COPY --chown=65532:65532 migrations ./migrations
 COPY --chown=65532:65532 scripts/migrate_runtime.py ./scripts/migrate_runtime.py
+COPY --chown=65532:65532 scripts/start_integration_api.py ./scripts/start_integration_api.py
 COPY --chown=65532:65532 scripts/production_migration_authority.py ./scripts/production_migration_authority.py
 COPY --chown=65532:65532 scripts/runtime_sql_schema.py ./scripts/runtime_sql_schema.py
 USER 65532:65532
@@ -53,7 +54,7 @@ FROM runtime-common AS runtime
 EXPOSE 8095
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD ["/usr/local/bin/python3.14", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8095/health', timeout=2)"]
-CMD ["-m", "uvicorn", "app.entrypoints.integration_api:app", "--host", "0.0.0.0", "--port", "8095", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1"]
+CMD ["/app/scripts/start_integration_api.py"]
 
 FROM runtime-common AS worker
 CMD ["-m", "workers.run_outbox"]

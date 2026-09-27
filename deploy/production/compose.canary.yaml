@@ -88,17 +88,14 @@ services:
 
   middleware-api-canary:
     <<: *middleware-canary-runtime
-    # The canonical deployed process (app.entrypoints.integration_api on
-    # 8095, the image's /usr/local/bin/python3.14), read-only canary mode.
+    # Fail-closed launcher validates the integration service before the
+    # uvicorn multi-worker supervisor is exec'd.
+    environment:
+      PORT: "8095"
+      UVICORN_WORKERS: "2"
+      FORWARDED_ALLOW_IPS: ${MIDDLEWARE_FORWARDED_ALLOW_IPS:-127.0.0.1}
     command:
-      - -m
-      - uvicorn
-      - app.entrypoints.integration_api:app
-      - --host=0.0.0.0
-      - --port=8095
-      - --workers=2
-      - --proxy-headers
-      - --forwarded-allow-ips=${MIDDLEWARE_FORWARDED_ALLOW_IPS:-127.0.0.1}
+      - /app/scripts/start_integration_api.py
     restart: unless-stopped
     expose:
       - "8095"

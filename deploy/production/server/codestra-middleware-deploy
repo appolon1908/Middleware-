@@ -601,7 +601,7 @@ import json
 import sys
 health, readiness, version, capabilities = [json.loads(Path(path).read_text()) for path in sys.argv[1:5]]
 source_sha, image_digest, release_id, configuration_checksum = sys.argv[5:]
-if health != {"status": "ok", "service": "middleware-api", "component": "api"}:
+if health != {"status": "ok", "service": "middleware-integration-api", "component": "api"}:
     raise SystemExit("health projection mismatch")
 if readiness.get("status") != "ready" or readiness.get("environment") != "production":
     raise SystemExit("readiness is not production-ready")
