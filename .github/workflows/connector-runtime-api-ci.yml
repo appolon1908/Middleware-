@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   api-and-postgresql:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, middleware-ci]
     timeout-minutes: 20
     services:
       postgres:
