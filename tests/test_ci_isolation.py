@@ -51,7 +51,8 @@ def test_nonisolated_connection_target_is_rejected(target):
 def test_workflow_uses_governed_root_owned_egress_guard():
     source = (ROOT / ".github/workflows/required-ci.yml").read_text()
     assert "python scripts/validate_ci_isolation.py" in source
-    assert "sudo -n /usr/local/sbin/codestra-ci-egress-guard" in source
+    assert "sudo -n /usr/local/sbin/codestra-ci-egress-guard apply" in source
+    assert "sudo -n /usr/local/sbin/codestra-ci-egress-guard check" in source
     assert "sudo -n iptables" not in source
     assert "! rg -n" not in source
 
