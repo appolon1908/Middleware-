@@ -110,3 +110,21 @@ def test_middleware_ci_uses_dynamic_service_ports_on_self_hosted_runner():
     assert "6379:6379" not in source
     assert "job.services.postgres.ports[5432]" in source
     assert "job.services.redis.ports[6379]" in source
+
+
+def test_protected_ci_lanes_use_governed_self_hosted_runner():
+    expected = "runs-on: [self-hosted, Linux, X64, middleware-ci]"
+    workflows = (
+        "middleware-ci.yml",
+        "release-component-ci.yml",
+        "connector-sdk-ci.yml",
+        "production-integration-lock.yml",
+        "production-route-contract.yml",
+        "python-quality-baseline.yml",
+        "codeql.yml",
+    )
+    for name in workflows:
+        source = (ROOT / ".github/workflows" / name).read_text()
+        assert expected in source
+        assert "runs-on: ubuntu-latest" not in source
+        assert "runs-on: ubuntu-24.04" not in source
