@@ -60,9 +60,9 @@ def test_workflow_uses_governed_root_owned_egress_guard():
 def test_readiness_ci_preserves_positive_and_all_dependency_failure_cases():
     source = (ROOT / ".github/workflows/required-ci.yml").read_text()
     assert "redis@sha256:" in source
-    assert "KEYCLOAK_JWKS_URL: http://127.0.0.1:8120/certs.json" in source
+    assert 'export KEYCLOAK_JWKS_URL="http://127.0.0.1:${jwks_port}/certs.json"' in source
     assert "--bind 127.0.0.1" in source
-    assert "audit_case healthy" in source and "200 8101" in source
+    assert "audit_case healthy" in source and "            200" in source
     for name in ("wrong-credential", "dns-failure", "tcp-failure", "redis-failure", "keycloak-failure"):
         assert f"audit_case {name}" in source
         assert source.count(f"readiness-{name}.json") == 2
@@ -92,7 +92,7 @@ def test_dynamic_runner_ports_remain_isolated():
 def test_required_ci_rollback_uses_assigned_postgres_port():
     source = (ROOT / ".github/workflows/required-ci.yml").read_text()
     rollback = source.split("- name: Verify rollback by isolated restoration", 1)[1].split("- name: Application startup and disabled defaults", 1)[0]
-    assert "PGPORT: ${{ job.services.postgres.ports[5432] }}" in rollback
+    assert "PGPORT: ${{ job.services.postgres.ports['5432'] }}" in rollback
     assert rollback.count('-p "${PGPORT}"') == 4
     assert rollback.count("-e PGPASSWORD -e PGPORT") == 4
 
@@ -108,8 +108,8 @@ def test_middleware_ci_uses_dynamic_service_ports_on_self_hosted_runner():
     assert source.count("- 6379/tcp") >= 2
     assert "5432:5432" not in source
     assert "6379:6379" not in source
-    assert "job.services.postgres.ports[5432]" in source
-    assert "job.services.redis.ports[6379]" in source
+    assert "job.services.postgres.ports['5432']" in source
+    assert "job.services.redis.ports['6379']" in source
 
 
 def test_protected_ci_lanes_use_governed_self_hosted_runner():
@@ -128,3 +128,15 @@ def test_protected_ci_lanes_use_governed_self_hosted_runner():
         assert expected in source
         assert "runs-on: ubuntu-latest" not in source
         assert "runs-on: ubuntu-24.04" not in source
+
+
+def test_required_ci_allocates_job_local_http_probe_ports():
+    source = (ROOT / ".github/workflows/required-ci.yml").read_text()
+    assert source.count("free_port()") >= 2
+    assert 'app_port="$(free_port)"' in source
+    assert 'jwks_port="$(free_port)"' in source
+    assert 'port="$(free_port)"' in source
+    for fixed in (":8095", ":8101", ":8102", ":8103", ":8104", ":8105", ":8106", ":8120"):
+        assert fixed not in source
+    assert 'kill -0 "${server_pid}"' in source
+    assert 'kill -0 "$jwks_pid"' in source
