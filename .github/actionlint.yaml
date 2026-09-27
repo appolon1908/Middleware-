@@ -8,3 +8,7 @@ paths:
   .github/workflows/staging-intake-e2e-no-effect.yml:
     ignore:
       - 'constant expression "false" in condition'
+
+self-hosted-runner:
+  labels:
+    - middleware-ci

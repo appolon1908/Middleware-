@@ -361,8 +361,8 @@ jobs:
         env:
           RUNTIME_INTEGRATION_TESTS: "1"
           RUNTIME_INTEGRATION_ALLOW_DISPOSABLE: "YES"
-          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_test_runtime
-          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports[6379] }}/15
+          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_test_runtime
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
         run: bash scripts/integration_ci.sh
 
   nats-jetstream-integration:
@@ -451,8 +451,8 @@ jobs:
         env:
           RUNTIME_INTEGRATION_TESTS: "1"
           RUNTIME_INTEGRATION_ALLOW_DISPOSABLE: "YES"
-          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_test_synthetic
-          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports[6379] }}/15
+          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_test_synthetic
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
         run: bash scripts/synthetic_acceptance_ci.sh
 
   required-validation:
