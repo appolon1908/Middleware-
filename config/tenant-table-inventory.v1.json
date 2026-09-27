@@ -548,6 +548,24 @@
       "ownership": "tenant_owned",
       "parent_table": null,
       "remediation": null,
+      "source": "migrations/0013_command_recovery.sql",
+      "table": "middleware_command_dead_letters",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "command",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/0013_command_recovery.sql",
+      "table": "middleware_command_replays",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "command",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
       "source": "migrations/0002_command_ledger.sql",
       "table": "middleware_commands",
       "tenant_representation": "tenant_id_not_null"
