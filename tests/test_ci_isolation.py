@@ -122,6 +122,8 @@ def test_protected_ci_lanes_use_governed_self_hosted_runner():
         "production-route-contract.yml",
         "python-quality-baseline.yml",
         "codeql.yml",
+        "production-orchestrator-contract.yml",
+        "trusted-production-orchestrator-gate.yml",
     )
     for name in workflows:
         source = (ROOT / ".github/workflows" / name).read_text()
