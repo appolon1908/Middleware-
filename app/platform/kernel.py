@@ -430,6 +430,14 @@ class CommandKernel:
             advertised = self.registry.advertised(ownership.adapter_id)
             if not advertised.safe_reexecution:
                 raise ReplayNotAllowed(f"adapter {ownership.adapter_id} does not support safe re-execution")
+        await self.commands.get_dead_letter(tenant_id, operation_id)
+        replay_id = uuid4()
+        replay_request = await self.commands.create_replay(
+            tenant_id, operation_id, replay_id=replay_id, actor_id=principal.subject,
+            idempotency_key=idempotency_key, reason=reason,
+        )
+        if replay_request.replay_command_id is not None:
+            return await self.commands.get(tenant_id, replay_request.replay_command_id)
         envelope = await self.commands.load_envelope(tenant_id, operation_id)
         replayed = envelope.model_copy(
             update={
@@ -440,7 +448,9 @@ class CommandKernel:
             }
         )
         result = await self.submit(replayed, principal, replay_mode=ReplayMode.REEXECUTE, replay_of=operation_id)
+        await self.commands.complete_replay(tenant_id, replay_request.replay_id, result.operation.command_id)
         self.metrics.replays.labels(mode="REEXECUTE").inc()
+        self.metrics.replay_outcomes.labels(result="submitted").inc()
         return result.operation
 
     # ------------------------------------------------------------------

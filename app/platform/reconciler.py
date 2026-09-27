@@ -228,7 +228,14 @@ class Reconciler:
             else:
                 reason = f"reconciliation budget exhausted after {readback.status.value.lower()}"
             await self.commands.transition(claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=actor, reason=reason)
+            await self.commands.record_dead_letter(
+                claim.tenant_id, claim.command_id, actor_id=actor,
+                reason_code="reconciliation_exhausted" if readback.status is not ReadbackStatus.UNSUPPORTED else "readback_unsupported",
+                error_class=readback.status.value.lower(), terminal_reason=reason,
+                retry_exhausted=readback.status is not ReadbackStatus.UNSUPPORTED,
+            )
             await self.source.resolve(claim, reconciler_id=actor, action="dead_letter", reason=reason)
+            self.metrics.retry_exhaustions.inc()
             self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
             return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "dead_letter", "dead_lettered")
 

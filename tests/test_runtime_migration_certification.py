@@ -19,7 +19,7 @@ class Database:
         self.lock = lock
         self.tables = {"public." + name for name in runner.PLATFORM_TABLES}
         self.tables.update(runner.RECEIPT_TABLES.values())
-        self.receipts = {"core": list(range(1, 12)), "automation-v2": [1]}
+        self.receipts = {"core": list(range(1, 14)), "automation-v2": [1]}
         self.executed = []
         self.structural_checks = 0
         self.structural_error = False
@@ -99,7 +99,7 @@ def test_database_target_cannot_fall_back(url):
 
 def test_all_sql_bundles_are_packaged():
     assert [(name, len(files)) for name, files in BUNDLES] == [
-        ("core", 11),
+        ("core", 13),
         ("automation-v2", 1),
     ]
 
@@ -145,7 +145,7 @@ def test_migration_applies_alembic_then_sql_then_actual_readback(monkeypatch, ca
     run(database)
     assert upgraded == [HEAD]
     assert database.structural_checks == 1
-    assert len(database.executed) == 12
+    assert len(database.executed) == 14
     assert "RUNTIME_SCHEMA_VERIFIED=PASS" in capsys.readouterr().out
 
 

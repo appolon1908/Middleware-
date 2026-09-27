@@ -809,6 +809,18 @@ operations:
   runtime_state: IMPLEMENTED
 - domain: platform
   method: GET
+  path: /platform/v1/dead-letters
+  canonical_operation_id: list_dead_letters_platform_v1_dead_letters_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/dead-letters/{operation_id}
+  canonical_operation_id: get_dead_letter_platform_v1_dead_letters__operation_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
   path: /platform/v1/email/identities
   canonical_operation_id: list_email_identities_platform_v1_email_identities_get
   implementation_file: registered FastAPI runtime
@@ -904,6 +916,12 @@ operations:
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
+  method: GET
+  path: /platform/v1/operations/{operation_id}/recovery-history
+  canonical_operation_id: recovery_history_platform_v1_operations__operation_id__recovery_history_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
   method: POST
   path: /platform/v1/operations/{operation_id}/replay
   canonical_operation_id: replay_operation_platform_v1_operations__operation_id__replay_post
@@ -967,6 +985,12 @@ operations:
   method: GET
   path: /platform/v1/queues/{queue_id}/metrics
   canonical_operation_id: get_queue_metrics_platform_v1_queues__queue_id__metrics_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/replays/{replay_id}/cancel
+  canonical_operation_id: cancel_replay_platform_v1_replays__replay_id__cancel_post
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform

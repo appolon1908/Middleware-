@@ -12667,6 +12667,63 @@
           }
         },
         {
+          "name": "List Dead Letters",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "dead-letters"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/dead-letters"
+            }
+          }
+        },
+        {
+          "name": "Get Dead Letter",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "dead-letters",
+                "{operation_id}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/dead-letters/{operation_id}"
+            }
+          }
+        },
+        {
           "name": "Describe Kernel",
           "request": {
             "header": [
@@ -12760,6 +12817,33 @@
           }
         },
         {
+          "name": "Recovery History",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "operations",
+                "{operation_id}",
+                "recovery-history"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/operations/{operation_id}/recovery-history"
+            }
+          }
+        },
+        {
           "name": "Replay Operation",
           "request": {
             "body": {
@@ -12824,6 +12908,33 @@
               ],
               "query": [],
               "raw": "{{base_url}}/platform/v1/operations/{operation_id}/timeline"
+            }
+          }
+        },
+        {
+          "name": "Cancel Replay",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "replays",
+                "{replay_id}",
+                "cancel"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/replays/{replay_id}/cancel"
             }
           }
         }

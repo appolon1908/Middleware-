@@ -20,14 +20,15 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api_inputs import optional_header, required_header
 from app.commands import API_OPERATION_STATES, CommandCapabilityDisabled, CommandEnvelope, CommandNotFound, CommandOperation, OperationEvent, redact_metadata
-from app.platform.kernel import SCOPE_COMMAND, SCOPE_COMMAND_READ, SCOPE_COMMAND_REPLAY
+from app.platform.kernel import ReplayNotAllowed, SCOPE_COMMAND, SCOPE_COMMAND_READ, SCOPE_COMMAND_REPLAY
 from app.platform.principal import KernelPrincipal, authenticate
+from app.core.policy_engine import PLATFORM_OPERATOR_ROLE
 from app.platform.resilience import ReplayMode
 from app.security import AuthorizationError, RequestValidationError
 from app.storage import RUNTIME_SCHEMA_VERSION, StorageError
@@ -441,6 +442,51 @@ async def replay_operation(operation_id: UUID, body: ReplayRequest, request: Req
         correlation_id=operation.correlation_id,
         location=f"/platform/v1/operations/{operation.command_id}",
     )
+
+
+@router.get("/dead-letters")
+async def list_dead_letters(request: Request, limit: int = Query(50, ge=1, le=100)) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    rows = await platform.kernel.commands.list_dead_letters(tenant_id, limit=limit)
+    platform.kernel.metrics.dead_letters.set(len(rows))
+    return JSONResponse(content={"items": [row.model_dump(mode="json") for row in rows]})
+
+
+@router.get("/dead-letters/{operation_id}")
+async def get_dead_letter(operation_id: UUID, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    row = await platform.kernel.commands.get_dead_letter(tenant_id, operation_id)
+    history = await platform.kernel.commands.list_replays(tenant_id, operation_id)
+    return JSONResponse(content={
+        **row.model_dump(mode="json"),
+        "recovery_history": [item.model_dump(mode="json") for item in history],
+    })
+
+
+@router.get("/operations/{operation_id}/recovery-history")
+async def recovery_history(operation_id: UUID, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    await platform.kernel.get(tenant_id, operation_id)
+    rows = await platform.kernel.commands.list_replays(tenant_id, operation_id)
+    return JSONResponse(content={"items": [row.model_dump(mode="json") for row in rows]})
+
+
+@router.post("/replays/{replay_id}/cancel")
+async def cancel_replay(replay_id: UUID, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_REPLAY)
+    if PLATFORM_OPERATOR_ROLE not in principal.roles:
+        raise ReplayNotAllowed("replay cancellation requires the platform-operator role")
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    row = await platform.kernel.commands.cancel_replay(tenant_id, replay_id, actor_id=principal.subject)
+    platform.kernel.metrics.replay_outcomes.labels(result="cancelled").inc()
+    return JSONResponse(content=row.model_dump(mode="json"))
 
 
 # ----------------------------------------------------------------------

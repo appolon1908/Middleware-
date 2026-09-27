@@ -328,12 +328,22 @@ class AdapterDispatch:
             breaker.record_failure()
             self.metrics.adapter_failures.labels(adapter=adapter.adapter_id, operation="execute", result="transient").inc()
             exhausted = context.attempt >= self.bus.max_attempts
-            await self._fail(operation, reason=safe, attempt=attempt, retryable=not exhausted)
             if exhausted:
+                await self.commands.transition(
+                    tenant_id, command_id, new_state="failed", actor_id=self.worker_id,
+                    reason=safe, expected_attempt=attempt,
+                )
                 await self.commands.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=self.worker_id, reason="retry budget exhausted")
+                await self.commands.record_dead_letter(
+                    tenant_id, command_id, actor_id=self.worker_id,
+                    reason_code="retry_exhausted", error_class=(result.error_class.value if result.error_class else "retryable"),
+                    terminal_reason=safe, retry_exhausted=True,
+                )
                 self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
+                self.metrics.retry_exhaustions.inc()
                 self._record(DispatchOutcome(command_id, attempt, "dead_lettered", False, result))
                 raise KnownSafeRetryError(f"retry budget exhausted: {safe}")
+            await self._fail(operation, reason=safe, attempt=attempt, retryable=True)
             self._record(DispatchOutcome(command_id, attempt, "queued", False, result))
             raise KnownSafeRetryError(safe)
 
@@ -423,10 +433,21 @@ class AdapterDispatch:
             if current.state == "persisted":
                 await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
             await self.commands.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=self.worker_id, reason=reason)
+            await self.commands.record_dead_letter(
+                tenant_id, command_id, actor_id=self.worker_id,
+                reason_code="terminal_failure", error_class="non_retryable",
+                terminal_reason=reason, poisoned="poison" in reason.lower(),
+            )
             return
         await self.commands.transition(tenant_id, command_id, new_state="failed", actor_id=self.worker_id, reason=reason, expected_attempt=attempt)
         if retryable:
             await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="scheduled for a known-safe retry")
+        else:
+            await self.commands.record_dead_letter(
+                tenant_id, command_id, actor_id=self.worker_id,
+                reason_code="terminal_failure", error_class="non_retryable",
+                terminal_reason=reason, poisoned="poison" in reason.lower(),
+            )
 
     @staticmethod
     def _safe_reason(result: AdapterResult) -> str:
