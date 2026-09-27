@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "7ebcca309b727821c5283df913c188bc4d55052e68736163c45a6208b6a138c9"
+    "5ca082d5d4fd885c249d668e9e4868aee89dfadb0a2394678ac7b1f17d2eb6cf"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -671,8 +671,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "50caaed769389cb30fc725766ea6bed6"
         ),
         ".github/workflows/middleware-ci.yml": (
-            "48c0f36e2e9419a8ddaa7bbad02bf1e72"
-            "724c9e340f4e697891199a3663064b1"
+            "149a716e76dc02f6d473eec963465a133"
+            "d263403755c26afc2f8a5dd63d8d897"
         ),
         ".github/workflows/integration-main-release-authorities.yml": (
             "910acf0149a0b9060544817a71577222a"
@@ -686,14 +686,14 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "35ecd2dac4328dea5615d5939d39e5682"
             "5794cedf919d80abb92a4272ccf81ca"
         ),
-        ".github/workflows/required-ci.yml": "9df422458d1165fe7a61e8c2a223ab9dc9db949eaa37f152fdcc306fa2f41dd5",
+        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
         ".github/workflows/production-route-contract.yml": (
-            "a12d81e9c8d3d1e14a68f4c9ef7f55e8"
-            "487e09a83578e35bc3f2457bdb76bdb2"
+            "22a2e562db1a4f050591445a9d24bafb"
+            "3ede93fa9da61f4531b42f7a8e19b7b4"
         ),
         ".github/workflows/release-component-ci.yml": (
-            "da08eeeeae9bfc97f9e5215935caba"
-            "cf3d9337d7c9233d931556e5c3ea3e0463"
+            "82804080b2d2f69bab0ede87a285be"
+            "6828c902fca62b1714d165294d483265bd"
         ),
     },
     "appolon1908-hue/beyvra-backend": {
@@ -9373,8 +9373,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # The only external mutation is the required job posting its own exact
         # commit status through checks:write.
         ".github/workflows/required-ci.yml:test": (
-            "d0cc3ca1cb064bc0d2e1529c42abafc5"
-            "93bffee942ad935a9e2fce59b77d16c7"
+            "82afd5c0eb2a45cbd15c45312f37036b"
+            "ab123b68d2790497c6cb53be64eb8bc6"
         ),
         # The single forward Middleware production publisher: builds, scans,
         # signs and verifies one immutable image from the exact protected-main

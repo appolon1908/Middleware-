@@ -127,11 +127,11 @@ jobs:
       - name: Assert isolated dependency and fail-closed configuration
         shell: bash
         env:
-          CI_POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
-          CI_REDIS_PORT: ${{ job.services.redis.ports[6379] }}
-          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal
-          TEST_DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal
-          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports[6379] }}/15
+          CI_POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
+          CI_REDIS_PORT: ${{ job.services.redis.ports['6379'] }}
+          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
+          TEST_DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
           LIVE_WRITES_ENABLED: "false"
           N8N_PRODUCTION_WORKFLOWS_ENABLED: "false"
           VICIDIAL_WRITE_ENABLED: "false"
@@ -141,9 +141,9 @@ jobs:
         run: |
           set -euo pipefail
           test "${DATABASE_URL}" = \
-            "postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal"
+            "postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal"
           test "${TEST_DATABASE_URL}" = \
-            "postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal"
+            "postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal"
           for value in \
             "${LIVE_WRITES_ENABLED}" \
             "${N8N_PRODUCTION_WORKFLOWS_ENABLED}" \
@@ -154,8 +154,11 @@ jobs:
             test "${value}" = "false"
           done
           env | cut -d= -f1 | sort > environment-names-only.txt
-          ! env | cut -d= -f1 | grep -Eq \
-            '^(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|B2_APPLICATION_KEY|SMTP_PASSWORD|TWILIO_AUTH_TOKEN|VICIDIAL_DB_PASSWORD|ODOO_DATABASE_PASSWORD)$'
+          if env | cut -d= -f1 | grep -Eq \
+            '^(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|B2_APPLICATION_KEY|SMTP_PASSWORD|TWILIO_AUTH_TOKEN|VICIDIAL_DB_PASSWORD|ODOO_DATABASE_PASSWORD)$'; then
+            echo "forbidden production credential variable present" >&2
+            exit 1
+          fi
           python scripts/validate_ci_isolation.py
           # Source contains intentional production-denial fixtures and restricted
           # operator bind addresses. Block actual traffic instead of pretending
@@ -205,8 +208,8 @@ jobs:
         shell: bash
         env:
           TMPDIR: ${{ runner.temp }}
-          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal
-          TEST_DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal
+          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
+          TEST_DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
           MIDDLEWARE_SECRET: synthetic-ci-middleware-secret
           INGESTION_HMAC_SECRET: synthetic-ci-ingestion-secret
           LIVE_WRITES_ENABLED: "false"
@@ -227,10 +230,10 @@ jobs:
           alembic upgrade head | tee migration-recording-reupgrade.txt
           test "$(python -c 'import asyncio, asyncpg, os; dsn = os.environ["TEST_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://", 1); loop = asyncio.new_event_loop(); conn = loop.run_until_complete(asyncpg.connect(dsn)); print(loop.run_until_complete(conn.fetchval("SELECT version_num FROM alembic_version"))); loop.run_until_complete(conn.close()); loop.close()')" = "${expected_migration_head}"
           python -m pytest -q tests | tee pytest-full.txt
-          TEST_DATABASE_URL='postgresql://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal' \
+          TEST_DATABASE_URL='postgresql://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal' \
             python tests/integration/campaign_extension_concurrency.py \
             | tee campaign-extension-concurrency.txt
-          TEST_DATABASE_URL='postgresql://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal' \
+          TEST_DATABASE_URL='postgresql://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal' \
             python tests/integration/campaign_identity_concurrency.py \
             | tee campaign-identity-concurrency.txt
 
@@ -246,7 +249,7 @@ jobs:
         shell: bash
         env:
           PGPASSWORD: ci-only-password
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
+          PGPORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           set -euo pipefail
           PG_IMAGE='postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193'
@@ -277,8 +280,8 @@ jobs:
       - name: Application startup and disabled defaults
         shell: bash
         env:
-          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal
-          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports[6379] }}/15
+          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
           MIDDLEWARE_SECRET: synthetic-ci-middleware-secret
           INGESTION_HMAC_SECRET: synthetic-ci-ingestion-secret
           LIVE_WRITES_ENABLED: "false"
@@ -289,21 +292,31 @@ jobs:
           OUTBOX_WORKER_ENABLED: "false"
         run: |
           set -euo pipefail
-          uvicorn app.main:app --host 127.0.0.1 --port 8095 \
-            > application-startup.txt 2>&1 &
+          free_port() {
+            python - <<'PYPORT'
+          import socket
+          with socket.socket() as sock:
+              sock.bind(("127.0.0.1", 0))
+              print(sock.getsockname()[1])
+          PYPORT
+          }
+          app_port="$(free_port)"
+          uvicorn app.main:app --host 127.0.0.1 --port "${app_port}"             > application-startup.txt 2>&1 &
           server_pid=$!
           trap 'kill "${server_pid}" 2>/dev/null || true' EXIT
-          for attempt in {1..20}; do
-            if curl --fail --silent http://127.0.0.1:8095/healthz \
-              > healthz.json; then
+          for _ in {1..20}; do
+            if ! kill -0 "${server_pid}" 2>/dev/null; then
+              cat application-startup.txt >&2
+              exit 1
+            fi
+            if curl --fail --silent "http://127.0.0.1:${app_port}/healthz"               > healthz.json; then
               break
             fi
             sleep 1
           done
-          curl --fail --silent http://127.0.0.1:8095/healthz \
-            | tee healthz-final.json
-          curl --fail --silent http://127.0.0.1:8095/readyz \
-            | tee readyz-final.json
+          kill -0 "${server_pid}"
+          curl --fail --silent "http://127.0.0.1:${app_port}/healthz"             | tee healthz-final.json
+          curl --fail --silent "http://127.0.0.1:${app_port}/readyz"             | tee readyz-final.json
           python - <<'PY'
           from app.core.config import settings
           settings.validate_safety()
@@ -324,11 +337,10 @@ jobs:
           MIDDLEWARE_SECRET: synthetic-ci-middleware-secret
           INGESTION_HMAC_SECRET: synthetic-ci-ingestion-secret
           HEALTH_REQUIRE_DATABASE: "true"
-          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports[6379] }}/15
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
           KEYCLOAK_ISSUER: https://ci-identity.example.invalid/realm
           KEYCLOAK_AUDIENCE: middleware-api
           KEYCLOAK_AUTHORIZED_PARTIES: ci-readiness-only
-          KEYCLOAK_JWKS_URL: http://127.0.0.1:8120/certs.json
           LIVE_WRITES_ENABLED: "false"
           N8N_PRODUCTION_WORKFLOWS_ENABLED: "false"
           VICIDIAL_WRITE_ENABLED: "false"
@@ -337,6 +349,14 @@ jobs:
           OUTBOX_WORKER_ENABLED: "false"
         run: |
           set -euo pipefail
+          free_port() {
+            python - <<'PYPORT'
+          import socket
+          with socket.socket() as sock:
+              sock.bind(("127.0.0.1", 0))
+              print(sock.getsockname()[1])
+          PYPORT
+          }
           # Only a disposable public signing-key fixture is served; no user
           # identities, private keys or tokens are issued by this readiness test.
           mkdir -p "$RUNNER_TEMP/ci-readiness-jwks"
@@ -351,50 +371,47 @@ jobs:
           path = Path(os.environ["RUNNER_TEMP"]) / "ci-readiness-jwks/certs.json"
           path.write_text(json.dumps({"keys": [jwk]}))
           PYKEY
-          python -m http.server 8120 --bind 127.0.0.1 \
-            --directory "$RUNNER_TEMP/ci-readiness-jwks" \
-            > "$RUNNER_TEMP/ci-readiness-jwks/server.log" 2>&1 &
+          jwks_port="$(free_port)"
+          export KEYCLOAK_JWKS_URL="http://127.0.0.1:${jwks_port}/certs.json"
+          python -m http.server "${jwks_port}" --bind 127.0.0.1             --directory "$RUNNER_TEMP/ci-readiness-jwks"             > "$RUNNER_TEMP/ci-readiness-jwks/server.log" 2>&1 &
           jwks_pid=$!
           trap 'kill "$jwks_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..30}; do
+          for _ in {1..30}; do
+            if ! kill -0 "$jwks_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/ci-readiness-jwks/server.log" >&2
+              exit 1
+            fi
             curl --fail --silent "$KEYCLOAK_JWKS_URL" >/dev/null && break
             sleep 1
           done
+          kill -0 "$jwks_pid"
           curl --fail --silent "$KEYCLOAK_JWKS_URL" >/dev/null
           audit_case() {
-            local name=$1 database_url=$2 expected=$3 port=$4
-            DATABASE_URL="${database_url}" \
-              uvicorn app.entrypoints.integration_api:app \
-                --host 127.0.0.1 --port "${port}" \
-                > "readiness-${name}.log" 2>&1 &
+            local name=$1 database_url=$2 expected=$3
+            local port
+            port="$(free_port)"
+            DATABASE_URL="${database_url}"               uvicorn app.entrypoints.integration_api:app                 --host 127.0.0.1 --port "${port}"                 > "readiness-${name}.log" 2>&1 &
             local server_pid=$!
-            for attempt in {1..30}; do
-              curl --silent "http://127.0.0.1:${port}/healthz" >/dev/null \
-                && break
+            for _ in {1..30}; do
+              if ! kill -0 "${server_pid}" 2>/dev/null; then
+                cat "readiness-${name}.log" >&2
+                exit 1
+              fi
+              curl --silent "http://127.0.0.1:${port}/healthz" >/dev/null                 && break
               sleep 1
             done
+            kill -0 "${server_pid}"
             local status
-            status=$(curl --silent --output "readiness-${name}.json" \
-              --write-out '%{http_code}' "http://127.0.0.1:${port}/readyz")
+            status=$(curl --silent --output "readiness-${name}.json"               --write-out '%{http_code}' "http://127.0.0.1:${port}/readyz")
             kill "${server_pid}"
             wait "${server_pid}" || true
             test "${status}" = "${expected}"
           }
-          audit_case healthy \
-            'postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal' \
-            200 8101
-          audit_case wrong-credential \
-            'postgresql+asyncpg://middleware_ci:wrong@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal' \
-            503 8102
-          audit_case dns-failure \
-            'postgresql+asyncpg://middleware_ci:wrong@database.invalid:5432/middleware_rehearsal' \
-            503 8103
-          audit_case tcp-failure \
-            'postgresql+asyncpg://middleware_ci:wrong@127.0.0.1:1/middleware_rehearsal' \
-            503 8104
-          REDIS_URL='redis://127.0.0.1:1/15' audit_case redis-failure \
-            'postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal' \
-            503 8105
+          audit_case healthy             'postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal'             200
+          audit_case wrong-credential             'postgresql+asyncpg://middleware_ci:wrong@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal'             503
+          audit_case dns-failure             'postgresql+asyncpg://middleware_ci:wrong@database.invalid:5432/middleware_rehearsal'             503
+          audit_case tcp-failure             'postgresql+asyncpg://middleware_ci:wrong@127.0.0.1:1/middleware_rehearsal'             503
+          REDIS_URL='redis://127.0.0.1:1/15' audit_case redis-failure             'postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal'             503
 
           # Preserve the approved synthetic-CI identity URL while making its
           # dependency unavailable. This tests runtime readiness failure
@@ -402,11 +419,8 @@ jobs:
           kill "${jwks_pid}"
           wait "${jwks_pid}" || true
 
-          audit_case keycloak-failure \
-            'postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/middleware_rehearsal' \
-            503 8106
-          python -m scripts.audit_release_endpoints \
-            | tee release-endpoint-contract.txt
+          audit_case keycloak-failure             'postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal'             503
+          python -m scripts.audit_release_endpoints             | tee release-endpoint-contract.txt
 
       - name: Create test evidence manifest
         shell: bash
