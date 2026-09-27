@@ -18,6 +18,7 @@ CONTROLLER_PATH = ROOT / "deploy/production/server/codestra-middleware-deploy"
 BACKUP_PATH = ROOT / "deploy/production/server/codestra-middleware-backup"
 INSTALL_PATH = ROOT / "deploy/production/server/install-restricted-command.sh"
 WORKFLOW_PATH = ROOT / ".github/workflows/production-runtime-certification.yml"
+STARTUP_PATH = ROOT / "scripts/start_integration_api.py"
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -201,6 +202,11 @@ def validate_source(root: Path = ROOT) -> None:
             f"unsafe compose pattern: {pattern}",
         )
 
+    startup = STARTUP_PATH.read_text(encoding="utf-8")
+    for item in ("validate_runtime(SERVICE_INTEGRATION_API)", "os.execv", '"--workers={workers}"'):
+        require(item in startup, f"startup validation authority missing: {item}")
+    require("app.entrypoints.integration_api:app" not in compose, "canary must not bypass startup validation with direct uvicorn")
+
     controller = CONTROLLER_PATH.read_text(encoding="utf-8")
     for item in (
         "--source-sha",
@@ -224,6 +230,7 @@ def validate_source(root: Path = ROOT) -> None:
         "automation_schema_head_mismatch",
         "platform_schema_incomplete",
         "GATEWAY_EXPOSURE=NONE",
+        '"service": "middleware-integration-api"',
     ):
         require(item in controller, f"controller requirement missing: {item}")
     forbidden_shell = (
