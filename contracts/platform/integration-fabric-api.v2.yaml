@@ -914,6 +914,46 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+  /platform/v1/commands/{operation_id}:
+    get:
+      tags:
+      - platform-command-kernel
+      summary: Get Operation
+      operationId: get_operation_platform_v1_commands__operation_id__get
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+        '400':
+          description: Invalid canonical request
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+      security:
+      - bearerAuth: []
   /platform/v1/operations/{operation_id}/timeline:
     get:
       tags:
@@ -935,6 +975,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Timeline'
+        '400':
+          description: Invalid canonical request
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+      security:
+      - bearerAuth: []
+  /platform/v1/commands/{operation_id}/history:
+    get:
+      tags:
+      - platform-command-kernel
+      summary: Get Timeline
+      operationId: get_timeline_platform_v1_commands__operation_id__history_get
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Timeline'
+        '400':
+          description: Invalid canonical request
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+      security:
+      - bearerAuth: []
+  /platform/v1/commands/{operation_id}/result:
+    get:
+      tags:
+      - platform-command-kernel
+      summary: Get Command Result
+      operationId: get_command_result_platform_v1_commands__operation_id__result_get
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+        '400':
+          description: Invalid canonical request
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+      security:
+      - bearerAuth: []
+  /platform/v1/commands/{operation_id}/retry:
+    post:
+      tags:
+      - platform-command-kernel
+      summary: Retry Command
+      operationId: retry_command_platform_v1_commands__operation_id__retry_post
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
         '400':
           description: Invalid canonical request
           content:
@@ -1000,12 +1166,104 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+  /platform/v1/commands/{operation_id}/cancel:
+    post:
+      tags:
+      - platform-command-kernel
+      summary: Cancel Operation
+      operationId: cancel_operation_platform_v1_commands__operation_id__cancel_post
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+        '400':
+          description: Invalid canonical request
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+      security:
+      - bearerAuth: []
   /platform/v1/operations/{operation_id}/replay:
     post:
       tags:
       - platform-command-kernel
       summary: Replay Operation
       operationId: replay_operation_platform_v1_operations__operation_id__replay_post
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Operation Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+        '400':
+          description: Invalid canonical request
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+      security:
+      - bearerAuth: []
+  /platform/v1/commands/{operation_id}/replay:
+    post:
+      tags:
+      - platform-command-kernel
+      summary: Replay Operation
+      operationId: replay_operation_platform_v1_commands__operation_id__replay_post
       parameters:
       - name: operation_id
         in: path

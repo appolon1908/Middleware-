@@ -69,6 +69,7 @@ class OutboxWorker:
     async def _heartbeat_active_dispatch(
         self,
         record_id: int,
+        fencing_token: int,
         stop: asyncio.Event,
     ) -> None:
         interval = max(0.01, min(5.0, self.lease_seconds / 3.0))
@@ -83,6 +84,7 @@ class OutboxWorker:
                     record_id,
                     worker_id=self.worker_id,
                     lease_seconds=self.lease_seconds,
+                    fencing_token=fencing_token,
                 )
             except Exception:
                 # Keep retrying while provider code is alive. The row remains
@@ -109,6 +111,7 @@ class OutboxWorker:
                 worker_id=self.worker_id,
                 error=f"no handler registered for destination {record.destination}",
                 max_attempts=self.max_attempts,
+                fencing_token=record.fencing_token,
             )
             return True
 
@@ -122,11 +125,14 @@ class OutboxWorker:
                 "must be explicitly confirmed before automatic release"
             ),
             lease_seconds=self.lease_seconds,
+            fencing_token=record.fencing_token,
         )
 
         heartbeat_stop = asyncio.Event()
         heartbeat_task = asyncio.create_task(
-            self._heartbeat_active_dispatch(record.id, heartbeat_stop)
+            self._heartbeat_active_dispatch(
+                record.id, record.fencing_token, heartbeat_stop
+            )
         )
         handler_task = asyncio.ensure_future(handler(record))
         timed_out = False
@@ -164,6 +170,7 @@ class OutboxWorker:
                             reason=f"handler certified known-safe retry: {exc}",
                             max_attempts=self.max_attempts,
                             worker_id=self.worker_id,
+                            fencing_token=record.fencing_token,
                         )
                 except Exception:
                     if timed_out:
@@ -192,6 +199,7 @@ class OutboxWorker:
                             reason="handler returned successfully and confirmed delivery outcome",
                             max_attempts=self.max_attempts,
                             worker_id=self.worker_id,
+                            fencing_token=record.fencing_token,
                         )
             except asyncio.CancelledError:
                 # A worker shutdown must not orphan live provider code while the

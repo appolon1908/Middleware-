@@ -719,6 +719,42 @@ operations:
   runtime_state: IMPLEMENTED
 - domain: platform
   method: GET
+  path: /platform/v1/commands/{operation_id}
+  canonical_operation_id: get_operation_platform_v1_commands__operation_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/commands/{operation_id}/cancel
+  canonical_operation_id: cancel_operation_platform_v1_commands__operation_id__cancel_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/commands/{operation_id}/history
+  canonical_operation_id: get_timeline_platform_v1_commands__operation_id__history_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/commands/{operation_id}/replay
+  canonical_operation_id: replay_operation_platform_v1_commands__operation_id__replay_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/commands/{operation_id}/result
+  canonical_operation_id: get_command_result_platform_v1_commands__operation_id__result_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/commands/{operation_id}/retry
+  canonical_operation_id: retry_command_platform_v1_commands__operation_id__retry_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
   path: /platform/v1/contacts
   canonical_operation_id: list_contacts_platform_v1_contacts_get
   implementation_file: registered FastAPI runtime

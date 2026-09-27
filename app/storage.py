@@ -11,7 +11,7 @@ import asyncpg
 from .models import EventEnvelope, IngressResult
 
 
-RUNTIME_SCHEMA_VERSION = 11
+RUNTIME_SCHEMA_VERSION = 12
 DEFAULT_MAX_OUTBOX_ATTEMPTS = 8
 NATS_JETSTREAM_DESTINATION = "nats-jetstream"
 KLYROW_ODOO_PROJECTION_DESTINATION = "odoo-klyrow-projection-v1"
@@ -285,6 +285,7 @@ class PostgresInboxStore:
             "command_id",
             "cancelled_at",
             "resource_version",
+            "fencing_token",
         },
         "middleware_communication_messages": {
             "tenant_id",
@@ -400,6 +401,7 @@ class PostgresInboxStore:
             "event_type",
             "worker_id",
             "safe_error_code",
+            "fencing_token",
             "created_at",
         },
     }
@@ -473,6 +475,7 @@ class PostgresInboxStore:
         ("middleware_outbox", "command_id"): "text",
         ("middleware_outbox", "cancelled_at"): "timestamptz",
         ("middleware_outbox", "resource_version"): "int8",
+        ("middleware_outbox", "fencing_token"): "int8",
         ("middleware_reconciliation_audit", "id"): "int8",
         ("middleware_reconciliation_audit", "outbox_id"): "int8",
         ("middleware_reconciliation_audit", "tenant_id"): "text",
@@ -536,6 +539,7 @@ class PostgresInboxStore:
         ("middleware_outbox_attempt_events", "event_type"): "text",
         ("middleware_outbox_attempt_events", "worker_id"): "text",
         ("middleware_outbox_attempt_events", "safe_error_code"): "text",
+        ("middleware_outbox_attempt_events", "fencing_token"): "int8",
         ("middleware_outbox_attempt_events", "created_at"): "timestamptz",
     }
     REQUIRED_KEYS = {
@@ -1009,6 +1013,7 @@ class OutboxRecord:
     idempotency_key: str
     payload: dict[str, Any]
     attempt_count: int
+    fencing_token: int = 0
 
 
 class PostgresOutboxStore:
@@ -1068,11 +1073,13 @@ class PostgresOutboxStore:
                     UPDATE middleware_outbox o
                     SET lease_owner=$1,
                         lease_until=now() + ($2 * interval '1 second'),
-                        attempt_count=o.attempt_count + 1
+                        attempt_count=o.attempt_count + 1,
+                        fencing_token=o.fencing_token + 1
                     FROM candidate
                     WHERE o.id=candidate.id
                     RETURNING o.id, o.tenant_id, o.destination, o.event_type,
-                              o.idempotency_key, o.payload, o.attempt_count
+                              o.idempotency_key, o.payload, o.attempt_count,
+                              o.fencing_token
                     """,
                     worker_id,
                     lease_seconds,
@@ -1080,11 +1087,12 @@ class PostgresOutboxStore:
                 )
                 if row:
                     await conn.execute(
-                        "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id) VALUES($1,$2,$3,'claimed',$4)",
+                        "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id,fencing_token) VALUES($1,$2,$3,'claimed',$4,$5)",
                         row["id"],
                         row["tenant_id"],
                         row["attempt_count"],
                         worker_id,
+                        row["fencing_token"],
                     )
         if not row:
             return None
@@ -1102,29 +1110,36 @@ class PostgresOutboxStore:
             idempotency_key=row["idempotency_key"],
             payload=payload,
             attempt_count=row["attempt_count"],
+            fencing_token=row["fencing_token"],
         )
 
-    async def complete(self, record_id: int, *, worker_id: str) -> None:
+    async def complete(
+        self, record_id: int, *, worker_id: str, fencing_token: int | None = None
+    ) -> None:
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 row = await conn.fetchrow(
                     """
                 UPDATE middleware_outbox
                 SET completed_at=now(), lease_owner=NULL, lease_until=NULL, last_error=NULL
-                WHERE id=$1 AND lease_owner=$2 AND reconciliation_required_at IS NULL
+                WHERE id=$1 AND lease_owner=$2
+                  AND ($3::bigint IS NULL OR fencing_token=$3)
+                  AND reconciliation_required_at IS NULL
                 RETURNING tenant_id,attempt_count
                 """,
                     record_id,
                     worker_id,
+                    fencing_token,
                 )
                 if row is None:
                     raise StorageError("outbox lease ownership lost before completion")
                 await conn.execute(
-                    "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id) VALUES($1,$2,$3,'completed',$4)",
+                    "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id,fencing_token) VALUES($1,$2,$3,'completed',$4,$5)",
                     record_id,
                     row["tenant_id"],
                     row["attempt_count"],
                     worker_id,
+                    fencing_token,
                 )
 
     async def quarantine_unknown_outcome(
@@ -1134,6 +1149,7 @@ class PostgresOutboxStore:
         worker_id: str,
         error: str,
         lease_seconds: float = 60,
+        fencing_token: int | None = None,
     ) -> None:
         """Persist unknown-on-crash state and refresh active dispatch ownership."""
 
@@ -1149,6 +1165,7 @@ class PostgresOutboxStore:
                         reconciliation_required_at=now(),
                         lease_until=now() + ($4 * interval '1 second')
                     WHERE id=$1 AND lease_owner=$2 AND lease_until IS NOT NULL
+                      AND ($5::bigint IS NULL OR fencing_token=$5)
                       AND lease_until > now() AND completed_at IS NULL
                       AND dead_lettered_at IS NULL
                       AND reconciliation_required_at IS NULL
@@ -1158,17 +1175,19 @@ class PostgresOutboxStore:
                     worker_id,
                     safe_error,
                     lease_seconds,
+                    fencing_token,
                 )
                 if row is None:
                     raise StorageError(
-                        "outbox lease ownership lost before reconciliation quarantine"
+                        "outbox lease ownership/fencing lost before reconciliation quarantine"
                     )
                 await conn.execute(
-                    "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id,safe_error_code) VALUES($1,$2,$3,'unknown_outcome',$4,'unknown_provider_outcome')",
+                    "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id,safe_error_code,fencing_token) VALUES($1,$2,$3,'unknown_outcome',$4,'unknown_provider_outcome',$5)",
                     record_id,
                     row["tenant_id"],
                     row["attempt_count"],
                     worker_id,
+                    fencing_token,
                 )
 
     async def renew_active_dispatch(
@@ -1177,6 +1196,7 @@ class PostgresOutboxStore:
         *,
         worker_id: str,
         lease_seconds: float,
+        fencing_token: int | None = None,
     ) -> None:
         """Refresh ownership while provider code is still alive.
 
@@ -1196,6 +1216,7 @@ class PostgresOutboxStore:
                 SET lease_until=now() + ($3 * interval '1 second')
                 WHERE id=$1
                   AND lease_owner=$2
+                  AND ($4::bigint IS NULL OR fencing_token=$4)
                   AND reconciliation_required_at IS NOT NULL
                   AND completed_at IS NULL
                   AND dead_lettered_at IS NULL
@@ -1203,10 +1224,11 @@ class PostgresOutboxStore:
                 record_id,
                 worker_id,
                 lease_seconds,
+                fencing_token,
             )
             if result != "UPDATE 1":
                 raise StorageError(
-                    "active dispatch ownership lost during lease renewal"
+                    "active dispatch ownership/fencing lost during lease renewal"
                 )
 
     async def resolve_reconciliation(
@@ -1218,6 +1240,7 @@ class PostgresOutboxStore:
         reason: str,
         max_attempts: int = DEFAULT_MAX_OUTBOX_ATTEMPTS,
         worker_id: str | None = None,
+        fencing_token: int | None = None,
     ) -> None:
         if action not in {"retry", "complete", "dead_letter"}:
             raise ValueError("unsupported reconciliation action")
@@ -1239,7 +1262,7 @@ class PostgresOutboxStore:
                     """
                     SELECT id, tenant_id, attempt_count,
                            reconciliation_required_at, completed_at, dead_lettered_at,
-                           lease_owner, lease_until,
+                           lease_owner, lease_until, fencing_token,
                            (lease_until IS NOT NULL AND lease_until > now()) AS lease_active
                     FROM middleware_outbox
                     WHERE id=$1
@@ -1269,6 +1292,8 @@ class PostgresOutboxStore:
                         raise ReconciliationError(
                             "active dispatch is owned by another worker"
                         )
+                    if fencing_token is not None and row["fencing_token"] != fencing_token:
+                        raise ReconciliationError("active dispatch fencing token is stale")
                     if action == "dead_letter":
                         raise ReconciliationError(
                             "active worker may resolve only complete or known-safe retry"
@@ -1347,6 +1372,7 @@ class PostgresOutboxStore:
         worker_id: str,
         error: str,
         max_attempts: int = DEFAULT_MAX_OUTBOX_ATTEMPTS,
+        fencing_token: int | None = None,
     ) -> None:
         if max_attempts < 1:
             raise ValueError("max_attempts must be positive")
@@ -1369,6 +1395,7 @@ class PostgresOutboxStore:
                     END
                 WHERE id=$1
                   AND lease_owner=$2
+                  AND ($5::bigint IS NULL OR fencing_token=$5)
                   AND reconciliation_required_at IS NULL
                 RETURNING tenant_id,attempt_count
                 """,
@@ -1376,15 +1403,17 @@ class PostgresOutboxStore:
                     worker_id,
                     safe_error,
                     max_attempts,
+                    fencing_token,
                 )
                 if row is None:
                     raise StorageError(
-                        "outbox lease ownership lost before retry transition"
+                        "outbox lease ownership/fencing lost before retry transition"
                     )
                 await conn.execute(
-                    "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id,safe_error_code) VALUES($1,$2,$3,'failed',$4,'delivery_failed')",
+                    "INSERT INTO middleware_outbox_attempt_events(outbox_id,tenant_id,attempt_number,event_type,worker_id,safe_error_code,fencing_token) VALUES($1,$2,$3,'failed',$4,'delivery_failed',$5)",
                     record_id,
                     row["tenant_id"],
                     row["attempt_count"],
                     worker_id,
+                    fencing_token,
                 )

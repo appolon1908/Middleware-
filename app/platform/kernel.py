@@ -363,6 +363,27 @@ class CommandKernel:
         self.metrics.cancellations.labels(result=operation.state).inc()
         return operation
 
+    async def retry(
+        self,
+        tenant_id: str,
+        operation_id: UUID,
+        *,
+        principal: KernelPrincipal,
+        idempotency_key: str,
+        expected_version: int,
+        reason: str,
+    ) -> CommandOperation:
+        operation = await self.commands.mutate_operation(
+            tenant_id,
+            operation_id,
+            action="retry",
+            actor_id=principal.subject,
+            idempotency_key=idempotency_key,
+            expected_version=expected_version,
+            reason=reason,
+        )
+        return operation
+
     # ------------------------------------------------------------------
     # Replay (Phase 12)
     # ------------------------------------------------------------------

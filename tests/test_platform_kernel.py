@@ -713,7 +713,7 @@ async def test_tenant_isolation(harness: Harness) -> None:
 
 
 def test_describe_exposes_registries_and_no_secrets(harness: Harness) -> None:
-    description = harness.kernel.describe(runtime_schema_version=11, contract_digest="abc", command_contract_version="command-envelope.v1")
+    description = harness.kernel.describe(runtime_schema_version=12, contract_digest="abc", command_contract_version="command-envelope.v1")
     assert description["canonical_port"] == 8095
     assert description["provider_effects_enabled"] is False
     assert all(value is False for value in description["effect_defaults"].values())

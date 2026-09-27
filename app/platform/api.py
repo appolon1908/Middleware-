@@ -339,6 +339,7 @@ async def submit_command(body: KernelCommandRequest, request: Request) -> JSONRe
 # ----------------------------------------------------------------------
 # GET /platform/v1/operations/{operation_id}
 # ----------------------------------------------------------------------
+@router.get("/commands/{operation_id}", response_model=OperationStatus)
 @router.get("/operations/{operation_id}", response_model=OperationStatus)
 async def get_operation(operation_id: UUID, request: Request) -> JSONResponse:
     principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
@@ -351,6 +352,7 @@ async def get_operation(operation_id: UUID, request: Request) -> JSONResponse:
 # ----------------------------------------------------------------------
 # GET /platform/v1/operations/{operation_id}/timeline
 # ----------------------------------------------------------------------
+@router.get("/commands/{operation_id}/history", response_model=Timeline)
 @router.get("/operations/{operation_id}/timeline", response_model=Timeline)
 async def get_timeline(operation_id: UUID, request: Request) -> JSONResponse:
     principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
@@ -361,9 +363,39 @@ async def get_timeline(operation_id: UUID, request: Request) -> JSONResponse:
     return _respond(200, Timeline(operation_id=operation_id, items=_timeline(operation, events)), correlation_id=operation.correlation_id)
 
 
+@router.get("/commands/{operation_id}/result", response_model=OperationStatus)
+async def get_command_result(operation_id: UUID, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    operation = await platform.kernel.get(tenant_id, operation_id)
+    return _respond(200, _status(operation), correlation_id=operation.correlation_id)
+
+
+@router.post("/commands/{operation_id}/retry", response_model=OperationStatus, status_code=202)
+async def retry_command(
+    operation_id: UUID, body: CancelRequest, request: Request
+) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND)
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
+    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+    operation = await platform.kernel.retry(
+        tenant_id,
+        operation_id,
+        principal=principal,
+        idempotency_key=idempotency_key,
+        expected_version=body.expected_version,
+        reason=body.reason,
+    )
+    return _respond(202, _status(operation), correlation_id=operation.correlation_id)
+
+
 # ----------------------------------------------------------------------
 # POST /platform/v1/operations/{operation_id}/cancel
 # ----------------------------------------------------------------------
+@router.post("/commands/{operation_id}/cancel", response_model=OperationStatus)
 @router.post("/operations/{operation_id}/cancel", response_model=OperationStatus)
 async def cancel_operation(operation_id: UUID, body: CancelRequest, request: Request) -> JSONResponse:
     principal = await authenticate(request, required_scope=SCOPE_COMMAND)
@@ -385,6 +417,7 @@ async def cancel_operation(operation_id: UUID, body: CancelRequest, request: Req
 # ----------------------------------------------------------------------
 # POST /platform/v1/operations/{operation_id}/replay
 # ----------------------------------------------------------------------
+@router.post("/commands/{operation_id}/replay", response_model=OperationStatus, status_code=202)
 @router.post("/operations/{operation_id}/replay", response_model=OperationStatus, status_code=202)
 async def replay_operation(operation_id: UUID, body: ReplayRequest, request: Request) -> JSONResponse:
     principal = await authenticate(request, required_scope=SCOPE_COMMAND_REPLAY)
