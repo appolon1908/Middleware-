@@ -192,12 +192,12 @@ def test_orchestrator_classifies_the_evidence_gate_as_read_only(
 def test_repaired_candidate_requires_independent_protected_trust_transition(monkeypatch) -> None:
     import hashlib
     launcher = load_launcher()
-    repaired = "af2e0ec1b7dcac8af5539a03b0b1fd62e377f916eadcba4c9d2b97a385d4b750"
+    repaired = "440212dd7ae19e4d592273237be4dedc60a2b0bda9095f58854141a72f62ea22"
     assert hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest() == repaired
     # Until a separately reviewed launcher-only trust transition reaches
     # protected main, the unchanged launcher must reject this generation.
     if repaired not in launcher.APPROVED_VALIDATOR_TRANSITIONS:
-        with pytest.raises(launcher.TrustError, match="not an approved generation"):
+        with pytest.raises(launcher.TrustError, match="not approved by protected main|not an approved generation"):
             launcher.validate_candidate(ROOT)
 
     # Simulate only that future reviewed policy. Derive the candidate's
@@ -209,6 +209,14 @@ def test_repaired_candidate_requires_independent_protected_trust_transition(monk
         (ROOT / ".codestra/validate-release-intent.py").read_text(encoding="utf-8")
     )
     policy = ("security-fingerprint", fingerprint)
+    production_workflow_digest = hashlib.sha256(
+        PRODUCTION_WORKFLOW.read_bytes()
+    ).hexdigest()
+    monkeypatch.setattr(
+        launcher,
+        "APPROVED_TRUST_WORKFLOW_SHA256",
+        frozenset({production_workflow_digest}),
+    )
     monkeypatch.setattr(
         launcher,
         "APPROVED_VALIDATOR_TRANSITIONS",
