@@ -217,6 +217,9 @@ def test_cancel_uses_optimistic_concurrency_and_idempotency(stack: Stack) -> Non
         assert cancelled.json()["cancelled_at"] is not None
         replay = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "operator request"}, headers=auth)
         assert replay.status_code == 200
+        timeline = client.get(f"/platform/v1/operations/{body['command_id']}/timeline", headers={"Authorization": f"Bearer {token()}"}).json()
+        assert timeline["items"][-1]["safe_metadata"]["mutation_correlation_id"] == "cancel-corr"
+        assert cancelled.json()["correlation_id"] != "cancel-corr"  # the operation keeps its own
         stale = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "again"}, headers={**auth, "Idempotency-Key": "cancel-key-0002"})
         assert stale.status_code == 409
         assert client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 2, "reason": "x"}, headers={**auth, "Authorization": f"Bearer {token(scope='platform.command.read')}"}).status_code == 401
