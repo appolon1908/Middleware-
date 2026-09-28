@@ -24,7 +24,7 @@ from app.commands import (
 from app.control_plane_auth import ControlPlaneCaller
 from app.core.config import Settings
 from app.core.policy_engine import CommandPolicyRequest, evaluate_command
-from app.platform.adapter import AdapterConfigurationError, ReadbackStatus
+from app.platform.adapter import AdapterConfigurationError, AdapterResult, ErrorClass, Outcome, ReadbackStatus
 from app.platform.adapters.fixtures import FixtureAdapter, development_fixtures
 from app.platform.adapters.fixtures import test_syn_adapter as synthetic_adapter
 from app.platform.bus import AdapterDispatch, BusSettings
@@ -762,3 +762,80 @@ def test_test_syn_policy_is_never_registered_in_production(test_settings: Settin
     registry = command_policies(production, CommandPolicyRegistry((CommandPolicy("crm.", "odoo-19", "ODOO_WRITE", True),), {"ODOO_WRITE": False}))
     assert registry.resolve("test.syn.execute.v1") is None
     assert "TEST_SYN_EXECUTE" not in registry.capabilities
+
+
+@pytest.mark.asyncio
+async def test_bus_fails_closed_when_target_connector_is_not_served(harness: Harness) -> None:
+    command = envelope()
+    submitted = await harness.submit(command)
+    adapter = harness.test_syn
+    adapter.connector_ids = ("different-connector",)
+
+    await harness.bus.drain()
+
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "dead_lettered"
+    assert adapter.provider_effects == 0
+
+
+@pytest.mark.asyncio
+async def test_bus_uses_provider_status_before_readback_for_async_completion(harness: Harness) -> None:
+    command = envelope(payload={"probe": True, "fixture": "success"})
+    submitted = await harness.submit(command)
+
+    await harness.bus.drain()
+
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "completed"
+    assert current.provider_operation_id is not None
+    assert str(command.command_id) in harness.test_syn.readbacks
+
+
+@pytest.mark.asyncio
+async def test_reconciler_dead_letters_when_connector_mapping_disappears(harness: Harness) -> None:
+    command = envelope(payload={"probe": True, "fixture": "unknown"})
+    submitted = await harness.submit(command)
+    await harness.bus.drain()
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "reconciliation_required"
+
+    harness.test_syn.connector_ids = ("different-connector",)
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+
+    assert decision is not None
+    assert decision.action == "dead_letter"
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "dead_lettered"
+    assert harness.test_syn.provider_effects == 1
+
+
+@pytest.mark.asyncio
+async def test_bus_backs_off_without_an_attempt_when_readiness_raises(harness: Harness) -> None:
+    command = envelope()
+    await harness.submit(command)
+
+    async def broken_readiness(context):
+        raise ConnectionError("readiness probe unreachable")
+
+    harness.test_syn.readiness = broken_readiness
+    await harness.bus.run_once()
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state in {"persisted", "queued"}
+    assert harness.test_syn.executed == []
+    assert harness.test_syn.provider_effects == 0
+
+
+@pytest.mark.asyncio
+async def test_bus_fails_a_provider_rejected_status_without_readback(harness: Harness) -> None:
+    command = envelope()
+    await harness.submit(command)
+
+    async def rejected_status(operation, context):
+        return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code="provider_rejected")
+
+    harness.test_syn.status = rejected_status
+    await harness.bus.run_once()
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "failed"
+    assert str(command.command_id) not in harness.test_syn.readbacks
