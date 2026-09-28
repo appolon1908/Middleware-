@@ -49,21 +49,17 @@ MAX_RATE_IDENTITIES = 4096
 CANONICAL_API_PREFIXES = ("/platform/v1/", "/v2/automation/")
 
 
-def _canonical_guard_error(*, status_code: int, code: str, message: str, correlation_id: str) -> JSONResponse:
-    """Guard-level refusal in the canonical V3 error envelope."""
-    return JSONResponse(
-        {
-            "error": {
-                "code": code,
-                "message": message,
-                "correlation_id": correlation_id,
-                "retryable": False,
-                "details": {},
-            }
-        },
-        status_code=status_code,
-        headers={"X-Correlation-ID": correlation_id},
-    )
+def _canonical_guard_body(code: str, message: str, correlation_id: str) -> dict[str, object]:
+    """Guard-level refusal body in the canonical V3 error envelope."""
+    return {
+        "error": {
+            "code": code,
+            "message": message,
+            "correlation_id": correlation_id,
+            "retryable": False,
+            "details": {},
+        }
+    }
 
 # Routes whose handler verifies an HMAC signature or a service JWT itself.
 SIGNED_WEBHOOK_PATHS = frozenset(
@@ -248,9 +244,10 @@ class RequestGuard:
                 content_length = -1
             if content_length < 0:
                 if canonical_api:
-                    return _canonical_guard_error(
-                        status_code=400, code="INVALID_CONTENT_LENGTH",
-                        message="Content-Length is invalid", correlation_id=correlation_id,
+                    return JSONResponse(
+                        _canonical_guard_body("INVALID_CONTENT_LENGTH", "Content-Length is invalid", correlation_id),
+                        status_code=400,
+                        headers={"X-Correlation-ID": correlation_id},
                     )
                 return JSONResponse({"detail": "invalid content length"}, status_code=400)
 
@@ -289,9 +286,10 @@ class RequestGuard:
             )
         if content_length > settings.request_max_bytes:
             if canonical_api:
-                return _canonical_guard_error(
-                    status_code=413, code="REQUEST_TOO_LARGE",
-                    message="request exceeds the configured body limit", correlation_id=correlation_id,
+                return JSONResponse(
+                    _canonical_guard_body("REQUEST_TOO_LARGE", "request exceeds the configured body limit", correlation_id),
+                    status_code=413,
+                    headers={"X-Correlation-ID": correlation_id},
                 )
             return JSONResponse({"detail": "request too large"}, status_code=413)
 

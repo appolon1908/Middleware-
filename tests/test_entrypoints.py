@@ -316,8 +316,8 @@ def test_worker_has_internal_operational_endpoints():
 def test_deployed_profiles_fail_closed_on_legacy_monolith_routes():
     import pytest
 
-    from app.application import AppProfile, assert_no_legacy_monolith_routes, create_app
-    from app.router_registry import LEGACY_MONOLITH_ONLY_ROUTERS, route_operations
+    from app.application import AppProfile, create_app
+    from app.router_registry import LEGACY_MONOLITH_ONLY_ROUTERS, assert_no_legacy_monolith_routes, route_operations
 
     legacy = {
         (method, route.path)
