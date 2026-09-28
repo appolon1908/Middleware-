@@ -80,6 +80,11 @@ def test_postgres_readback_queries_shared_durable_store(test_settings):
         payload = client.post("/v1/communications/messages", json=_message(), headers=headers()).json()
     connection = AsyncMock()
     connection.fetchval.return_value = payload
+    transaction = MagicMock()
+    transaction.__aenter__ = AsyncMock(return_value=None)
+    transaction.__aexit__ = AsyncMock(return_value=False)
+    connection.transaction = MagicMock(return_value=transaction)
+    connection.is_in_transaction = MagicMock(return_value=True)
     pool = MagicMock()
     pool.acquire.return_value.__aenter__ = AsyncMock(return_value=connection)
     pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -87,6 +92,7 @@ def test_postgres_readback_queries_shared_durable_store(test_settings):
     result = asyncio.run(store.message_by_idempotency("tenant-1", "odoo-sms:fixture-1"))
     assert str(result.messageId) == payload["messageId"]
     assert connection.fetchval.call_args.args[1:] == ("tenant-1", "POST /v1/communications/messages", "odoo-sms:fixture-1")
+    connection.execute.assert_any_await("SELECT set_config('app.tenant_id',$1,true)", "tenant-1")
     assert store.messages == {}  # no dependence on this process's startup cache
     connection.fetchval.return_value = None
     with pytest.raises(CommunicationsNotFound):
