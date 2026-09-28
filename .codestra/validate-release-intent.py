@@ -221,7 +221,7 @@ KEYCLOAK_PRODUCTION_VALIDATOR_SHA256 = (
     "83d2fce102104543b871530f11115f20"
 )
 MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256 = (
-    "08a95734ff255c406c43ed016e8a495b4e88e8f244e5c8b90c55b4735a870503"
+    "78c3bf80d0ce9b6a18da1deb8ff52c49ee0f79b4e63cea192117343bbe3e3abd"
 )
 BACKEND_PRODUCTION_VALIDATOR_SHA256 = (
     "6006bbc7850ce7666de926b6cad2585b"
@@ -381,8 +381,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "fcdd0d5c3832479b10deda8c6a6afca6"
     ),
     "ingtrader21-spec/Middleware-": (
-        "3132eaaf78592513e206a69ed4035df284"
-        "37932087868eb7506a419ecb67e85f"
+        "f3772cebd657732b195f4d2bc3616fa4a0"
+        "ca6a99f0497b3ed98bacc1ceeeb2fd"
     ),
     "appolon1908-hue/codestra": (
         "4e3ea69c3ec2a4bd6e4b50395672f44d"
