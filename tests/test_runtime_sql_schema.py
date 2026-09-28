@@ -231,7 +231,7 @@ def test_alembic_namespace_rejects_unproved_tables(tmp_path, namespace, declarat
 
 def test_mcr_baseline_covers_exact_source_ddl():
     evidence = json.loads(
-        (ROOT / "docs/production/evidence/mcr-schema-0069-baseline.json").read_text()
+        (ROOT / "docs/production/evidence/mcr-schema-0074-baseline.json").read_text()
     )
     contract = json.loads((ROOT / schema.CONTRACT_PATH).read_text())
     rows = {row["table_name"]: row for row in evidence["rows"]}
