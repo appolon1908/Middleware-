@@ -113,3 +113,34 @@ def test_deferred_worker_tables_include_cross_tenant_queues() -> None:
         "telnexa_delivery_event_inbox",
     ):
         assert table in alembic_deferred
+
+
+def test_every_rls_covered_table_is_tenant_bound_per_inventory() -> None:
+    """Every table RLS was ever enabled on must be a tenant-owned table whose
+    tenant_id is NOT NULL in the tenant inventory, and the tables still covered
+    after the forward deferral are exactly the safe ones."""
+    from app.platform.tenant_inventory import scan_tenant_inventory
+
+    tenant_tables = {
+        row.table
+        for row in scan_tenant_inventory(ROOT)
+        if row.ownership == "tenant_owned"
+        and row.tenant_representation == "tenant_id_not_null"
+        and row.source.startswith("migrations/")
+        and not row.table.startswith("callback_")
+    }
+    enabled = (
+        set(_namespace(ENABLE_ALEMBIC)["RLS_TABLES"])
+        | SECTION6_RLS
+        | _enabled_tables(CORE_ENABLE_SQL)
+        | _enabled_tables(CORE_RECOVERY_SQL)
+        | _enabled_tables(AUTOMATION_ENABLE_SQL)
+    )
+    deferred = (
+        set(_namespace(DEFER_ALEMBIC)["DEFERRED_RLS_TABLES"])
+        | _disabled_tables(CORE_DEFER_SQL)
+        | _disabled_tables(AUTOMATION_DEFER_SQL)
+    )
+    assert deferred <= enabled
+    assert enabled - deferred == SAFE_ALEMBIC_RLS | SECTION6_RLS
+    assert enabled <= tenant_tables
