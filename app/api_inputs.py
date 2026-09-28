@@ -75,7 +75,7 @@ def optional_header(
 
 
 def authorization_header(request: Request) -> str:
-    values = request.headers.getlist(AUTHORIZATION)
+    values = request.headers.getlist("Authorization")
     if len(values) > 1:
         raise RequestValidationError("Authorization must be provided at most once")
     value = values[0] if values else ""
