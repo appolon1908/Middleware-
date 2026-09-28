@@ -598,6 +598,39 @@ async def test_reconciler_completes_matched_and_requeues_not_found(harness: Harn
 
 
 @pytest.mark.asyncio
+async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_readback(harness: Harness) -> None:
+    """The read-back runs unlocked: a verdict is recorded only against the
+    resource_version that was read, otherwise the claim is released."""
+    command = envelope(payload={"fixture": "unknown"})
+    await harness.submit(command)
+    await harness.bus.run_once()
+    key = (TENANT, command.command_id)
+    original = harness.test_syn.reconcile
+
+    async def racing_reconcile(operation, context):
+        digest, current = harness.commands.store._commands[key]
+        harness.commands.store._commands[key] = (
+            digest, current.model_copy(update={"resource_version": current.resource_version + 1}),
+        )
+        return await original(operation, context)
+
+    harness.test_syn.reconcile = racing_reconcile
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None
+    assert decision.action == "release" and decision.drift_class == "operation_changed_during_readback"
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "reconciliation_required" and operation.readback_evidence is None
+    assert await harness.reconciler.source.backlog() == 1
+
+    harness.test_syn.reconcile = original
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None and decision.action == "complete"
+    assert harness.test_syn.provider_effects == 1
+
+
+@pytest.mark.asyncio
 async def test_reconciler_dead_letters_after_bounded_mismatches(harness: Harness) -> None:
     command = envelope(payload={"fixture": "unknown"})
     await harness.submit(command)

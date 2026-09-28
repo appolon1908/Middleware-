@@ -498,6 +498,7 @@ class CommandStore(Protocol):
         reason: str,
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
+        expected_version: int | None = None,
     ) -> CommandOperation:
         ...
 
@@ -616,6 +617,7 @@ class MemoryCommandStore:
         reason: str,
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
+        expected_version: int | None = None,
     ) -> CommandOperation:
         key = (tenant_id, command_id)
         entry = self._commands.get(key)
@@ -624,6 +626,8 @@ class MemoryCommandStore:
         digest, operation = entry
         if operation.state != "reconciliation_required":
             raise CommandConflict("operation is no longer awaiting reconciliation")
+        if expected_version is not None and operation.resource_version != expected_version:
+            raise CommandConflict("expected_version is stale")
         now = datetime.now().astimezone()
         safe_evidence = dict(evidence)
         evidence_digest = provider_evidence_digest(safe_evidence)
@@ -1656,6 +1660,7 @@ class PostgresCommandStore:
         reason: str,
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
+        expected_version: int | None = None,
     ) -> CommandOperation:
         """Close (or keep parked) an operation awaiting reconciliation.
 
@@ -1671,7 +1676,8 @@ class PostgresCommandStore:
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 current = await conn.fetchrow(
-                    "SELECT state FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+                    "SELECT state, resource_version FROM middleware_commands "
+                    "WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
                     tenant_id,
                     str(command_id),
                 )
@@ -1679,6 +1685,11 @@ class PostgresCommandStore:
                     raise CommandNotFound("command operation was not found")
                 if current["state"] != "reconciliation_required":
                     raise CommandConflict("operation is no longer awaiting reconciliation")
+                if (
+                    expected_version is not None
+                    and current["resource_version"] != expected_version
+                ):
+                    raise CommandConflict("expected_version is stale")
                 if matched:
                     row = await conn.fetchrow(
                         """
