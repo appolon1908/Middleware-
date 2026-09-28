@@ -18,7 +18,7 @@ depends_on = None
 
 # Callback tables are intentionally excluded: migration 0052 already applies
 # stronger tenant + campaign/role policies to that family. SQL-managed core
-# and automation tables are owned by migrations/0012_tenant_rls.sql and
+# and automation tables are owned by migrations/0014_tenant_rls.sql and
 # migrations/automation/0002_tenant_rls.sql respectively.
 RLS_TABLES = (
     "agent_call_event",

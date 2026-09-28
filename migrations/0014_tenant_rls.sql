@@ -148,6 +148,6 @@ CREATE POLICY codestra_tenant_isolation ON middleware_reconciliation_audit
   WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), ''));
 
 INSERT INTO middleware_schema_migrations(version,name)
-VALUES (12,'tenant_rls') ON CONFLICT (version) DO UPDATE SET name=EXCLUDED.name;
+VALUES (14,'tenant_rls') ON CONFLICT (version) DO UPDATE SET name=EXCLUDED.name;
 
 COMMIT;

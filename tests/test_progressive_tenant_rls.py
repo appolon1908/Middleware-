@@ -5,7 +5,7 @@ from app.platform.tenant_inventory import scan_tenant_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "migrations/versions/0069_progressive_tenant_rls.py"
-CORE_SQL = ROOT / "migrations/0012_tenant_rls.sql"
+CORE_SQL = ROOT / "migrations/0014_tenant_rls.sql"
 RECOVERY_SQL = ROOT / "migrations/0013_command_recovery.sql"
 AUTOMATION_SQL = ROOT / "migrations/automation/0002_tenant_rls.sql"
 
@@ -77,7 +77,7 @@ def test_rls_is_fail_closed_and_type_correct() -> None:
 def test_sql_rls_migrations_are_forward_only_and_receipted() -> None:
     core = CORE_SQL.read_text(encoding="utf-8")
     automation = AUTOMATION_SQL.read_text(encoding="utf-8")
-    assert "VALUES (12,'tenant_rls')" in core
+    assert "VALUES (14,'tenant_rls')" in core
     assert "VALUES (2,'tenant_rls')" in automation
     for text in (core, automation):
         assert "DISABLE ROW LEVEL SECURITY" not in text
