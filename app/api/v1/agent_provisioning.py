@@ -174,6 +174,20 @@ class TransitionRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+async def _set_provisioning_rls_context(
+    session: AsyncSession,
+    principal: ProvisioningPrincipal,
+    tenant_id: str | None = None,
+) -> str:
+    """Bind one verified tenant to the transaction before an RLS-protected lookup.
+
+    Shared by the lifecycle routes; uses the same resolution rule as the
+    request routes (an unnamed tenant is only accepted for single-tenant tokens).
+    """
+    resolved = resolve_tenant_context(principal, tenant_id)
+    return await set_transaction_tenant_context(session, resolved)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 

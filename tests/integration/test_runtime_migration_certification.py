@@ -353,7 +353,7 @@ def test_real_progressive_tenant_rls_isolation_and_deferred_scope(monkeypatch):
 
             conn = await asyncpg.connect(url)
             try:
-                assert head == "0069_progressive_tenant_rls"
+                assert head == "0070_agent_provisioning_lifecycle"
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_schema_migrations"
                 ) == 14
@@ -377,6 +377,8 @@ def test_real_progressive_tenant_rls_isolation_and_deferred_scope(monkeypatch):
                     "middleware_realtime_events",
                     "middleware_automation_jobs",
                     "agent_call_state",
+                    "agent_provisioning_repair_intent",
+                    "agent_webrtc_session",
                 ):
                     assert await conn.fetchval(
                         "SELECT relrowsecurity AND NOT relforcerowsecurity "

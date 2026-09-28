@@ -35,6 +35,15 @@
       "ownership": "tenant_owned",
       "parent_table": null,
       "remediation": null,
+      "source": "migrations/versions/0070_agent_provisioning_lifecycle.py",
+      "table": "agent_provisioning_repair_intent",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "provisioning",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
       "source": "migrations/versions/0060_agent_provisioning.py",
       "table": "agent_provisioning_request",
       "tenant_representation": "tenant_id_not_null"
@@ -46,6 +55,15 @@
       "remediation": null,
       "source": "migrations/versions/0060_agent_provisioning.py",
       "table": "agent_provisioning_step",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "legacy",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0070_agent_provisioning_lifecycle.py",
+      "table": "agent_webrtc_session",
       "tenant_representation": "tenant_id_not_null"
     },
     {

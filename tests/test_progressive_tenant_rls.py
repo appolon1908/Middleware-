@@ -5,6 +5,9 @@ from app.platform.tenant_inventory import scan_tenant_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "migrations/versions/0069_progressive_tenant_rls.py"
+LIFECYCLE_MIGRATION = ROOT / "migrations/versions/0070_agent_provisioning_lifecycle.py"
+# Tables created by 0070 with RLS and the tenant policy from the start.
+LIFECYCLE_RLS_TABLES = frozenset({"agent_provisioning_repair_intent", "agent_webrtc_session"})
 CORE_SQL = ROOT / "migrations/0014_tenant_rls.sql"
 AUTOMATION_SQL = ROOT / "migrations/automation/0002_tenant_rls.sql"
 
@@ -80,7 +83,12 @@ def _enabled(sql: str) -> set[str]:
 
 
 def test_progressive_rls_partitions_every_tenant_table_into_covered_or_deferred() -> None:
-    alembic = set(_migration_namespace()["RLS_TABLES"])
+    lifecycle = LIFECYCLE_MIGRATION.read_text(encoding="utf-8")
+    for table in LIFECYCLE_RLS_TABLES:
+        assert f'"{table}"' in lifecycle
+    assert "ENABLE ROW LEVEL SECURITY" in lifecycle
+    assert "WITH CHECK ({tenant_policy})" in lifecycle
+    alembic = set(_migration_namespace()["RLS_TABLES"]) | LIFECYCLE_RLS_TABLES
     core = _enabled(CORE_SQL.read_text(encoding="utf-8"))
     automation = _enabled(AUTOMATION_SQL.read_text(encoding="utf-8"))
     expected_alembic = _source_tables("migrations/versions/")
