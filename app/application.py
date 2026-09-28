@@ -53,7 +53,6 @@ from app.router_registry import (
     mount_integration_routers,
     mount_legacy_monolith_routers,
     mount_monolith_routers,
-    route_operations,
 )
 
 logger = logging.getLogger("codestra.application")
@@ -167,25 +166,7 @@ def create_app(
     # The Appolon handlers are a superset of the registry's domain handler
     # (same envelope plus the auth-denial metric); installed last so they win.
     appolon_routes.install_error_handlers(app)
-    assert_unique_routes(app)
-    if profile is not AppProfile.MONOLITH:
-        assert_no_legacy_monolith_routes(app)
+    assert_unique_routes(app, deployed=profile is not AppProfile.MONOLITH)
     appolon_routes.install_canonical_openapi(app)
     return app
 
-
-def assert_no_legacy_monolith_routes(app: FastAPI) -> None:
-    """Deployed profiles (the :8095 integration process included) are a strict
-    composition boundary: an edge-denied legacy route mounted there fails
-    startup instead of waiting for the release endpoint audit."""
-    forbidden = {
-        (method, path)
-        for router in LEGACY_MONOLITH_ONLY_ROUTERS
-        for route in router.routes
-        for path in [getattr(route, "path", None)]
-        for method in (getattr(route, "methods", None) or ())
-        if path is not None
-    }
-    leaked = sorted(forbidden & set(route_operations(app)))
-    if leaked:
-        raise RuntimeError(f"deployed composition leaked legacy monolith-only routes: {leaked}")
