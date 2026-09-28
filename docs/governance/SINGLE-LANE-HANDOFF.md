@@ -7,34 +7,34 @@ Every new Middleware agent starts with `AGENTS.md` and `scripts/agent_preflight.
 ## Current publication lane
 
 - Repository: `ingtrader21-spec/Middleware-`
-- Current PR: #355
-- Branch: `mission/mcr-c-completion-safe-20260924`
-- Certified/pushed head at governance handoff: `d03f7099e05b7bb7888ca8631cdbc10401cc72bb`
-- Ubuntu review worktree: `/home/codestra/Worktrees/Middleware-/mcr-c-completion-safe`
+- Current PR: #397 (Middleware V3 final repository convergence)
+- Branch: `mission/middleware-v3-final-repository-convergence-20260927`
+- Remote head when this handoff was written: `d7e7ed60ee39bb8dc2124b601f4187e582cc6e17`
+- Write lane: the owning workstation's checkout of that branch (`./scripts/agent_preflight.sh --start` on that host records the worktree); every other checkout is read-only reconciliation/evidence
 - Production/provider effects: fail-closed
 
-## Current convergence lane
+## Absorbed lanes
 
-`/home/codestra/Worktrees/Middleware-/mcr-c-final-convergence` is preserved at `7d713735e46a0d0efc437808ad34f42ecdc41c6c`. Duplicate Claude/Codex writers were stopped on 2026-09-26. Do not restart a convergence agent until PR #355 required CI is independently green or a documented remediation is required.
+PR #355 (`mission/mcr-c-completion-safe-20260924`, certified head `d03f7099e05b7bb7888ca8631cdbc10401cc72bb`) and the preserved `mcr-c-final-convergence` worktree (`7d713735e46a0d0efc437808ad34f42ecdc41c6c`) are absorbed into #397: the MCR runtime shell is the single journey/next-action authority, with the MCR migrations renumbered 0072–0074 behind `0071_defer_unbound_tenant_rls`. Their worktrees stay preserved read-only; do not restart a writer on them.
 
 ## One-line continuation
 
-Ubuntu inspection:
+Ubuntu inspection (from the convergence checkout):
 
 ```bash
-cd /home/codestra/Worktrees/Middleware-/mcr-c-completion-safe && ./scripts/agent_preflight.sh --start --branch mission/mcr-c-completion-safe-20260924
+./scripts/agent_preflight.sh --start --branch mission/middleware-v3-final-repository-convergence-20260927
 ```
 
 Pre-publication certificate:
 
 ```bash
-cd /home/codestra/Worktrees/Middleware-/mcr-c-completion-safe && ./scripts/agent_preflight.sh --certify --branch mission/mcr-c-completion-safe-20260924
+./scripts/agent_preflight.sh --certify --branch mission/middleware-v3-final-repository-convergence-20260927
 ```
 
 Appolon PowerShell review path (read/check before publication; never overwrite a newer remote):
 
 ```powershell
-cd C:\Users\agent\Documents\GitHub\Middleware-; git fetch origin; git status --short --branch; git ls-remote origin refs/heads/mission/mcr-c-completion-safe-20260924
+cd C:\Users\agent\Documents\GitHub\Middleware-; git fetch origin; git status --short --branch; git ls-remote origin refs/heads/mission/middleware-v3-final-repository-convergence-20260927
 ```
 
 ## Publication rule
