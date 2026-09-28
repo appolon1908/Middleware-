@@ -108,6 +108,7 @@ EXPECTED_ROUTER_REGISTRY_MODULE = "router_registry"
 EXPECTED_REGISTRY_ROUTERS = {
     "internal_ai_jobs_router": ("api.internal.ai_jobs", "router"),
     "internal_database_router": ("api.internal.database", "router"),
+    "internal_provider_canaries_router": ("api.internal.provider_canaries", "router"),
     "internal_release_certification_router": (
         "api.internal.release_certification",
         "router",
@@ -216,6 +217,7 @@ EXPECTED_REGISTRY_TUPLES = {
     ),
     "INTEGRATION_ROUTERS": frozenset(
         {
+            "internal_provider_canaries_router",
             "commands_router",
             "control_router",
             "reports_router",

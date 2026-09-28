@@ -42,6 +42,9 @@ from app.api.internal.ai_jobs import router as internal_ai_jobs_router
 from app.api.internal.database import router as internal_database_router
 from app.api.internal.klyrow_events import router as klyrow_events_router
 from app.api.internal.klyrow_mail import router as klyrow_mail_router
+from app.api.internal.provider_canaries import (
+    router as internal_provider_canaries_router,
+)
 from app.api.internal.release_certification import (
     router as internal_release_certification_router,
 )
@@ -183,6 +186,9 @@ INTEGRATION_ROUTERS: tuple[APIRouter, ...] = (
     sales_router,
     booking_router,
     platform_router,
+    # PAS-57 synthetic provider-canary controller; explicit auth, edge-denied
+    # under /internal/*, disabled by default.
+    internal_provider_canaries_router,
 )
 
 APPOLON_ROUTERS: tuple[APIRouter, ...] = (
