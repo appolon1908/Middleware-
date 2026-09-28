@@ -417,6 +417,7 @@ class Settings(BaseSettings):
     # backup.json, restore_rehearsal.json, rollback.json, seal.json).
     release_certification_evidence_dir: str = ""
     release_certification_max_backup_age_hours: int = Field(default=24, ge=1, le=720)
+    production_decision_evidence_dir: str = ""
     redis_url: str = "redis://localhost:6379/2"
     redis_url_file: str = ""
     registry_snapshot_signing_key_file: str = ""

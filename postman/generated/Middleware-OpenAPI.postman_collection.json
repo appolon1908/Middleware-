@@ -15274,6 +15274,141 @@
               }
             }
           ],
+          "name": "Decision Readback",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "internal",
+                "v1",
+                "production",
+                "decision"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/internal/v1/production/decision"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Evaluate Decision",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"evidence\": {},\n  \"release\": {\n    \"image_digest\": \"\",\n    \"schema_head\": \"\",\n    \"source_sha\": \"\"\n  },\n  \"requested_capabilities\": [\n    \"\"\n  ]\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "internal",
+                "v1",
+                "production",
+                "decision",
+                "evaluate"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/internal/v1/production/decision/evaluate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Decision Policy",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "internal",
+                "v1",
+                "production",
+                "decision",
+                "policy"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/internal/v1/production/decision/policy"
+            }
+          }
+        }
+      ],
+      "name": "internal-production-decision"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "name": "Latest Backup",
           "request": {
             "header": [
