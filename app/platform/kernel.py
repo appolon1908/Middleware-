@@ -350,6 +350,7 @@ class CommandKernel:
         idempotency_key: str,
         expected_version: int,
         reason: str,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         operation = await self.commands.mutate_operation(
             tenant_id,
@@ -359,6 +360,7 @@ class CommandKernel:
             idempotency_key=idempotency_key,
             expected_version=expected_version,
             reason=reason,
+            mutation_correlation_id=mutation_correlation_id,
         )
         self.metrics.cancellations.labels(result=operation.state).inc()
         return operation
@@ -372,6 +374,7 @@ class CommandKernel:
         idempotency_key: str,
         expected_version: int,
         reason: str,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         operation = await self.commands.mutate_operation(
             tenant_id,
@@ -381,6 +384,7 @@ class CommandKernel:
             idempotency_key=idempotency_key,
             expected_version=expected_version,
             reason=reason,
+            mutation_correlation_id=mutation_correlation_id,
         )
         return operation
 
@@ -398,6 +402,7 @@ class CommandKernel:
         expected_version: int,
         reason: str,
         new_idempotency_key: str | None = None,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         if PLATFORM_OPERATOR_ROLE not in principal.roles:
             raise ReplayNotAllowed("replay requires the platform-operator role")
@@ -416,6 +421,7 @@ class CommandKernel:
                 idempotency_key=idempotency_key,
                 expected_version=expected_version,
                 reason=f"REPROCESS: {reason}",
+                mutation_correlation_id=mutation_correlation_id,
             )
             self.metrics.replays.labels(mode="REPROCESS").inc()
             return operation
