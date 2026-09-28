@@ -12,13 +12,14 @@ from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, gene
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 from app.core.config import Settings
+from .core import header_authority
 from .intake_observability import IntakeMetrics, collect_intake_backlog
 from .mcr_observability import MCR_TELEMETRY
 
 
 SERVICE = "middleware-api"
 COMPONENT = "api"
-CORRELATION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
+CORRELATION_ID = header_authority.CORRELATION_ID_PATTERN
 TRACEPARENT = re.compile(
     r"^00-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}$"
 )

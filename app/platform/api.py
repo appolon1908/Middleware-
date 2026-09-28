@@ -444,11 +444,17 @@ def _respond(status_code: int, model: BaseModel, *, correlation_id: str, locatio
 
 
 def _trace(request: Request) -> dict[str, str]:
+    """W3C trace headers plus the request/causation identity the guard
+    validated, persisted with the intent so execution lineage is joinable."""
     trace: dict[str, str] = {}
     for name in TRACE_HEADERS:
         value = optional_header(request, name, minimum=1, maximum=512)
         if value is not None:
             trace[name] = value
+    for attribute, key in (("request_id", "request_id"), ("causation_id", "causation_id")):
+        value = getattr(request.state, attribute, None)
+        if isinstance(value, str) and value:
+            trace[key] = value
     return trace
 
 
@@ -899,6 +905,23 @@ __all__ = ["router", "CommandNotFound"]
 
 # Connector catalog/readiness projections: read-only, never an effect, and
 # authenticated with the kernel read scope like every other route here.
+def _catalog_error(request: Request, exc: Exception) -> JSONResponse:
+    correlation_id = getattr(request.state, "correlation_id", None) or ""
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": {
+                "code": getattr(exc, "code", "connector_unavailable"),
+                "message": "connector is unavailable",
+                "correlation_id": correlation_id,
+                "retryable": False,
+                "details": {},
+            }
+        },
+        headers={"X-Correlation-ID": correlation_id} if correlation_id else None,
+    )
+
+
 @router.get("/connectors")
 async def connectors_catalog(request: Request):
     await authenticate(request, required_scope=SCOPE_COMMAND_READ)
@@ -914,7 +937,7 @@ async def connector_catalog_item(request: Request, connector_id: str):
     try:
         return await describe_connector(platform, connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404, content={"error":{"code":exc.code,"message":"connector is unavailable"}})
+        return _catalog_error(request, exc)
 
 @router.get("/connectors/{connector_id}/capabilities")
 async def connector_capabilities(request: Request, connector_id: str):
@@ -924,7 +947,7 @@ async def connector_capabilities(request: Request, connector_id: str):
     try:
         row=await describe_connector(platform,connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":"connector is unavailable"}})
+        return _catalog_error(request, exc)
     return {"connector_id":connector_id,"capabilities":row["capabilities"],
             "effect_classification":row["effect_classification"],"enabled":row["enabled"]}
 
@@ -936,7 +959,7 @@ async def connector_health(request: Request, connector_id: str):
     try:
         row=await describe_connector(platform,connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":"connector is unavailable"}})
+        return _catalog_error(request, exc)
     return {"connector_id":connector_id,"health":row["health"],"readiness":row["readiness"],
             "enabled":row["enabled"],"environment":row["environment"]}
 

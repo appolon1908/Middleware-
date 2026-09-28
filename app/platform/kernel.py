@@ -100,13 +100,28 @@ class CommandUnowned(CommandError):
 @dataclass(frozen=True)
 class SubmitResult:
     operation: CommandOperation
-    policy: CommandPolicyDecision
-    safety: SafetyDecision
+    # ``None`` for an exact replay: the decisions that admitted the operation
+    # are the persisted ones and are not re-taken.
+    policy: CommandPolicyDecision | None
+    safety: SafetyDecision | None
     destination: str
 
     @property
     def duplicate(self) -> bool:
         return self.operation.duplicate
+
+
+def principal_snapshot(principal: KernelPrincipal, *, required_scope: str) -> dict[str, Any]:
+    """The verified facts a worker needs to re-run the Policy Engine at
+    execution time. Identities and grants only: no token, no secret."""
+    return {
+        "subject": principal.subject,
+        "client_id": principal.client_id,
+        "tenants": list(principal.tenants),
+        "roles": list(principal.roles),
+        "scopes": list(principal.scopes),
+        "required_scope": required_scope,
+    }
 
 
 @dataclass(frozen=True)
@@ -264,6 +279,30 @@ class CommandKernel:
         started = time.perf_counter()
         family = _family(command.command_type)
         self.metrics.commands_received.labels(command_family=family).inc()
+        scope_required = (
+            SCOPE_COMMAND_REPLAY
+            if replay_mode is ReplayMode.REEXECUTE
+            else required_scope or SCOPE_COMMAND
+        )
+
+        # 10 — adapter ownership. Temporal-executed families need no in-process adapter.
+        ownership = self.registry.ownership(command.command_type)
+        destination = ADAPTER_COMMAND_DESTINATION if ownership is not None else TEMPORAL_COMMAND_DESTINATION
+        adapter_registered = ownership is not None or destination == TEMPORAL_COMMAND_DESTINATION
+
+        # 8 — idempotency comes before the gates: an exact replay (same tenant,
+        # key, client and payload) returns the operation the original
+        # submission produced, whatever the gates would decide today, and
+        # consumes no rate budget. The caller must still hold the same
+        # authority over the tenant and scope it presents.
+        existing = await self.commands.find_existing(command, authenticated_client_id=principal.client_id)
+        if existing is not None:
+            if scope_required not in principal.scopes or not principal.authorized_for(command.tenant_id):
+                self.metrics.policy_denials.labels(reason="replay_authority").inc()
+                raise PolicyDenied("policy denied: replay requires the original tenant and scope authority")
+            self.metrics.idempotency_duplicates.inc()
+            self.metrics.command_duration.labels(stage="accept").observe(time.perf_counter() - started)
+            return SubmitResult(operation=existing, policy=None, safety=None, destination=destination)
 
         # 9 — registry resolution: a known capability, exactly one owning policy,
         # matching target and capability.
@@ -275,21 +314,12 @@ class CommandKernel:
             self.metrics.policy_denials.labels(reason="registry_mismatch").inc()
             raise CommandCapabilityDisabled("command type, target and capability do not name one registered policy")
 
-        # 10 — adapter ownership. Temporal-executed families need no in-process adapter.
-        ownership = self.registry.ownership(command.command_type)
-        destination = ADAPTER_COMMAND_DESTINATION if ownership is not None else TEMPORAL_COMMAND_DESTINATION
-        adapter_registered = ownership is not None or destination == TEMPORAL_COMMAND_DESTINATION
-
         # 11 — Policy Engine.
         decision = evaluate_command(
             self._policy_request(
                 command,
                 principal,
-                required_scope=(
-                    SCOPE_COMMAND_REPLAY
-                    if replay_mode is ReplayMode.REEXECUTE
-                    else required_scope or SCOPE_COMMAND
-                ),
+                required_scope=scope_required,
                 operator_required=replay_mode is ReplayMode.REEXECUTE,
             )
         )
@@ -330,6 +360,12 @@ class CommandKernel:
         if replay_mode is not None:
             evidence["replay_mode"] = replay_mode.value
             evidence["replay_of"] = str(replay_of) if replay_of is not None else None
+        # Request lineage (request/causation identity) is audited with the
+        # decision so the timeline can be joined to the caller's own records.
+        for lineage_key in ("request_id", "causation_id"):
+            lineage_value = (trace or {}).get(lineage_key)
+            if lineage_value:
+                evidence[lineage_key] = str(lineage_value)
         operation = await self.commands.submit(
             command,
             authenticated_subject=principal.subject,
@@ -337,6 +373,7 @@ class CommandKernel:
             destination=destination,
             decision_evidence=evidence,
             trace=trace,
+            principal_snapshot=principal_snapshot(principal, required_scope=scope_required),
         )
         if operation.duplicate:
             self.metrics.idempotency_duplicates.inc()
@@ -563,6 +600,7 @@ __all__ = [
     "ReplayNotAllowed",
     "SafetyDenied",
     "SubmitResult",
+    "principal_snapshot",
     "SCOPE_COMMAND",
     "SCOPE_COMMAND_READ",
     "SCOPE_COMMAND_REPLAY",

@@ -36,7 +36,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
 from app.api.v1.observability_sync import is_observability_sync_route
-from app.core import route_policy
+from app.core import header_authority, route_policy
 from app.core.auth import BearerAuthError, verify_bearer
 from app.core.config import Settings
 from app.monitoring.routes import is_monitoring_route
@@ -44,7 +44,9 @@ from app.observability import MiddlewareObservability, safe_correlation_id, safe
 
 logger = logging.getLogger("codestra.runtime")
 
-CORRELATION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+# One identifier grammar for correlation, causation and request identity
+# (app.core.header_authority); a handler and the guard can never disagree.
+CORRELATION_RE = header_authority.CORRELATION_ID_PATTERN
 MAX_RATE_IDENTITIES = 4096
 CANONICAL_API_PREFIXES = ("/platform/v1/", "/v2/automation/")
 
@@ -262,6 +264,36 @@ class RequestGuard:
         request.state.gateway_request_id = (
             gateway_request_id if CORRELATION_RE.fullmatch(gateway_request_id) else None
         )
+        # Request identity: the client's X-Request-ID when well-formed, else the
+        # gateway's, else a fresh one; a malformed value is refused, never
+        # silently replaced, so the identifier a caller logs is the one echoed.
+        raw_request_id = request.headers.get(header_authority.REQUEST_ID)
+        request_id = header_authority.safe_identifier(raw_request_id, header_authority.REQUEST_ID_PATTERN)
+        if raw_request_id is not None and raw_request_id.strip() and request_id is None:
+            return JSONResponse(
+                {"detail": "invalid request id"},
+                status_code=400,
+                headers={"X-Correlation-ID": correlation_id},
+            )
+        request.state.request_id = request_id or request.state.gateway_request_id or str(uuid4())
+        raw_causation_id = request.headers.get(header_authority.CAUSATION_ID)
+        causation_id = header_authority.safe_identifier(raw_causation_id, header_authority.CAUSATION_ID_PATTERN)
+        if raw_causation_id is not None and raw_causation_id.strip() and causation_id is None:
+            return JSONResponse(
+                {"detail": "invalid causation id"},
+                status_code=400,
+                headers={"X-Correlation-ID": correlation_id},
+            )
+        request.state.causation_id = causation_id
+        # A caller that names another deployment environment is answered by
+        # no handler: the request was meant for a different Middleware.
+        declared_environment = request.headers.get(header_authority.ENVIRONMENT, "").strip()
+        if declared_environment and declared_environment != settings.app_env:
+            return JSONResponse(
+                {"detail": "environment mismatch"},
+                status_code=400,
+                headers={"X-Correlation-ID": correlation_id},
+            )
         request.state.traceparent = safe_traceparent(request.headers.get("traceparent"))
 
         if request.method == "POST" and path.startswith("/api/v1/sales/"):
@@ -342,6 +374,7 @@ class RequestGuard:
                     intake_context=getattr(request.state, "intake_metrics", None),
                 )
         response.headers["X-Correlation-ID"] = correlation_id
+        response.headers[header_authority.REQUEST_ID] = request.state.request_id
         response.headers["Cache-Control"] = "no-store"
         # A valid client traceparent is echoed, an invalid one is dropped, and
         # a request without one gets a fresh trace context.
@@ -353,6 +386,8 @@ class RequestGuard:
             "request_complete",
             extra={
                 "correlation_id": correlation_id,
+                "request_id": request.state.request_id,
+                "causation_id": request.state.causation_id,
                 "gateway_request_id": request.state.gateway_request_id,
                 "result": f"{request.method} {path} {status_code}",
             },

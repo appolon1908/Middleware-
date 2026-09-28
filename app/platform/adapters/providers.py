@@ -59,11 +59,14 @@ _EXECUTE_OUTCOMES: Mapping[str, Outcome] = {
     "dispatch_unknown": Outcome.UNKNOWN,
     "unknown": Outcome.UNKNOWN,
 }
+# A read-back that only says "accepted" has not observed the desired state:
+# it is an acknowledgement, never proof of completion, so it stays UNAVAILABLE
+# (parked for reconciliation) rather than MATCHED.
 _READBACK_STATUSES: Mapping[str, ReadbackStatus] = {
     "matched": ReadbackStatus.MATCHED,
     "completed": ReadbackStatus.MATCHED,
     "delivered": ReadbackStatus.MATCHED,
-    "accepted": ReadbackStatus.MATCHED,
+    "accepted": ReadbackStatus.UNAVAILABLE,
     "mismatch": ReadbackStatus.MISMATCH,
     "rejected": ReadbackStatus.MISMATCH,
     "failed": ReadbackStatus.MISMATCH,
@@ -193,7 +196,7 @@ class LegacyBridge(BaseAdapter):
             _READBACK_STATUSES.get(status, ReadbackStatus.UNAVAILABLE),
             provider_operation_id=reference or operation.provider_operation_id,
             evidence=self.redact(evidence),
-            safe_error_code=None if status in {"matched", "completed", "delivered", "accepted"} else f"readback_{status}",
+            safe_error_code=None if status in {"matched", "completed", "delivered"} else f"readback_{status}",
         )
 
     def normalize_result(self, raw: Any) -> AdapterResult:

@@ -35,6 +35,7 @@ import socket
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 from uuid import UUID
 
@@ -48,7 +49,14 @@ from app.commands import (
     CommandService,
     redact_metadata,
 )
+from app.control_plane_auth import caller_for_client_id
 from app.core.config import Settings
+from app.core.policy_engine import (
+    COMMAND_POLICY_VERSION,
+    CommandPolicyDecision,
+    CommandPolicyRequest,
+    evaluate_command,
+)
 from app.platform.adapter import (
     Adapter,
     AdapterContext,
@@ -59,10 +67,12 @@ from app.platform.adapter import (
     ReadbackStatus,
 )
 from app.platform.metrics import KernelMetrics
+from app.platform.principal import with_synthetic_authority
 from app.platform.registry import AdapterRegistry, Ownership
 from app.platform.resilience import Bulkhead, BulkheadFull, CircuitBreaker, CircuitOpen
 from app.platform.safety import SafetyContext, SafetyGate, SafetySubject
-from app.storage import DEFAULT_MAX_OUTBOX_ATTEMPTS, OutboxRecord
+from app.security import AuthorizationError
+from app.storage import DEFAULT_MAX_OUTBOX_ATTEMPTS, LeaseLostError, OutboxRecord
 from app.worker import KnownSafeRetryError
 
 logger = logging.getLogger("codestra.platform.bus")
@@ -76,6 +86,10 @@ TRANSIENT_EXECUTION_DENIALS = frozenset(
         "tenant_backlog_saturated",
     }
 )
+
+# The scope a persisted submission is re-checked against when its snapshot
+# predates the recorded ``required_scope`` (same value as the kernel's default).
+DEFAULT_REQUIRED_SCOPE = "platform.command"
 
 DEFAULT_ADAPTER_TIMEOUT_SECONDS = 30.0
 DEFAULT_BULKHEAD_CAPACITY = 8
@@ -203,9 +217,69 @@ class AdapterDispatch:
             command_id,
             outbox_attempt=record.attempt_count,
             trace=trace if isinstance(trace, Mapping) else None,
+            record=record,
         )
 
-    async def dispatch(self, tenant_id: str, command_id: UUID, *, outbox_attempt: int = 1, trace: Mapping[str, str] | None = None) -> DispatchOutcome:
+    # ------------------------------------------------------------------
+    # Execution-time authorization (step 15 of the canonical sequence)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _denied(operation: CommandOperation, reason_code: str) -> CommandPolicyDecision:
+        return CommandPolicyDecision(
+            decision_id=str(uuid.uuid4()),
+            policy_version=COMMAND_POLICY_VERSION,
+            correlation_id=operation.correlation_id,
+            allow=False,
+            reason_code=reason_code,
+            reason_codes=[reason_code],
+            evaluated_at=datetime.now(timezone.utc),
+            safe_metadata={"stage": "execution"},
+        )
+
+    async def _reauthorize(self, operation: CommandOperation, envelope: CommandEnvelope) -> CommandPolicyDecision:
+        """Re-run the Policy Engine for the persisted principal against the
+        *current* caller registry and environment. A submission whose
+        principal lineage was not persisted, whose caller was removed, or
+        whose grants no longer cover the tenant/scope/command is not executed."""
+        snapshot = await self.commands.principal_snapshot(operation.tenant_id, operation.command_id)
+        if not snapshot or not isinstance(snapshot.get("client_id"), str) or not isinstance(snapshot.get("subject"), str):
+            return self._denied(operation, "principal_lineage_missing")
+        try:
+            caller = with_synthetic_authority(caller_for_client_id(snapshot["client_id"]), self.settings.app_env)
+        except AuthorizationError:
+            return self._denied(operation, "client_not_registered")
+        required_scope = snapshot.get("required_scope")
+        request = CommandPolicyRequest(
+            correlation_id=operation.correlation_id,
+            principal=snapshot["subject"],
+            client_id=caller.client_id,
+            tenant_id=operation.tenant_id,
+            authorized_tenants=tuple(str(item) for item in snapshot.get("tenants") or ()),
+            roles=tuple(str(item) for item in snapshot.get("roles") or ()),
+            scopes=tuple(str(item) for item in snapshot.get("scopes") or ()),
+            required_scope=required_scope if isinstance(required_scope, str) and required_scope else DEFAULT_REQUIRED_SCOPE,
+            command_type=operation.command_type,
+            target=operation.target,
+            capability=operation.capability,
+            campaign_id=_campaign_id(envelope.payload),
+            environment=self.settings.app_env,  # type: ignore[arg-type]
+            effect_classification=self.safety.classification(operation.capability),  # type: ignore[arg-type]
+            caller_command_prefixes=caller.allowed_command_prefixes,
+            caller_targets=tuple(sorted(caller.allowed_targets)),
+            caller_connector_commands_allowed=caller.connector_commands_allowed,
+            campaign_scoped=self.safety.campaign_scoped(operation.capability),
+        )
+        return evaluate_command(request)
+
+    async def dispatch(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        outbox_attempt: int = 1,
+        trace: Mapping[str, str] | None = None,
+        record: OutboxRecord | None = None,
+    ) -> DispatchOutcome:
         try:
             operation = await self.commands.get(tenant_id, command_id)
         except CommandNotFound:
@@ -276,6 +350,15 @@ class AdapterDispatch:
             await self._fail(operation, reason=f"safety denied at execution: {decision.reason_code}", attempt=None)
             return self._record(DispatchOutcome(command_id, None, "failed", False))
 
+        # Authorization is re-evaluated at execution time too: the persisted
+        # principal must still be a registered caller whose current grants
+        # cover this tenant, scope, command family and target.
+        authorization = await self._reauthorize(operation, envelope)
+        if not authorization.allow:
+            self.metrics.policy_denials.labels(reason=authorization.reason_code).inc()
+            await self._fail(operation, reason=f"authorization revalidation failed: {authorization.reason_code}", attempt=None)
+            return self._record(DispatchOutcome(command_id, None, "failed", False))
+
         breaker = self.breaker(adapter.adapter_id)
         try:
             breaker.admit()
@@ -283,12 +366,27 @@ class AdapterDispatch:
             self.metrics.adapter_failures.labels(adapter=adapter.adapter_id, operation="execute", result="circuit_open").inc()
             raise KnownSafeRetryError(str(exc)) from exc
 
-        # queued → dispatching opens the attempt this worker owns.
+        # queued → dispatching opens the attempt this worker owns, recorded
+        # with the outbox lease (owner + fencing token) it executes under.
+        lease_owner = record.lease_owner if record is not None and record.lease_owner else self.worker_id
+        fencing_token = record.fencing_token if record is not None else None
         if operation.state == "persisted":
             operation = await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
-        operation = await self.commands.transition(tenant_id, command_id, new_state="dispatching", actor_id=self.worker_id, reason=f"attempt via adapter {adapter.adapter_id}")
+        operation = await self.commands.transition(
+            tenant_id, command_id, new_state="dispatching", actor_id=self.worker_id,
+            reason=f"attempt via adapter {adapter.adapter_id}", worker_id=lease_owner, fencing_token=fencing_token,
+        )
         attempt = await self.commands.latest_attempt(tenant_id, command_id)
         context = self.context(operation, attempt=attempt, timeout=timeout, trace=trace, payload=envelope.payload)
+
+        # The last proof before the external call: the lease this attempt was
+        # opened under is still ours. A lost lease closes the attempt as a
+        # known-safe failure (nothing was sent) and leaves the row to its owner.
+        if record is not None and record.lease is not None and not record.lease.live:
+            self.metrics.lease_expirations.inc()
+            await self._fail(operation, reason="outbox lease lost before the provider call", attempt=attempt, retryable=True)
+            self._record(DispatchOutcome(command_id, attempt, "queued", False))
+            raise LeaseLostError("outbox lease lost before the provider effect")
 
         self.metrics.adapter_requests.labels(adapter=adapter.adapter_id, operation="execute").inc()
         self.metrics.provider_effect_attempts.labels(adapter=adapter.adapter_id).inc()
@@ -365,11 +463,10 @@ class AdapterDispatch:
                     tenant_id, command_id, new_state="failed", actor_id=self.worker_id,
                     reason=safe, expected_attempt=attempt,
                 )
-                await self.commands.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=self.worker_id, reason="retry budget exhausted")
-                await self.commands.record_dead_letter(
-                    tenant_id, command_id, actor_id=self.worker_id,
+                await self.commands.dead_letter(
+                    tenant_id, command_id, actor_id=self.worker_id, reason="retry budget exhausted",
                     reason_code="retry_exhausted", error_class=(result.error_class.value if result.error_class else "retryable"),
-                    terminal_reason=safe, retry_exhausted=True,
+                    terminal_reason=safe, retry_exhausted=True, expected_attempt=attempt,
                 )
                 self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
                 self.metrics.retry_exhaustions.inc()
@@ -464,23 +561,23 @@ class AdapterDispatch:
             # it queued when the failure is retryable (the outbox backs off).
             if retryable:
                 return
-            if current.state == "persisted":
-                await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
-            await self.commands.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=self.worker_id, reason=reason)
-            await self.commands.record_dead_letter(
-                tenant_id, command_id, actor_id=self.worker_id,
+            await self.commands.dead_letter(
+                tenant_id, command_id, actor_id=self.worker_id, reason=reason,
                 reason_code="terminal_failure", error_class="non_retryable",
                 terminal_reason=reason, poisoned="poison" in reason.lower(),
             )
             return
-        await self.commands.transition(tenant_id, command_id, new_state="failed", actor_id=self.worker_id, reason=reason, expected_attempt=attempt)
         if retryable:
+            await self.commands.transition(tenant_id, command_id, new_state="failed", actor_id=self.worker_id, reason=reason, expected_attempt=attempt)
             await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="scheduled for a known-safe retry")
         else:
-            await self.commands.record_dead_letter(
-                tenant_id, command_id, actor_id=self.worker_id,
+            # A deterministic rejection closes the attempt as failed and records
+            # it for recovery in the same transaction; an operator may retry it.
+            await self.commands.dead_letter(
+                tenant_id, command_id, actor_id=self.worker_id, reason=reason,
                 reason_code="terminal_failure", error_class="non_retryable",
-                terminal_reason=reason, poisoned="poison" in reason.lower(),
+                terminal_reason=reason, poisoned="poison" in reason.lower(), expected_attempt=attempt,
+                terminal_state="failed",
             )
 
     @staticmethod
