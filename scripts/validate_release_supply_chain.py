@@ -147,12 +147,12 @@ def main() -> int:
         "rebuilt patched final base stage",
         errors,
     )
-    require(
-        dockerfile,
-        "libpcre2-8-0=10.42-1+deb12u1",
-        "fixed PCRE2 runtime package",
-        errors,
-    )
+    for package_pin, label in (
+        ("libpcre2-8-0=10.42-1+deb12u1", "fixed PCRE2 runtime package"),
+        ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
+        ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
+    ):
+        require(dockerfile, package_pin, label, errors)
     require(dockerfile, "--require-hashes", "hashed dependency install", errors)
     for target in ("runtime", "worker", "connector-runtime", "test"):
         require(dockerfile, f" AS {target}", f"supported {target} target", errors)
