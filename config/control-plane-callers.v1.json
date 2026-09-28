@@ -317,8 +317,7 @@
         "connect-router"
       ],
       "compatibility_only": false,
-      "staging_auth_matrix": true,
-      "connector_commands_allowed": true
+      "staging_auth_matrix": true
     }
   }
 }
