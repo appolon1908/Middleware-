@@ -136,8 +136,8 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     # Private read-only database operational evidence; explicit auth,
     # edge-denied under /internal/*, and shared by every profile.
     internal_database_router,
-    # Private fail-closed release certification (candidate, backup, restore
-    # rehearsal, rollback readiness, seal, lock readback); evaluation only.
+    # Private fail-closed release certification: candidate, backup, restore
+    # rehearsal, rollback readiness, seal and lock readback; evaluation only.
     internal_release_certification_router,
     # Private production GO/NO_GO decision readback; read-only, explicit
     # scopes, edge-denied under /internal/*, and shared by every profile.
