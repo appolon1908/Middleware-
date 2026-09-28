@@ -173,6 +173,14 @@ REASON_PRECEDENCE = (
     "ELIGIBLE",
 )
 REASON_INDEX = {reason: index for index, reason in enumerate(REASON_PRECEDENCE)}
+SUPPRESSION_IDEMPOTENCY_SCOPE = "mcr:suppression_record:v1"
+# SuppressionRequest restricts scope=global to these sources; each maps onto
+# the lifecycle.v1 transition source that owns the SUPPRESSED transition.
+GLOBAL_SUPPRESSION_LIFECYCLE_SOURCE = {
+    "operator": "operator",
+    "data_subject_request": "operator",
+    "leads_authority": "leads",
+}
 TEMPORAL_REASONS = frozenset(
     {
         "CHANNEL_HEALTH_DEFERRED",
@@ -257,6 +265,18 @@ class CampaignRecyclingConflict(CampaignRecyclingError):
 
 
 class CampaignRecyclingPolicyError(CampaignRecyclingError):
+    pass
+
+
+class CampaignRecyclingLifecycleConflict(CampaignRecyclingConflict):
+    """Illegal transition or lost optimistic lifecycle version race."""
+
+
+class CampaignRecyclingIdempotencyConflict(CampaignRecyclingConflict):
+    """An Idempotency-Key was reused for a different canonical request."""
+
+
+class CampaignRecyclingNotFound(CampaignRecyclingError):
     pass
 
 
@@ -359,6 +379,7 @@ class PolicyProfile:
     configured: bool
     production_authorized: bool
     channel_execution: Mapping[str, Mapping[str, Any]]
+    max_candidates_disclosed: int
 
     @classmethod
     def load(cls, profile: str, *, root: Path = ROOT) -> "PolicyProfile":
@@ -372,12 +393,22 @@ class PolicyProfile:
             raise CampaignRecyclingPolicyError(f"unknown policy profile {profile}")
         values = profiles[profile]["values"]
         configured = all(value is not None for value in _leaf_values(values))
+        max_candidates_disclosed = raw["decision"]["max_candidates_disclosed"]
+        if (
+            not isinstance(max_candidates_disclosed, int)
+            or isinstance(max_candidates_disclosed, bool)
+            or max_candidates_disclosed < 1
+        ):
+            raise CampaignRecyclingPolicyError(
+                "decision.max_candidates_disclosed must be a positive integer"
+            )
         return cls(
             policy_version=raw["policy_version"],
             values=values,
             configured=configured,
             production_authorized=raw["production"]["authorized"] is True,
             channel_execution=raw["channel_execution"],
+            max_candidates_disclosed=max_candidates_disclosed,
         )
 
 
@@ -396,6 +427,10 @@ class CampaignRecyclingEngine:
         evidence_stale_or_conflicting: bool = False,
     ) -> NextActionDecision:
         now = _utc(now or datetime.now(UTC))
+        if len(candidates) > self.policy.max_candidates_disclosed:
+            raise CampaignRecyclingPolicyError(
+                "candidate set exceeds decision.max_candidates_disclosed"
+            )
         ordered = sorted(
             candidates,
             key=lambda item: (
@@ -406,9 +441,24 @@ class CampaignRecyclingEngine:
                 item.touch_index,
             ),
         )
+        decision_inputs = _decision_input_payload(
+            self.policy,
+            snapshot,
+            ordered,
+            mode=mode,
+            kill_switch_open=kill_switch_open,
+            evidence_stale_or_conflicting=evidence_stale_or_conflicting,
+        )
         if not ordered:
             return self._decision(
-                snapshot, (), None, ("NO_CANDIDATE",), None, mode, now
+                snapshot,
+                (),
+                None,
+                ("NO_CANDIDATE",),
+                None,
+                mode,
+                now,
+                decision_inputs,
             )
 
         evaluated: list[CandidateDecision] = []
@@ -464,6 +514,7 @@ class CampaignRecyclingEngine:
                 None,
                 mode,
                 now,
+                decision_inputs,
             )
 
         aggregate = _sort_reasons(
@@ -483,6 +534,7 @@ class CampaignRecyclingEngine:
             min(temporal_times) if temporal_times else None,
             mode,
             now,
+            decision_inputs,
         )
 
     def _candidate_reasons(
@@ -559,18 +611,16 @@ class CampaignRecyclingEngine:
             "hard_bounce", "complained", "unsubscribed", "suppressed", "invalid"
         }:
             reasons.append("CHANNEL_HEALTH_BLOCKED")
-        elif health.state == "possible" and not self._value(
-            "channel_health", "possible_is_contactable", default=False
+        elif (
+            health.state == "possible"
+            and self.policy.configured
+            and not self._value("channel_health", "possible_is_contactable")
         ):
             reasons.append("CHANNEL_HEALTH_POLICY_GATED")
-        elif health.state == "soft_bounce":
+        elif health.state == "soft_bounce" and self.policy.configured:
             retry_at = _utc(health.occurred_at) + timedelta(
                 seconds=int(
-                    self._value(
-                        "channel_health",
-                        "soft_bounce_retry_after_seconds",
-                        default=0,
-                    )
+                    self._value("channel_health", "soft_bounce_retry_after_seconds")
                 )
             )
             if retry_at > now:
@@ -607,89 +657,87 @@ class CampaignRecyclingEngine:
             reasons.append("COOLING_PERIOD_ACTIVE")
             temporal_until.append(_utc(snapshot.cooling_until))
 
-        max_cycles = self._value("reactivation", "max_cycles", default=0)
-        if (
-            snapshot.lifecycle_state == "REACTIVATION"
-            and snapshot.reactivation_cycles >= int(max_cycles)
-        ):
-            reasons.append("REACTIVATION_LIMIT_REACHED")
-        if (
-            snapshot.lifecycle_state == "REACTIVATION"
-            and self._value(
-                "reactivation", "requires_distinct_campaign_version", default=True
-            )
-            and any(
-                exposure.campaign_id == candidate.campaign_id
-                and exposure.campaign_version == candidate.campaign_version
-                for exposure in snapshot.exposures
-            )
-        ):
-            reasons.append("CAMPAIGN_VERSION_EXHAUSTED")
-
-        exposure_cfg = self.policy.values.get("exposure", {})
-        max_lifetime = int(exposure_cfg.get("max_lifetime_all_campaigns") or 0)
-        if max_lifetime and len(snapshot.exposures) >= max_lifetime:
-            reasons.append("LIFETIME_EXPOSURE_CAP_REACHED")
         same_campaign = [
             exposure
             for exposure in snapshot.exposures
             if exposure.campaign_id == candidate.campaign_id
         ]
-        max_campaign_lifetime = int(
-            exposure_cfg.get("max_lifetime_per_campaign") or 0
-        )
-        if max_campaign_lifetime and len(same_campaign) >= max_campaign_lifetime:
-            reasons.append("LIFETIME_EXPOSURE_CAP_REACHED")
+        if self.policy.configured:
+            max_cycles = self._value("reactivation", "max_cycles")
+            if (
+                snapshot.lifecycle_state == "REACTIVATION"
+                and snapshot.reactivation_cycles >= int(max_cycles)
+            ):
+                reasons.append("REACTIVATION_LIMIT_REACHED")
+            if (
+                snapshot.lifecycle_state == "REACTIVATION"
+                and self._value(
+                    "reactivation", "requires_distinct_campaign_version"
+                )
+                and any(
+                    exposure.campaign_id == candidate.campaign_id
+                    and exposure.campaign_version == candidate.campaign_version
+                    for exposure in snapshot.exposures
+                )
+            ):
+                reasons.append("CAMPAIGN_VERSION_EXHAUSTED")
 
-        recent_window = int(exposure_cfg.get("recent_window_seconds") or 0)
-        recent_cutoff = now - timedelta(seconds=recent_window)
-        recent = [
-            exposure
-            for exposure in snapshot.exposures
-            if recent_window and _utc(exposure.reserved_at) > recent_cutoff
-        ]
-        max_recent = int(exposure_cfg.get("max_recent_all_campaigns") or 0)
-        if max_recent and len(recent) >= max_recent:
-            reasons.append("RECENT_WINDOW_CAP_REACHED")
-            temporal_until.append(_cap_release_at(recent, max_recent, recent_window))
+            exposure_cfg = self.policy.values["exposure"]
+            max_lifetime = int(exposure_cfg["max_lifetime_all_campaigns"])
+            if len(snapshot.exposures) >= max_lifetime:
+                reasons.append("LIFETIME_EXPOSURE_CAP_REACHED")
+            max_campaign_lifetime = int(exposure_cfg["max_lifetime_per_campaign"])
+            if len(same_campaign) >= max_campaign_lifetime:
+                reasons.append("LIFETIME_EXPOSURE_CAP_REACHED")
 
-        channel_cfg = self.policy.values.get("channel_caps", {}).get(
-            candidate.channel, {}
-        )
-        channel_window = int(channel_cfg.get("window_seconds") or 0)
-        channel_cutoff = now - timedelta(seconds=channel_window)
-        channel_recent = [
-            exposure
-            for exposure in snapshot.exposures
-            if channel_window
-            and exposure.channel == candidate.channel
-            and _utc(exposure.reserved_at) > channel_cutoff
-        ]
-        max_channel = int(channel_cfg.get("max_touches") or 0)
-        if max_channel and len(channel_recent) >= max_channel:
-            reasons.append("CHANNEL_CAP_REACHED")
-            temporal_until.append(
-                _cap_release_at(channel_recent, max_channel, channel_window)
+            recent_window = int(exposure_cfg["recent_window_seconds"])
+            recent_cutoff = now - timedelta(seconds=recent_window)
+            recent = [
+                exposure
+                for exposure in snapshot.exposures
+                if _utc(exposure.reserved_at) > recent_cutoff
+            ]
+            max_recent = int(exposure_cfg["max_recent_all_campaigns"])
+            if len(recent) >= max_recent:
+                reasons.append("RECENT_WINDOW_CAP_REACHED")
+                temporal_until.append(
+                    _cap_release_at(recent, max_recent, recent_window)
+                )
+
+            channel_cfg = self.policy.values["channel_caps"][candidate.channel]
+            channel_window = int(channel_cfg["window_seconds"])
+            channel_cutoff = now - timedelta(seconds=channel_window)
+            channel_recent = [
+                exposure
+                for exposure in snapshot.exposures
+                if exposure.channel == candidate.channel
+                and _utc(exposure.reserved_at) > channel_cutoff
+            ]
+            max_channel = int(channel_cfg["max_touches"])
+            if len(channel_recent) >= max_channel:
+                reasons.append("CHANNEL_CAP_REACHED")
+                temporal_until.append(
+                    _cap_release_at(channel_recent, max_channel, channel_window)
+                )
+
+            campaign_cfg = self.policy.values["campaign"]
+            cooldown = int(campaign_cfg["cooldown_seconds"])
+            if same_campaign:
+                latest = max(_utc(e.reserved_at) for e in same_campaign)
+                cooldown_until = latest + timedelta(seconds=cooldown)
+                if cooldown_until > now:
+                    reasons.append("CAMPAIGN_COOLDOWN_ACTIVE")
+                    temporal_until.append(cooldown_until)
+
+            version_count = sum(
+                1
+                for exposure in snapshot.exposures
+                if exposure.campaign_id == candidate.campaign_id
+                and exposure.campaign_version == candidate.campaign_version
             )
-
-        campaign_cfg = self.policy.values.get("campaign", {})
-        cooldown = int(campaign_cfg.get("cooldown_seconds") or 0)
-        if same_campaign and cooldown:
-            latest = max(_utc(e.reserved_at) for e in same_campaign)
-            cooldown_until = latest + timedelta(seconds=cooldown)
-            if cooldown_until > now:
-                reasons.append("CAMPAIGN_COOLDOWN_ACTIVE")
-                temporal_until.append(cooldown_until)
-
-        version_count = sum(
-            1
-            for exposure in snapshot.exposures
-            if exposure.campaign_id == candidate.campaign_id
-            and exposure.campaign_version == candidate.campaign_version
-        )
-        max_per_version = int(campaign_cfg.get("max_touches_per_version") or 0)
-        if max_per_version and version_count >= max_per_version:
-            reasons.append("CAMPAIGN_VERSION_EXHAUSTED")
+            max_per_version = int(campaign_cfg["max_touches_per_version"])
+            if version_count >= max_per_version:
+                reasons.append("CAMPAIGN_VERSION_EXHAUSTED")
 
         ordered = _sort_reasons(reasons)
         next_at = max(temporal_until) if temporal_until else None
@@ -697,9 +745,13 @@ class CampaignRecyclingEngine:
             next_at = None
         return ordered, next_at
 
-    def _value(self, section: str, key: str, *, default: Any) -> Any:
+    def _value(self, section: str, key: str) -> Any:
         value = self.policy.values.get(section, {}).get(key)
-        return default if value is None else value
+        if value is None:
+            raise CampaignRecyclingPolicyError(
+                f"policy value {section}.{key} is not configured"
+            )
+        return value
 
     def _decision(
         self,
@@ -710,22 +762,24 @@ class CampaignRecyclingEngine:
         next_eligible_at: datetime | None,
         mode: str,
         evaluated_at: datetime,
+        decision_inputs: Mapping[str, Any],
     ) -> NextActionDecision:
-        body = {
+        output = {
             "tenant_id": snapshot.tenant_id,
             "lead_id": snapshot.lead_id,
+            "lifecycle_state": snapshot.lifecycle_state,
             "lifecycle_version": snapshot.lifecycle_version,
             "mode": mode,
             "policy_version": self.policy.policy_version,
+            "eligible": selected is not None,
             "selected": _candidate_payload(selected),
+            "next_eligible_at": _utc(next_eligible_at).isoformat()
+            if next_eligible_at is not None
+            else None,
             "reason_codes": list(reasons),
             "candidates": [_candidate_payload(item) for item in candidates],
         }
-        digest = hashlib.sha256(
-            json.dumps(
-                body, sort_keys=True, separators=(",", ":"), default=str
-            ).encode()
-        ).hexdigest()
+        digest = canonical_digest({"inputs": decision_inputs, "outputs": output})
         return NextActionDecision(
             eligible=selected is not None,
             selected=selected,
@@ -1447,10 +1501,141 @@ class PostgresCampaignRecyclingStore:
                 )
                 return {
                     "event_id": event_id,
-                    "duplicate": False,
+                    # An identical replay of a partial projection completes it
+                    # monotonically; the caller still observes a duplicate.
+                    "duplicate": inserted is None,
                     "projection_state": projection_state,
                     "projection_note": projection_note,
                 }
+
+    async def record_suppression_request(
+        self,
+        *,
+        tenant_id: str,
+        idempotency_key: str,
+        request: Mapping[str, Any],
+        correlation_id: str,
+    ) -> dict[str, Any]:
+        """Record one contract-valid SuppressionRequest additively.
+
+        Idempotency evidence reuses the Alembic ``idempotency_record`` table
+        (unique scope/key_hash, canonical request digest, stored response); the
+        key hash binds the exact tenant. A scope=global suppression and its
+        lifecycle SUPPRESSED transition commit in one transaction; narrower
+        scopes never change lifecycle state. SUPPRESSED stays absorbing.
+        """
+        scope = str(request["scope"])
+        lead_id = str(request["lead_id"])
+        source = str(request["source"])
+        lifecycle_source = GLOBAL_SUPPRESSION_LIFECYCLE_SOURCE.get(source)
+        if scope == "global" and lifecycle_source is None:
+            raise CampaignRecyclingConflict(
+                "global suppression source has no lifecycle authority"
+            )
+        evidence_hash = str(request["evidence"]["evidence_hash"])
+        occurred_at = _coerce_event_datetime(request["occurred_at"])
+        request_hash = canonical_digest(dict(request))
+        key_hash = canonical_digest(
+            {"tenant_id": tenant_id, "idempotency_key": idempotency_key}
+        )
+        suppression_id = uuid5(NAMESPACE_URL, f"mcr:suppression_record:{key_hash}")
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock($1)",
+                    int.from_bytes(bytes.fromhex(key_hash)[:8], "big", signed=True),
+                )
+                prior = await conn.fetchrow(
+                    """
+                    SELECT request_hash, response
+                    FROM idempotency_record
+                    WHERE scope=$1 AND key_hash=$2
+                    """,
+                    SUPPRESSION_IDEMPOTENCY_SCOPE,
+                    key_hash,
+                )
+                if prior is not None:
+                    if prior["request_hash"] != request_hash:
+                        raise CampaignRecyclingIdempotencyConflict(
+                            "Idempotency-Key was reused for a different suppression"
+                        )
+                    response = prior["response"]
+                    if isinstance(response, str):
+                        response = json.loads(response)
+                    return {**response, "duplicate": True}
+                current = await conn.fetchrow(
+                    """
+                    SELECT state
+                    FROM mcr_lead_lifecycle_current
+                    WHERE tenant_id=$1 AND lead_id=$2
+                    FOR UPDATE
+                    """,
+                    tenant_id,
+                    lead_id,
+                )
+                if current is None:
+                    raise CampaignRecyclingNotFound("lead lifecycle not found")
+                recorded = await conn.fetchrow(
+                    """
+                    INSERT INTO mcr_suppressions
+                      (tenant_id,suppression_id,lead_id,scope,channel,campaign_id,reason,
+                       source,occurred_at,evidence_hash,requested_by)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                    ON CONFLICT (tenant_id,suppression_id) DO NOTHING
+                    RETURNING created_at
+                    """,
+                    tenant_id,
+                    suppression_id,
+                    lead_id,
+                    scope,
+                    request.get("channel"),
+                    request.get("campaign_id"),
+                    str(request["reason"]),
+                    source,
+                    occurred_at,
+                    evidence_hash,
+                    str(request["requested_by"]),
+                )
+                if recorded is None:
+                    # Both rows commit together; a suppression without its
+                    # idempotency evidence is never silently re-acknowledged.
+                    raise CampaignRecyclingIdempotencyConflict(
+                        "suppression identity exists without idempotency evidence"
+                    )
+                if scope == "global" and current["state"] != "SUPPRESSED":
+                    assert lifecycle_source is not None
+                    await _transition_lifecycle_on_connection(
+                        conn,
+                        tenant_id=tenant_id,
+                        lead_id=lead_id,
+                        expected_from=str(current["state"]),
+                        to_state="SUPPRESSED",
+                        reason_code="GLOBAL_SUPPRESSION_APPLIED",
+                        source=lifecycle_source,
+                        correlation_id=correlation_id,
+                        evidence_hash=evidence_hash,
+                        evidence_ref=f"suppression:{suppression_id}",
+                        occurred_at=occurred_at,
+                    )
+                response = {
+                    "suppression_id": str(suppression_id),
+                    "duplicate": False,
+                    "scope": scope,
+                    "effective_at": _utc(recorded["created_at"]).isoformat(),
+                }
+                await conn.execute(
+                    """
+                    INSERT INTO idempotency_record
+                      (id,scope,key_hash,request_hash,response,status_code)
+                    VALUES ($1,$2,$3,$4,$5::jsonb,201)
+                    """,
+                    uuid4(),
+                    SUPPRESSION_IDEMPOTENCY_SCOPE,
+                    key_hash,
+                    request_hash,
+                    json.dumps(response, separators=(",", ":"), sort_keys=True),
+                )
+                return response
 
     async def journey(
         self,
@@ -1559,7 +1744,7 @@ class PostgresCampaignRecyclingStore:
                 lead_id,
             )
             if current is None:
-                raise CampaignRecyclingConflict("lead lifecycle state does not exist")
+                raise CampaignRecyclingNotFound("lead lifecycle state does not exist")
 
             health_rows = []
             for channel, address_ref in address_refs.items():
@@ -1671,6 +1856,101 @@ class PostgresCampaignRecyclingStore:
             reactivation_cycles=reactivation_cycles,
         )
 
+    async def reconciliation_report(
+        self,
+        *,
+        tenant_id: str,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """Read-only C9 drift/replay evidence for one tenant.
+
+        The report never repairs or dispatches.  It exposes enough durable
+        evidence for an operator/reconciler to decide whether a retry or
+        quarantine action is safe.
+        """
+        if not 1 <= limit <= 500:
+            raise CampaignRecyclingConflict("reconciliation limit must be 1..500")
+        async with self.pool.acquire() as conn:
+            missing_commands = await conn.fetch(
+                """
+                SELECT e.exposure_id,e.lead_id,e.campaign_id,e.campaign_version,
+                       e.channel,e.touch_index,e.idempotency_key,e.command_id,
+                       e.correlation_id,e.status,e.reserved_at
+                FROM mcr_exposures e
+                LEFT JOIN middleware_commands c
+                  ON c.tenant_id=e.tenant_id AND c.command_id=e.command_id
+                WHERE e.tenant_id=$1 AND c.command_id IS NULL
+                ORDER BY e.reserved_at,e.exposure_id
+                LIMIT $2
+                """,
+                tenant_id,
+                limit,
+            )
+            command_drift = await conn.fetch(
+                """
+                SELECT e.exposure_id,e.command_id,e.idempotency_key AS exposure_key,
+                       c.idempotency_key AS command_key,
+                       e.correlation_id AS exposure_correlation_id,
+                       c.correlation_id AS command_correlation_id,
+                       e.status AS exposure_status,c.state AS command_state
+                FROM mcr_exposures e
+                JOIN middleware_commands c
+                  ON c.tenant_id=e.tenant_id AND c.command_id=e.command_id
+                WHERE e.tenant_id=$1
+                  AND (
+                    c.idempotency_key<>e.idempotency_key
+                    OR c.correlation_id<>e.correlation_id
+                  )
+                ORDER BY e.reserved_at,e.exposure_id
+                LIMIT $2
+                """,
+                tenant_id,
+                limit,
+            )
+            delivery_backlog = await conn.fetch(
+                """
+                SELECT id,source,event_id,event_type,lead_id,channel,campaign_id,
+                       campaign_version,exposure_idempotency_key,correlation_id,
+                       payload_hash,projection_state,projection_note,received_at
+                FROM mcr_delivery_events
+                WHERE tenant_id=$1 AND projection_state<>'applied'
+                ORDER BY received_at,id
+                LIMIT $2
+                """,
+                tenant_id,
+                limit,
+            )
+            orphan_delivery_events = await conn.fetch(
+                """
+                SELECT d.id,d.source,d.event_id,d.lead_id,d.channel,d.campaign_id,
+                       d.campaign_version,d.exposure_idempotency_key,d.correlation_id,
+                       d.projection_state,d.projection_note,d.received_at
+                FROM mcr_delivery_events d
+                LEFT JOIN mcr_exposures e
+                  ON e.tenant_id=d.tenant_id
+                 AND e.idempotency_key=d.exposure_idempotency_key
+                WHERE d.tenant_id=$1
+                  AND d.exposure_idempotency_key IS NOT NULL
+                  AND e.exposure_id IS NULL
+                ORDER BY d.received_at,d.id
+                LIMIT $2
+                """,
+                tenant_id,
+                limit,
+            )
+        categories = {
+            "missing_commands": [dict(row) for row in missing_commands],
+            "command_drift": [dict(row) for row in command_drift],
+            "delivery_backlog": [dict(row) for row in delivery_backlog],
+            "orphan_delivery_events": [dict(row) for row in orphan_delivery_events],
+        }
+        return {
+            "tenant_id": tenant_id,
+            "healthy": not any(categories.values()),
+            "counts": {name: len(items) for name, items in categories.items()},
+            **categories,
+        }
+
     async def reserve_exposure_and_command(
         self,
         *,
@@ -1690,15 +1970,150 @@ class PostgresCampaignRecyclingStore:
         authenticated_subject: str,
         authenticated_client_id: str,
         reserved_at: datetime | None = None,
+        synthetic_execution_authorized: bool = False,
     ) -> tuple[bool, CommandOperation | None]:
-        # MCR-C has no certified execution authority. A plan, caller-supplied
-        # decision UUID, or generic command capability cannot authorize a send.
-        # Keep this boundary closed even if an unrelated command policy enables
-        # an adapter. Future activation requires a reviewed execution-evidence
-        # contract and atomic fresh policy revalidation, not a config toggle.
-        raise CampaignRecyclingConflict(
-            "PRODUCTION_NOT_AUTHORIZED: MCR execution evidence boundary is not certified"
+        """Atomically reserve one exposure and persist its command intent.
+
+        This is the C8 durable shell, not production authorization.  The only
+        executable path is the existing TEST_SYN no-effect capability.  The
+        public MCR execute endpoint remains hard-denied, and production/channel
+        commands cannot cross this boundary.
+        """
+        if (
+            not synthetic_execution_authorized
+            or tenant_id != "TEST_SYN_TENANT"
+            or command.tenant_id != tenant_id
+            or command.capability != "TEST_SYN_EXECUTE"
+            or command.target != "test-syn"
+            or not command.command_type.startswith("test.syn.")
+        ):
+            raise CampaignRecyclingConflict(
+                "PRODUCTION_NOT_AUTHORIZED: MCR execution evidence boundary is not certified"
+            )
+        if command.idempotency_key != idempotency_key:
+            raise CampaignRecyclingIdempotencyConflict(
+                "command and exposure idempotency keys must match"
+            )
+        if command.correlation_id.strip() == "":
+            raise CampaignRecyclingConflict("command correlation_id is required")
+        if not idempotency_key.startswith("mcr1:") or len(idempotency_key) != 69:
+            raise CampaignRecyclingIdempotencyConflict(
+                "MCR exposure idempotency key is invalid"
+            )
+        if channel != "voice" and sender_identity_id is None:
+            raise CampaignRecyclingConflict(
+                "sender identity is required for non-voice exposure"
+            )
+        command_service.validate_submission(
+            command,
+            authenticated_subject=authenticated_subject,
+            authenticated_client_id=authenticated_client_id,
         )
+        reserved_at = _utc(reserved_at or datetime.now(UTC))
+        natural = (
+            tenant_id,
+            lead_id,
+            campaign_id,
+            campaign_version,
+            channel,
+            touch_index,
+        )
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock($1)",
+                    int.from_bytes(
+                        bytes.fromhex(hashlib.sha256(idempotency_key.encode()).hexdigest())[:8],
+                        "big",
+                        signed=True,
+                    ),
+                )
+                existing = await conn.fetchrow(
+                    """
+                    SELECT exposure_id,idempotency_key,command_id,decision_id,policy_version,
+                           sender_identity_id,status
+                    FROM mcr_exposures
+                    WHERE tenant_id=$1 AND lead_id=$2 AND campaign_id=$3
+                      AND campaign_version=$4 AND channel=$5 AND touch_index=$6
+                    FOR UPDATE
+                    """,
+                    *natural,
+                )
+                if existing is not None:
+                    same = (
+                        existing["idempotency_key"] == idempotency_key
+                        and str(existing["command_id"]) == str(command.command_id)
+                        and str(existing["decision_id"]) == str(decision_id)
+                        and existing["policy_version"] == policy_version
+                        and (
+                            existing["sender_identity_id"] is None
+                            and sender_identity_id is None
+                            or str(existing["sender_identity_id"]) == str(sender_identity_id)
+                        )
+                    )
+                    if not same:
+                        raise CampaignRecyclingIdempotencyConflict(
+                            "exposure natural key already exists with different evidence"
+                        )
+                    return False, None
+
+                other = await conn.fetchrow(
+                    """
+                    SELECT exposure_id,lead_id,campaign_id,campaign_version,channel,touch_index
+                    FROM mcr_exposures
+                    WHERE tenant_id=$1 AND idempotency_key=$2
+                    FOR UPDATE
+                    """,
+                    tenant_id,
+                    idempotency_key,
+                )
+                if other is not None:
+                    raise CampaignRecyclingIdempotencyConflict(
+                        "idempotency key already belongs to a different exposure"
+                    )
+
+                await conn.execute(
+                    """
+                    INSERT INTO mcr_exposures
+                      (exposure_id,tenant_id,lead_id,campaign_id,campaign_version,channel,
+                       touch_index,idempotency_key,command_id,correlation_id,decision_id,
+                       policy_version,sender_identity_id,status,reserved_at,status_at,updated_at)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+                            'reserved',$14,$14,$14)
+                    """,
+                    exposure_id,
+                    tenant_id,
+                    lead_id,
+                    campaign_id,
+                    campaign_version,
+                    channel,
+                    touch_index,
+                    idempotency_key,
+                    command.command_id,
+                    command.correlation_id,
+                    decision_id,
+                    policy_version,
+                    sender_identity_id,
+                    reserved_at,
+                )
+                operation = await command_service.store.submit_on_connection(
+                    conn,
+                    command,
+                    authenticated_client_id=authenticated_client_id,
+                    decision_evidence={
+                        "source": "mcr_exposure_reservation",
+                        "exposure_id": str(exposure_id),
+                        "decision_id": str(decision_id),
+                        "policy_version": policy_version,
+                        "campaign_id": campaign_id,
+                        "campaign_version": campaign_version,
+                        "channel": channel,
+                        "touch_index": touch_index,
+                        "idempotency_key": idempotency_key,
+                    },
+                    trace={"correlation_id": command.correlation_id},
+                )
+                return True, operation
 
 
 async def _transition_lifecycle_on_connection(
@@ -1716,7 +2131,7 @@ async def _transition_lifecycle_on_connection(
     occurred_at: datetime,
 ) -> int:
     if to_state not in LEGAL_TRANSITIONS.get(expected_from, frozenset()):
-        raise CampaignRecyclingConflict(
+        raise CampaignRecyclingLifecycleConflict(
             f"illegal lifecycle transition {expected_from!r}->{to_state!r}"
         )
     current = await conn.fetchrow(
@@ -1731,7 +2146,7 @@ async def _transition_lifecycle_on_connection(
     )
     actual_from = current["state"] if current else None
     if actual_from != expected_from:
-        raise CampaignRecyclingConflict(
+        raise CampaignRecyclingLifecycleConflict(
             f"lifecycle version conflict: expected {expected_from!r}, current {actual_from!r}"
         )
     version = int(current["version"]) + 1 if current else 1
@@ -1763,7 +2178,7 @@ async def _transition_lifecycle_on_connection(
             int(current["version"]),
         )
         if result != "UPDATE 1":
-            raise CampaignRecyclingConflict("lifecycle optimistic update lost")
+            raise CampaignRecyclingLifecycleConflict("lifecycle optimistic update lost")
     await conn.execute(
         """
         INSERT INTO mcr_lead_lifecycle_events
@@ -1830,6 +2245,203 @@ def _coerce_event_datetime(value: Any) -> datetime:
             "delivery event timestamp must be ISO-8601"
         ) from exc
     return _utc(parsed)
+
+
+def canonical_digest(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def delivery_event_payload_hash(event: Mapping[str, Any]) -> str:
+    """delivery-event.v1 payload_hash: canonical JSON without received_at.
+
+    payload_hash itself is necessarily excluded from its own digest.
+    """
+    return canonical_digest(
+        {k: v for k, v in event.items() if k not in {"received_at", "payload_hash"}}
+    )
+
+
+def _decision_input_payload(
+    policy: PolicyProfile,
+    snapshot: LeadSnapshot,
+    candidates: Sequence[Candidate],
+    *,
+    mode: str,
+    kill_switch_open: bool,
+    evidence_stale_or_conflicting: bool,
+) -> dict[str, Any]:
+    """Canonical material inputs for stale-plan detection.
+
+    evaluated_at is intentionally excluded by contract. Collections whose
+    ordering is not semantically meaningful are normalized before hashing.
+    """
+
+    suppressions = sorted(
+        (
+            {
+                "scope": item.scope,
+                "reason": item.reason,
+                "occurred_at": _utc(item.occurred_at).isoformat(),
+                "suppression_id": item.suppression_id,
+                "channel": item.channel,
+                "campaign_id": item.campaign_id,
+            }
+            for item in snapshot.suppressions
+        ),
+        key=lambda item: (
+            item["scope"],
+            item["reason"],
+            item["occurred_at"],
+            item["suppression_id"],
+            item["channel"] or "",
+            item["campaign_id"] or "",
+        ),
+    )
+    exposures = sorted(
+        (
+            {
+                "campaign_id": item.campaign_id,
+                "campaign_version": item.campaign_version,
+                "channel": item.channel,
+                "touch_index": item.touch_index,
+                "status": item.status,
+                "reserved_at": _utc(item.reserved_at).isoformat(),
+                "engagement_outcome": item.engagement_outcome,
+                "negative_outcome": item.negative_outcome,
+            }
+            for item in snapshot.exposures
+        ),
+        key=lambda item: (
+            item["campaign_id"],
+            item["campaign_version"],
+            item["channel"],
+            item["touch_index"],
+            item["reserved_at"],
+            item["status"],
+        ),
+    )
+    return {
+        "policy": {
+            "policy_version": policy.policy_version,
+            "configured": policy.configured,
+            "production_authorized": policy.production_authorized,
+            "values": policy.values,
+            "channel_execution": policy.channel_execution,
+        },
+        "snapshot": {
+            "tenant_id": snapshot.tenant_id,
+            "lead_id": snapshot.lead_id,
+            "lifecycle_state": snapshot.lifecycle_state,
+            "lifecycle_version": snapshot.lifecycle_version,
+            "channel_health": {
+                channel: {
+                    "state": health.state,
+                    "occurred_at": _utc(health.occurred_at).isoformat(),
+                    "address_ref": health.address_ref,
+                }
+                for channel, health in sorted(snapshot.channel_health.items())
+            },
+            "suppressions": suppressions,
+            "exposures": exposures,
+            "cooling_until": _utc(snapshot.cooling_until).isoformat()
+            if snapshot.cooling_until is not None
+            else None,
+            "reactivation_cycles": snapshot.reactivation_cycles,
+        },
+        "candidates": [
+            {
+                "campaign_id": item.campaign_id,
+                "campaign_version": item.campaign_version,
+                "channel": item.channel,
+                "priority": item.priority,
+                "touch_index": item.touch_index,
+                "sender_identity_id": item.sender_identity_id,
+                "active": item.active,
+                "version_approved": item.version_approved,
+                "consent_granted": item.consent_granted,
+                "sender_authorized": item.sender_authorized,
+                "dialing_eligible": item.dialing_eligible,
+            }
+            for item in candidates
+        ],
+        "mode": mode,
+        "kill_switch_open": kill_switch_open,
+        "evidence_stale_or_conflicting": evidence_stale_or_conflicting,
+    }
+
+
+def exposure_idempotency_key(
+    snapshot: LeadSnapshot, selected: CandidateDecision
+) -> str:
+    natural_key = {
+        "tenant_id": snapshot.tenant_id,
+        "lead_id": snapshot.lead_id,
+        "campaign_id": selected.campaign_id,
+        "campaign_version": selected.campaign_version,
+        "channel": selected.channel,
+        "touch_index": selected.touch_index,
+    }
+    return "mcr1:" + canonical_digest(natural_key)
+
+
+def next_action_document(
+    decision: NextActionDecision,
+    snapshot: LeadSnapshot,
+    *,
+    mode: Literal["plan", "read", "execute"],
+    evaluated_at: datetime,
+    correlation_id: str,
+    candidates_redacted: bool = False,
+) -> dict[str, Any]:
+    """Serialize a pure decision into the frozen next-action.v1 shape."""
+
+    selected = decision.selected
+    selected_payload = None
+    if selected is not None:
+        selected_payload = {
+            "campaign_id": selected.campaign_id,
+            "campaign_version": selected.campaign_version,
+            "channel": selected.channel,
+            "sender_identity_id": selected.sender_identity_id,
+            "touch_index": selected.touch_index,
+            "exposure_idempotency_key": exposure_idempotency_key(snapshot, selected),
+        }
+    candidates = []
+    if not candidates_redacted:
+        candidates = [
+            {
+                "campaign_id": item.campaign_id,
+                "campaign_version": item.campaign_version,
+                "channel": item.channel,
+                "disposition": item.disposition,
+                "reason_codes": list(item.reason_codes),
+            }
+            for item in decision.candidates
+        ]
+    return {
+        "schema_version": "1.0",
+        "decision_id": str(uuid5(NAMESPACE_URL, f"mcr:decision:{decision.decision_hash}")),
+        "tenant_id": snapshot.tenant_id,
+        "lead_id": snapshot.lead_id,
+        "mode": mode,
+        "dry_run": mode in {"plan", "read"},
+        "provider_effects": "none",
+        "evaluated_at": _utc(evaluated_at).isoformat(),
+        "policy_version": decision.policy_version,
+        "lifecycle_state": snapshot.lifecycle_state,
+        "eligible": decision.eligible,
+        "selected": selected_payload,
+        "next_eligible_at": _utc(decision.next_eligible_at).isoformat()
+        if decision.next_eligible_at is not None
+        else None,
+        "reason_codes": list(decision.reason_codes),
+        "candidates": candidates,
+        "candidates_redacted": candidates_redacted,
+        "decision_hash": decision.decision_hash,
+        "correlation_id": correlation_id,
+    }
 
 
 def _json_default(value: Any) -> str:
