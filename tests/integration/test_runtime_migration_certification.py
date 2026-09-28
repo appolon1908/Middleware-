@@ -61,13 +61,13 @@ def test_real_fresh_and_predecessor_migrations(predecessor, monkeypatch):
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 12
+                    == 15
                 )
                 assert (
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_automation_schema_migrations"
                     )
-                    == 1
+                    == 3
                 )
                 assert (
                     await conn.fetchval("SELECT count(*) FROM public.platform_services")
@@ -114,7 +114,7 @@ SQL_CORRUPTIONS = {
     "trigger_function": "CREATE OR REPLACE FUNCTION public.middleware_reject_automation_evidence_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END; $$",
     "fk_enforcement": "ALTER TABLE public.middleware_automation_dispatch_outbox DISABLE TRIGGER ALL",
     "sequence": "ALTER SEQUENCE public.middleware_outbox_id_seq INCREMENT BY 2",
-    "rls": "ALTER TABLE public.middleware_automation_jobs DISABLE ROW LEVEL SECURITY",
+    "rls": "ALTER TABLE public.middleware_automation_jobs ENABLE ROW LEVEL SECURITY",
 }
 
 
@@ -196,7 +196,7 @@ def test_actual_sql_structure_cannot_be_certified_from_intact_receipts(
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 12
+                    == 15
                 )
                 assert (
                     await conn.fetch(
@@ -326,7 +326,7 @@ def test_real_campaign_approval_is_hash_bound_and_append_only(monkeypatch):
     asyncio.run(scenario())
 
 
-def test_real_tenant_rls_isolation_across_all_migration_authorities(monkeypatch):
+def test_real_progressive_rls_keeps_workers_visible_and_safe_tables_isolated(monkeypatch):
     import asyncpg
 
     async def scenario():
@@ -353,16 +353,23 @@ def test_real_tenant_rls_isolation_across_all_migration_authorities(monkeypatch)
 
             conn = await asyncpg.connect(url)
             try:
-                assert head == "0070_agent_provisioning_lifecycle"
+                assert head == "0071_defer_unbound_tenant_rls"
                 assert await conn.fetchval(
                     "SELECT version_num FROM public.alembic_version"
                 ) == head
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_schema_migrations"
-                ) == 12
+                ) == 15
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_automation_schema_migrations"
-                ) == 2
+                ) == 3
+
+                assert not await conn.fetchval(
+                    "SELECT relrowsecurity FROM pg_class WHERE oid='public.middleware_outbox'::regclass"
+                )
+                assert await conn.fetchval(
+                    "SELECT relrowsecurity FROM pg_class WHERE oid='public.social_campaigns'::regclass"
+                )
 
                 role = "mw_rls_test_" + uuid4().hex[:16]
                 await conn.execute(
@@ -373,95 +380,80 @@ def test_real_tenant_rls_isolation_across_all_migration_authorities(monkeypatch)
                     assert not await conn.fetchval(
                         "SELECT rolbypassrls FROM pg_roles WHERE rolname=$1", role
                     )
-                    for table in (
-                        "middleware_inbox",
-                        "middleware_automation_reconciliation_runs",
-                        "agent_call_state",
-                    ):
-                        await conn.execute(
-                            f'GRANT SELECT,INSERT,UPDATE ON public.{table} TO "{role}"'
-                        )
+                    await conn.execute(
+                        f'GRANT SELECT,UPDATE ON public.middleware_outbox TO "{role}"'
+                    )
+                    await conn.execute(
+                        f'GRANT SELECT,INSERT ON public.social_campaigns TO "{role}"'
+                    )
 
                     tenant_a = "11111111-1111-4111-8111-111111111111"
                     tenant_b = "22222222-2222-4222-8222-222222222222"
                     await conn.execute(
-                        """
-                        INSERT INTO middleware_inbox
-                        (event_id,tenant_id,source_client_id,event_type,body_sha256,
-                         semantic_sha256,idempotency_key,correlation_id,payload,status)
-                        VALUES
-                        ('evt-a',$1,'src','type',$3,$4,'idem-a','corr-a','{}','accepted'),
-                        ('evt-b',$2,'src','type',$4,$3,'idem-b','corr-b','{}','accepted')
-                        """,
-                        tenant_a, tenant_b, "a" * 64, "b" * 64,
+                        """INSERT INTO middleware_outbox
+                        (tenant_id,destination,event_type,payload,idempotency_key)
+                        VALUES ($1,'adapter-command','command.dispatch','{}','outbox-a')""",
+                        tenant_a,
                     )
                     await conn.execute(
-                        """
-                        INSERT INTO middleware_automation_reconciliation_runs
-                        (tenant_id,reconciliation_id,mode,requested_by,idempotency_key,
-                         request_sha256,result_payload)
-                        VALUES
-                        ($1,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','READ','tester',
-                         'auto-a',$3,'{}'),
-                        ($2,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','READ','tester',
-                         'auto-b',$4,'{}')
-                        """,
-                        tenant_a, tenant_b, "c" * 64, "d" * 64,
-                    )
-                    await conn.execute(
-                        """
-                        INSERT INTO agent_call_state
-                        (call_id,tenant_id,business_unit_id,campaign_id,agent_id,extension,
-                         correlation_id,asterisk_uniqueid,linkedid,event_type,state_rank,
-                         sequence,event_timestamp)
-                        VALUES
-                        ('call-a',$1,'bu','camp','agent','6101','call-corr-a',
-                         'ast-a','link-a','CONNECTED',1,1,now()),
-                        ('call-b',$2,'bu','camp','agent','6102','call-corr-b',
-                         'ast-b','link-b','CONNECTED',1,2,now())
-                        """,
+                        """INSERT INTO social_campaigns (id,tenant_id,name) VALUES
+                        ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',$1,'tenant-a'),
+                        ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',$2,'tenant-b')""",
                         tenant_a, tenant_b,
                     )
 
+                    # Cross-tenant worker claim must remain visible to the runtime role.
                     async with conn.transaction():
                         await conn.execute(f'SET LOCAL ROLE "{role}"')
+                        row = await conn.fetchrow(
+                            """WITH candidate AS (
+                                SELECT id FROM middleware_outbox
+                                WHERE completed_at IS NULL
+                                  AND cancelled_at IS NULL
+                                  AND dead_lettered_at IS NULL
+                                  AND reconciliation_required_at IS NULL
+                                  AND attempt_count < $3
+                                  AND next_attempt_at <= now()
+                                  AND (lease_until IS NULL OR lease_until < now())
+                                ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1
+                            )
+                            UPDATE middleware_outbox o
+                            SET lease_owner=$1,
+                                lease_until=now() + ($2 * interval '1 second'),
+                                attempt_count=o.attempt_count + 1,
+                                fencing_token=o.fencing_token + 1
+                            FROM candidate WHERE o.id=candidate.id
+                            RETURNING o.id,o.tenant_id""",
+                            "rls-test-worker", 30, 5,
+                        )
+                        assert row is not None
+                        assert row["tenant_id"] == tenant_a
+
+                    # A covered table remains tenant-isolated under the same role.
+                    async with conn.transaction():
+                        await conn.execute(f'SET LOCAL ROLE "{role}"')
+                        assert await conn.fetchval(
+                            "SELECT count(*) FROM social_campaigns"
+                        ) == 0
                         await conn.fetchval(
                             "SELECT set_config('app.tenant_id',$1,true)", tenant_a
                         )
                         assert await conn.fetchval(
-                            "SELECT count(*) FROM middleware_inbox"
-                        ) == 1
-                        assert await conn.fetchval(
-                            "SELECT count(*) FROM middleware_automation_reconciliation_runs"
-                        ) == 1
-                        assert await conn.fetchval(
-                            "SELECT count(*) FROM agent_call_state"
+                            "SELECT count(*) FROM social_campaigns"
                         ) == 1
                         with pytest.raises(asyncpg.InsufficientPrivilegeError):
                             await conn.execute(
-                                """
-                                INSERT INTO middleware_inbox
-                                (event_id,tenant_id,source_client_id,event_type,body_sha256,
-                                 semantic_sha256,idempotency_key,correlation_id,payload,status)
-                                VALUES ('evt-cross',$1,'src','type',$2,$3,'idem-cross',
-                                        'corr-cross','{}','accepted')
-                                """,
-                                tenant_b, "e" * 64, "f" * 64,
+                                "INSERT INTO social_campaigns (id,tenant_id,name) VALUES ($1,$2,'cross')",
+                                uuid4(), tenant_b,
                             )
 
                     async with conn.transaction():
                         await conn.execute(f'SET LOCAL ROLE "{role}"')
-                        assert await conn.fetchval(
-                            "SELECT current_setting('app.tenant_id', true)"
-                        ) in (None, "")
-                        assert await conn.fetchval(
-                            "SELECT count(*) FROM middleware_inbox"
-                        ) == 0
                         await conn.fetchval(
                             "SELECT set_config('app.tenant_id',$1,true)", tenant_b
                         )
                         assert await conn.fetchval(
-                            "SELECT count(*) FROM middleware_inbox"
+                            "SELECT count(*) FROM social_campaigns"
                         ) == 1
                 finally:
                     await conn.execute(f'DROP OWNED BY "{role}"')

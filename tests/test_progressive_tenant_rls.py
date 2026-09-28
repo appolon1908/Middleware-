@@ -1,95 +1,115 @@
 from pathlib import Path
 
-from app.platform.tenant_inventory import scan_tenant_inventory
-
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "migrations/versions/0069_progressive_tenant_rls.py"
-CORE_SQL = ROOT / "migrations/0014_tenant_rls.sql"
-RECOVERY_SQL = ROOT / "migrations/0013_command_recovery.sql"
-AUTOMATION_SQL = ROOT / "migrations/automation/0002_tenant_rls.sql"
+ENABLE_ALEMBIC = ROOT / "migrations/versions/0069_progressive_tenant_rls.py"
+DEFER_ALEMBIC = ROOT / "migrations/versions/0071_defer_unbound_tenant_rls.py"
+SECTION6_ALEMBIC = ROOT / "migrations/versions/0070_agent_provisioning_lifecycle.py"
+CORE_ENABLE_SQL = ROOT / "migrations/0014_tenant_rls.sql"
+CORE_RECOVERY_SQL = ROOT / "migrations/0013_command_recovery.sql"
+CORE_DEFER_SQL = ROOT / "migrations/0015_defer_unbound_tenant_rls.sql"
+AUTOMATION_ENABLE_SQL = ROOT / "migrations/automation/0002_tenant_rls.sql"
+AUTOMATION_DEFER_SQL = ROOT / "migrations/automation/0003_defer_unbound_tenant_rls.sql"
+
+SAFE_ALEMBIC_RLS = {"social_campaigns", "social_media_assets"}
+SECTION6_RLS = {"agent_provisioning_repair_intent", "agent_webrtc_session"}
 
 
-def _migration_namespace() -> dict[str, object]:
+def _namespace(path: Path) -> dict[str, object]:
     namespace: dict[str, object] = {}
-    exec(MIGRATION.read_text(encoding="utf-8"), namespace)
+    exec(path.read_text(encoding="utf-8"), namespace)
     return namespace
 
 
-def _source_tables(prefix: str) -> set[str]:
-    return {
-        row.table
-        for row in scan_tenant_inventory(ROOT)
-        if row.ownership == "tenant_owned"
-        and row.tenant_representation == "tenant_id_not_null"
-        and row.source.startswith(prefix)
-        and not row.table.startswith("callback_")
-    }
+def _enabled_tables(path: Path) -> set[str]:
+    import re
 
-
-def test_progressive_rls_coverage_is_partitioned_by_migration_authority() -> None:
-    namespace = _migration_namespace()
-    alembic = set(namespace["RLS_TABLES"])
-    expected_alembic = _source_tables("migrations/versions/") - {
-        "agent_provisioning_repair_intent",
-        "agent_webrtc_session",
-    }
-    section6 = {"agent_provisioning_repair_intent", "agent_webrtc_session"}
-    expected_recovery = _source_tables("migrations/0013_command_recovery.sql")
-    expected_core = (
-        _source_tables("migrations/")
-        - expected_alembic
-        - section6
-        - expected_recovery
-        - _source_tables("migrations/automation/")
+    return set(
+        re.findall(
+            r"ALTER TABLE ([A-Za-z0-9_]+) ENABLE ROW LEVEL SECURITY",
+            path.read_text(encoding="utf-8"),
+        )
     )
-    expected_automation = _source_tables("migrations/automation/")
-
-    assert alembic == expected_alembic
-    core_sql = CORE_SQL.read_text(encoding="utf-8")
-    recovery_sql = RECOVERY_SQL.read_text(encoding="utf-8")
-    automation_sql = AUTOMATION_SQL.read_text(encoding="utf-8")
-    for table in expected_core:
-        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in core_sql
-        assert f"CREATE POLICY codestra_tenant_isolation ON {table}" in core_sql
-    for table in expected_recovery:
-        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in recovery_sql
-        assert f"CREATE POLICY codestra_tenant_isolation ON {table}" in recovery_sql
-    for table in expected_automation:
-        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in automation_sql
-        assert f"CREATE POLICY codestra_tenant_isolation ON {table}" in automation_sql
 
 
-def test_rls_is_fail_closed_and_type_correct() -> None:
-    namespace = _migration_namespace()
-    source = MIGRATION.read_text(encoding="utf-8")
-    assert "ENABLE ROW LEVEL SECURITY" in source
+def _disabled_tables(path: Path) -> set[str]:
+    import re
+
+    return set(
+        re.findall(
+            r"ALTER TABLE ([A-Za-z0-9_]+) DISABLE ROW LEVEL SECURITY",
+            path.read_text(encoding="utf-8"),
+        )
+    )
+
+
+def test_progressive_rls_effective_scope_is_explicit() -> None:
+    enabled = _namespace(ENABLE_ALEMBIC)
+    deferred = _namespace(DEFER_ALEMBIC)
+    initially_enabled = set(enabled["RLS_TABLES"])
+    deferred_tables = set(deferred["DEFERRED_RLS_TABLES"])
+
+    assert initially_enabled == SAFE_ALEMBIC_RLS | deferred_tables
+    assert SAFE_ALEMBIC_RLS.isdisjoint(deferred_tables)
+    assert deferred["down_revision"] == "0070_agent_provisioning_lifecycle"
+
+    section6 = SECTION6_ALEMBIC.read_text(encoding="utf-8")
+    for table in SECTION6_RLS:
+        assert table in section6
+        assert f"ALTER TABLE {{table}} ENABLE ROW LEVEL SECURITY" in section6
+
+
+def test_sql_managed_unbound_paths_are_deferred_forward_only() -> None:
+    initially_core = _enabled_tables(CORE_ENABLE_SQL) | _enabled_tables(CORE_RECOVERY_SQL)
+    deferred_core = _disabled_tables(CORE_DEFER_SQL)
+    assert initially_core == deferred_core
+
+    initially_automation = _enabled_tables(AUTOMATION_ENABLE_SQL)
+    deferred_automation = _disabled_tables(AUTOMATION_DEFER_SQL)
+    assert initially_automation == deferred_automation
+
+    core_enable = CORE_ENABLE_SQL.read_text(encoding="utf-8")
+    core_defer = CORE_DEFER_SQL.read_text(encoding="utf-8")
+    auto_enable = AUTOMATION_ENABLE_SQL.read_text(encoding="utf-8")
+    auto_defer = AUTOMATION_DEFER_SQL.read_text(encoding="utf-8")
+    assert "VALUES (14,'tenant_rls')" in core_enable
+    assert "VALUES (15,'defer_unbound_tenant_rls')" in core_defer
+    assert "VALUES (2,'tenant_rls')" in auto_enable
+    assert "VALUES (3,'defer_unbound_tenant_rls')" in auto_defer
+
+
+def test_safe_rls_paths_still_fail_closed_and_type_correct() -> None:
+    enabled = _namespace(ENABLE_ALEMBIC)
+    source = ENABLE_ALEMBIC.read_text(encoding="utf-8")
     assert "current_setting('app.tenant_id', true)" in source
     assert "WITH CHECK" in source
     assert "FORCE ROW LEVEL SECURITY" not in source
-    assert "migration/table owner retains" in source
+    tenant_expression = enabled["_tenant_expression"]
+    assert tenant_expression("social_campaigns").endswith("::uuid")
+    assert tenant_expression("social_media_assets").endswith("::uuid")
 
-    tenant_expression = namespace["_tenant_expression"]
-    assert tenant_expression("social_accounts").endswith("::uuid")
-    assert not tenant_expression("agent_provisioning_request").endswith("::uuid")
-
-
-def test_sql_rls_migrations_are_forward_only_and_receipted() -> None:
-    core = CORE_SQL.read_text(encoding="utf-8")
-    automation = AUTOMATION_SQL.read_text(encoding="utf-8")
-    assert "VALUES (14,'tenant_rls')" in core
-    assert "VALUES (2,'tenant_rls')" in automation
-    for text in (core, automation):
-        assert "DISABLE ROW LEVEL SECURITY" not in text
-        assert "BYPASSRLS" in text
-        assert "WITH CHECK" in text
+    section6 = SECTION6_ALEMBIC.read_text(encoding="utf-8")
+    assert "current_setting('app.tenant_id', true)" in section6
+    assert "WITH CHECK" in section6
 
 
-def test_section6_successor_owns_new_rls_tables() -> None:
-    source = (ROOT / "migrations/versions/0070_agent_provisioning_lifecycle.py").read_text()
-    for table in ("agent_provisioning_repair_intent", "agent_webrtc_session"):
-        assert table in source
-    assert 'for table in ("agent_provisioning_repair_intent", "agent_webrtc_session")' in source
-    assert 'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY' in source
-    assert 'CREATE POLICY codestra_tenant_isolation ON {table}' in source
-    assert "current_setting('app.tenant_id', true)" in source
+def test_deferred_worker_tables_include_cross_tenant_queues() -> None:
+    core_deferred = _disabled_tables(CORE_DEFER_SQL)
+    for table in (
+        "middleware_outbox",
+        "middleware_inbox",
+        "middleware_commands",
+        "middleware_event_ledger",
+        "middleware_command_dead_letters",
+        "middleware_command_replays",
+    ):
+        assert table in core_deferred
+
+    alembic_deferred = set(_namespace(DEFER_ALEMBIC)["DEFERRED_RLS_TABLES"])
+    for table in (
+        "agent_call_state",
+        "klyrow_mail_inbound",
+        "social_publish_jobs",
+        "telnexa_delivery_event_inbox",
+    ):
+        assert table in alembic_deferred
