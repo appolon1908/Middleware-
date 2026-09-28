@@ -45,6 +45,9 @@ from app.api.internal.klyrow_mail import router as klyrow_mail_router
 from app.api.internal.provider_canaries import (
     router as internal_provider_canaries_router,
 )
+from app.api.internal.production_decision import (
+    router as internal_production_decision_router,
+)
 from app.api.internal.release_certification import (
     router as internal_release_certification_router,
 )
@@ -136,6 +139,9 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     # Private fail-closed release certification (candidate, backup, restore
     # rehearsal, rollback readiness, seal, lock readback); evaluation only.
     internal_release_certification_router,
+    # Private production GO/NO_GO decision readback; read-only, explicit
+    # scopes, edge-denied under /internal/*, and shared by every profile.
+    internal_production_decision_router,
     # The V3 command kernel: the six /platform/v1 kernel routes, on every profile.
     platform_kernel_router,
     automation_v2_router,
