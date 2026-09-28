@@ -46,6 +46,24 @@ logger = logging.getLogger("codestra.runtime")
 
 CORRELATION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 MAX_RATE_IDENTITIES = 4096
+CANONICAL_API_PREFIXES = ("/platform/v1/", "/v2/automation/")
+
+
+def _canonical_guard_error(*, status_code: int, code: str, message: str, correlation_id: str) -> JSONResponse:
+    """Guard-level refusal in the canonical V3 error envelope."""
+    return JSONResponse(
+        {
+            "error": {
+                "code": code,
+                "message": message,
+                "correlation_id": correlation_id,
+                "retryable": False,
+                "details": {},
+            }
+        },
+        status_code=status_code,
+        headers={"X-Correlation-ID": correlation_id},
+    )
 
 # Routes whose handler verifies an HMAC signature or a service JWT itself.
 SIGNED_WEBHOOK_PATHS = frozenset(
@@ -220,16 +238,22 @@ class RequestGuard:
         # the canonical error envelope (read_limited_body); every other route
         # is bounded here.
         control_plane = self.control_plane_route(request.method, path)
+        correlation_id = safe_correlation_id(request.headers.get("X-Correlation-ID")) or str(uuid4())
+        canonical_api = path.startswith(CANONICAL_API_PREFIXES)
         content_length = 0
         if not control_plane:
             try:
                 content_length = int(request.headers.get("content-length", "0") or 0)
             except ValueError:
-                return JSONResponse({"detail": "invalid content length"}, status_code=400)
+                content_length = -1
             if content_length < 0:
+                if canonical_api:
+                    return _canonical_guard_error(
+                        status_code=400, code="INVALID_CONTENT_LENGTH",
+                        message="Content-Length is invalid", correlation_id=correlation_id,
+                    )
                 return JSONResponse({"detail": "invalid content length"}, status_code=400)
 
-        correlation_id = safe_correlation_id(request.headers.get("X-Correlation-ID")) or str(uuid4())
         request.state.correlation_id = correlation_id
         client_correlation = request.headers.get("x-correlation-id", "").strip()
         request.state.client_correlation_id = (
@@ -264,6 +288,11 @@ class RequestGuard:
                 status_code=413,
             )
         if content_length > settings.request_max_bytes:
+            if canonical_api:
+                return _canonical_guard_error(
+                    status_code=413, code="REQUEST_TOO_LARGE",
+                    message="request exceeds the configured body limit", correlation_id=correlation_id,
+                )
             return JSONResponse({"detail": "request too large"}, status_code=413)
 
         if self.is_signed_write(request.method, path) and self.rate_limited(request):
