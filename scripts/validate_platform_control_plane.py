@@ -176,7 +176,7 @@ def main() -> int:
     required_input_markers = (
         "request.headers.getlist(name)",
         "if len(values) != 1",
-        'request.headers.getlist("Authorization")',
+        'request.headers.getlist(AUTHORIZATION)',
         "if len(values) > 1",
     )
     missing_inputs = [

@@ -118,7 +118,7 @@ def validate_runtime_safety(
         raise AcceptanceError(
             "deployed image digest does not match the approved release"
         )
-    if release["schema_head"] != "0067_service_catalog_monitoring_state":
+    if release["schema_head"] != "0068_explicit_tenant_child_columns":
         raise AcceptanceError("deployed migration head is not current")
     if persistence != {"in_memory": False}:
         raise AcceptanceError("staging must use durable persistence")

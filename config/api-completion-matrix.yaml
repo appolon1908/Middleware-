@@ -755,6 +755,42 @@ operations:
   runtime_state: IMPLEMENTED
 - domain: platform
   method: GET
+  path: /platform/v1/connectors
+  canonical_operation_id: connectors_catalog_platform_v1_connectors_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors/{connector_id}
+  canonical_operation_id: connector_catalog_item_platform_v1_connectors__connector_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors/{connector_id}/capabilities
+  canonical_operation_id: connector_capabilities_platform_v1_connectors__connector_id__capabilities_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors/{connector_id}/health
+  canonical_operation_id: connector_health_platform_v1_connectors__connector_id__health_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/connectors/{connector_id}/readback
+  canonical_operation_id: connector_operator_readback_platform_v1_connectors__connector_id__readback_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/connectors/{connector_id}/reconcile
+  canonical_operation_id: connector_operator_reconcile_platform_v1_connectors__connector_id__reconcile_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
   path: /platform/v1/contacts
   canonical_operation_id: list_contacts_platform_v1_contacts_get
   implementation_file: registered FastAPI runtime

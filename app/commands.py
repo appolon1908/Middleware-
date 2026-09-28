@@ -190,6 +190,12 @@ class DeadLetterRecord(BaseModel):
     created_at: datetime
 
 
+def _dead_letter_from_row(row: Mapping[str, Any]) -> DeadLetterRecord:
+    data = dict(row)
+    data["dead_letter_id"] = data.pop("id")
+    return DeadLetterRecord(**data)
+
+
 class ReplayRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
     replay_id: UUID
@@ -1350,19 +1356,19 @@ class PostgresCommandStore:
                 if row is None:
                     row = await conn.fetchrow("SELECT * FROM middleware_command_dead_letters WHERE tenant_id=$1 AND command_id=$2",tenant_id,str(command_id))
         assert row is not None
-        return DeadLetterRecord(**dict(row))
+        return _dead_letter_from_row(row)
 
     async def list_dead_letters(self, tenant_id: str, *, limit: int = 100) -> list[DeadLetterRecord]:
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("SELECT * FROM middleware_command_dead_letters WHERE tenant_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2",tenant_id,limit)
-        return [DeadLetterRecord(**dict(row)) for row in rows]
+        return [_dead_letter_from_row(row) for row in rows]
 
     async def get_dead_letter(self, tenant_id: str, command_id: UUID) -> DeadLetterRecord:
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow("SELECT * FROM middleware_command_dead_letters WHERE tenant_id=$1 AND command_id=$2",tenant_id,str(command_id))
         if row is None:
             raise CommandNotFound("dead-letter record was not found")
-        return DeadLetterRecord(**dict(row))
+        return _dead_letter_from_row(row)
 
     async def create_replay(self, tenant_id: str, command_id: UUID, *, replay_id: UUID, actor_id: str, idempotency_key: str, reason: str, scheduled_at: datetime | None = None) -> ReplayRecord:
         async with self.pool.acquire() as conn:

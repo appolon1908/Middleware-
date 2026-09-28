@@ -532,7 +532,7 @@ async def connector_catalog_item(request: Request, connector_id: str):
     try:
         return await describe_connector(platform, connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404, content={"error":{"code":exc.code,"message":str(exc)}})
+        return JSONResponse(status_code=404, content={"error":{"code":exc.code,"message":"connector is unavailable"}})
 
 @router.get("/connectors/{connector_id}/capabilities")
 async def connector_capabilities(request: Request, connector_id: str):
@@ -541,7 +541,7 @@ async def connector_capabilities(request: Request, connector_id: str):
     try:
         row=await describe_connector(platform,connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":str(exc)}})
+        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":"connector is unavailable"}})
     return {"connector_id":connector_id,"capabilities":row["capabilities"],
             "effect_classification":row["effect_classification"],"enabled":row["enabled"]}
 
@@ -552,7 +552,7 @@ async def connector_health(request: Request, connector_id: str):
     try:
         row=await describe_connector(platform,connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":str(exc)}})
+        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":"connector is unavailable"}})
     return {"connector_id":connector_id,"health":row["health"],"readiness":row["readiness"],
             "enabled":row["enabled"],"environment":row["environment"]}
 

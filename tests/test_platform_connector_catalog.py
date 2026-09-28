@@ -36,3 +36,9 @@ def test_required_connector_routes_are_registered_in_source():
  source=(Path(__file__).resolve().parents[1]/"app/platform/api.py").read_text()
  for route in ('/connectors','/connectors/{connector_id}','/connectors/{connector_id}/capabilities','/connectors/{connector_id}/health','/connectors/{connector_id}/readback','/connectors/{connector_id}/reconcile'):
   assert route in source
+
+def test_connector_routes_do_not_expose_exception_details():
+ from pathlib import Path
+ source=(Path(__file__).resolve().parents[1]/"app/platform/api.py").read_text()
+ assert "str(exc)" not in source
+ assert source.count('"message":"connector is unavailable"') == 3
