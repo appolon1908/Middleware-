@@ -31,6 +31,7 @@ def test_invalid_registry_fails_closed(
         "config/system-ownership.v2.json",
         "config/capabilities.v2.json",
         "config/adapter-registry.v2.json",
+        "config/repository-authorities.v1.json",
         "contracts/platform/command-envelope.v1.schema.json",
         "connectors/generated/command-registry.v1.json",
         "contracts/platform/event-envelope.v1.schema.json",

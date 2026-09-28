@@ -35,6 +35,13 @@
       ]
     },
     {
+      "id": "djone-mixxx",
+      "cell": "core-communications",
+      "repository": "ingtrader21-spec/DJONE",
+      "command_prefixes": ["djone."],
+      "direct_n8n": false
+    },
+    {
       "id": "klyrow-alert-email",
       "cell": "core-communications",
       "repository": "appolon1908-hue/klyrow.com",
