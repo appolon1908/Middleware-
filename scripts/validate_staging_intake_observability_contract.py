@@ -109,6 +109,7 @@ EXPECTED_REGISTRY_ROUTERS = {
     "internal_ai_jobs_router": ("api.internal.ai_jobs", "router"),
     "internal_database_router": ("api.internal.database", "router"),
     "internal_provider_canaries_router": ("api.internal.provider_canaries", "router"),
+    "internal_production_decision_router": ("api.internal.production_decision", "router"),
     "internal_release_certification_router": (
         "api.internal.release_certification",
         "router",
@@ -189,6 +190,7 @@ EXPECTED_REGISTRY_TUPLES = {
         {
             "internal_database_router",
             "internal_release_certification_router",
+            "internal_production_decision_router",
             "platform_kernel_router",
             "automation_v2_router",
             "automation_router",
