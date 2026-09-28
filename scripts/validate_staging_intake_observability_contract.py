@@ -64,6 +64,26 @@ EXPECTED_PROFILE: dict[str, Any] = {
     },
     "secret_path_prefix": "/run/secrets/middleware-staging-",
     "production_activation_allowed": False,
+    # Compose topology alternate (verify-full with client certificates only);
+    # there is deliberately no plaintext Redis alternate.
+    "database_alternates": [
+        {
+            "scheme": "postgresql",
+            "host": "postgres",
+            "port": 5432,
+            "name": "middleware_staging",
+            "usernames": [
+                "middleware_api",
+                "middleware_worker",
+                "middleware_reconciler",
+                "middleware_scheduler",
+            ],
+            "sslmode": "verify-full",
+            "sslrootcert": "/run/secrets/middleware-staging-db-ca.crt",
+            "sslcert": "/run/secrets/middleware-staging-db-client.crt",
+            "sslkey": "/run/secrets/middleware-staging-db-client.key",
+        }
+    ],
 }
 WEBHOOK_SECRET_NAMES = {
     "WEBHOOK_SECRET_ODOO_INTEGRATION",
