@@ -39,7 +39,7 @@ from .storage import (
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTING_PATH = ROOT / "config" / "automation-workflow-routing.v1.json"
-AUTOMATION_SCHEMA_VERSION = 1
+AUTOMATION_SCHEMA_VERSION = 3
 LEASE_SECONDS = 60
 MAX_SAFE_METADATA_BYTES = 16_384
 MAX_AUTOMATION_PAYLOAD_BYTES = 262_144
