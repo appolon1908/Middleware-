@@ -44,7 +44,7 @@ from .storage import (
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTING_PATH = ROOT / "config" / "automation-workflow-routing.v1.json"
-AUTOMATION_SCHEMA_VERSION = 1
+AUTOMATION_SCHEMA_VERSION = 2
 LEASE_SECONDS = 60
 MAX_SAFE_METADATA_BYTES = 16_384
 MAX_AUTOMATION_PAYLOAD_BYTES = 262_144
@@ -2438,6 +2438,7 @@ async def _assert_store_lease(
     if isinstance(store, PostgresAutomationStore):
         async with store.pool.acquire() as conn:
             async with conn.transaction():
+                await set_asyncpg_transaction_tenant_context(conn, body.tenant_id)
                 row = await store._lease_row(
                     conn,
                     tenant_id=body.tenant_id,

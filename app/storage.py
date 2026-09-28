@@ -11,7 +11,7 @@ import asyncpg
 from .models import EventEnvelope, IngressResult
 
 
-RUNTIME_SCHEMA_VERSION = 13
+RUNTIME_SCHEMA_VERSION = 14
 DEFAULT_MAX_OUTBOX_ATTEMPTS = 8
 NATS_JETSTREAM_DESTINATION = "nats-jetstream"
 KLYROW_ODOO_PROJECTION_DESTINATION = "odoo-klyrow-projection-v1"
