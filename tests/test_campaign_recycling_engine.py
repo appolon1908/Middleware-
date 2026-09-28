@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 import json
 from unittest.mock import AsyncMock
@@ -125,6 +127,20 @@ def delivery_event(**overrides):
     value.update(overrides)
     if value["event_type"] in {"soft_bounce", "hard_bounce"}:
         value["bounce_class"] = "soft" if value["event_type"] == "soft_bounce" else "hard"
+    if "payload_hash" not in overrides:
+        hash_event = {
+            key: item
+            for key, item in value.items()
+            if key not in {"received_at", "payload_hash"}
+        }
+        value["payload_hash"] = hashlib.sha256(
+            json.dumps(
+                hash_event,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
     return value
 
 
@@ -962,7 +978,18 @@ async def test_delivery_event_source_channel_pair_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_delivery_event_rejects_caller_payload_hash_mismatch_before_db() -> None:
+    store = PostgresCampaignRecyclingStore(FakePool(FakeConn()))
+    with pytest.raises(CampaignRecyclingConflict, match="does not match canonical event"):
+        await store.apply_delivery_event(
+            delivery_event(payload_hash="0" * 64),
+            policy=PolicyProfile.load("test"),
+        )
+
+
+@pytest.mark.asyncio
 async def test_delivery_event_exact_replay_returns_duplicate() -> None:
+    event = delivery_event()
     conn = FakeConn()
     conn.fetchrow_results = [
         None,
@@ -970,7 +997,7 @@ async def test_delivery_event_exact_replay_returns_duplicate() -> None:
             "id": 7,
             "source": "klyrow",
             "event_id": "evt-mcr-00000001",
-            "payload_hash": "e" * 64,
+            "payload_hash": event["payload_hash"],
             "origin_inbox": "klyrow_delivery_event_inbox",
             "origin_event_id": "raw-1",
             "projection_state": "applied",
@@ -978,7 +1005,7 @@ async def test_delivery_event_exact_replay_returns_duplicate() -> None:
     ]
     store = PostgresCampaignRecyclingStore(FakePool(conn))
     result = await store.apply_delivery_event(
-        delivery_event(), policy=PolicyProfile.load("test")
+        event, policy=PolicyProfile.load("test")
     )
     assert result == {
         "event_id": "evt-mcr-00000001",
@@ -1624,7 +1651,7 @@ async def test_identical_replay_of_partial_projection_is_a_duplicate() -> None:
             "id": 7,
             "source": "klyrow",
             "event_id": "evt-mcr-00000001",
-            "payload_hash": "e" * 64,
+            "payload_hash": delivery_event()["payload_hash"],
             "origin_inbox": "klyrow_delivery_event_inbox",
             "origin_event_id": "raw-1",
             "projection_state": "partial",
