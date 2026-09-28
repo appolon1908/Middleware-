@@ -321,8 +321,12 @@ def route_operations(app: FastAPI) -> list[tuple[str, str]]:
     return operations
 
 
-def assert_unique_routes(app: FastAPI) -> None:
-    """Refuse an application that registers the same operation twice."""
+def assert_unique_routes(app: FastAPI, *, deployed: bool = False) -> None:
+    """Refuse an application that registers the same operation twice.
+
+    ``deployed`` marks a non-monolith profile (the :8095 integration process
+    included): it must also never mount an edge-denied legacy route.
+    """
     counts = Counter(route_operations(app))
     duplicates = sorted(op for op, count in counts.items() if count > 1)
     if duplicates:
@@ -330,3 +334,21 @@ def assert_unique_routes(app: FastAPI) -> None:
             "duplicate route registrations: "
             + ", ".join(f"{method} {path}" for method, path in duplicates)
         )
+    if deployed:
+        assert_no_legacy_monolith_routes(app)
+
+
+def assert_no_legacy_monolith_routes(app: FastAPI) -> None:
+    """Fail startup, rather than wait for the release endpoint audit, when a
+    deployed composition mounts a LEGACY_MONOLITH_ONLY_ROUTERS route."""
+    forbidden = {
+        (method, path)
+        for router in LEGACY_MONOLITH_ONLY_ROUTERS
+        for route in router.routes
+        for path in [getattr(route, "path", None)]
+        for method in (getattr(route, "methods", None) or ())
+        if path is not None
+    }
+    leaked = sorted(forbidden & set(route_operations(app)))
+    if leaked:
+        raise RuntimeError(f"deployed composition leaked legacy monolith-only routes: {leaked}")
