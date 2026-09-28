@@ -42,6 +42,13 @@
       "direct_n8n": false
     },
     {
+      "id": "evolution-whatsapp",
+      "cell": "core-communications",
+      "repository": "ingtrader21-spec/Evolution-API",
+      "command_prefixes": ["whatsapp."],
+      "direct_n8n": false
+    },
+    {
       "id": "klyrow-alert-email",
       "cell": "core-communications",
       "repository": "appolon1908-hue/klyrow.com",

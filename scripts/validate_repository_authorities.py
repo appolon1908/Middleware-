@@ -23,6 +23,7 @@ EXPECTED = {
     "caddy": "appolon1908-hue/Caddy",
     "codestra-connect": "ingtrader21-spec/Codestra-Connect",
     "djone": "ingtrader21-spec/DJONE",
+    "evolution-whatsapp": "ingtrader21-spec/Evolution-API",
     "keycloak": "appolon1908-hue/Keycloak",
     "klyrow-email": "appolon1908-hue/klyrow.com",
     "klyrow-web": "appolon1908-hue/klyrow-Website-",
