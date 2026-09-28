@@ -17,7 +17,8 @@
     "telnexa-sms": false,
     "test-syn": false,
     "vicidial-restricted": false,
-    "connect-router": false
+    "connect-router": false,
+    "evolution-whatsapp": false
   },
   "synthetic_tenants": [
     "TEST_SYN"

@@ -21,7 +21,7 @@ SDK_SCRIPT = ROOT / "scripts/validate_connector_sdk.py"
         "wrong_adapter",
         "non_boolean_capability",
         "direct_n8n",
-        "noncanonical_adapter_repository",
+        "non_codestra_adapter_repository",
     ],
 )
 @pytest.mark.parametrize("optimized", [False, True])
@@ -59,7 +59,7 @@ def test_invalid_registry_fails_closed(
         if mutation == "direct_n8n" and path == "config/adapter-registry.v2.json":
             value["adapters"][0]["direct_n8n"] = True
         if (
-            mutation == "noncanonical_adapter_repository"
+            mutation == "non_codestra_adapter_repository"
             and path == "config/adapter-registry.v2.json"
         ):
             # An approved owner namespace alone must not confer ownership.
@@ -67,7 +67,7 @@ def test_invalid_registry_fails_closed(
                 adapter
                 for adapter in value["adapters"]
                 if adapter["id"] == "evolution-whatsapp"
-            )["repository"] = "ingtrader21-spec/Unregistered-Repository"
+            )["repository"] = "external-example/Unregistered-Repository"
         target = tmp_path / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(value))
