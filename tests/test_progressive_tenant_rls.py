@@ -56,7 +56,7 @@ def test_progressive_rls_effective_scope_is_explicit() -> None:
     section6 = SECTION6_ALEMBIC.read_text(encoding="utf-8")
     for table in SECTION6_RLS:
         assert table in section6
-        assert f"ALTER TABLE {{table}} ENABLE ROW LEVEL SECURITY" in section6
+        assert "ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in section6
 
 
 def test_sql_managed_unbound_paths_are_deferred_forward_only() -> None:
