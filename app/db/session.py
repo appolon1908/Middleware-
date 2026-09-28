@@ -25,7 +25,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import Settings, settings
+from app.core.config import Settings, runtime_database_sslmode, settings
+from app.db.connection import build_database_connection_authority
 
 
 TENANT_CONTEXT_GUC = "app.tenant_id"
@@ -67,29 +68,31 @@ async def set_transaction_tenant_context(
     return normalized
 
 
-def _native_asyncpg_dsn(database_url: str) -> str:
-    """Return a native asyncpg DSN while preserving libpq TLS query policy."""
-    prefix = "postgresql+asyncpg://"
-    if database_url.startswith(prefix):
-        return "postgresql://" + database_url[len(prefix):]
-    return database_url
 
 
 def _build_engine(config: Settings, database_url: str | None = None) -> AsyncEngine:
-    native_dsn = _native_asyncpg_dsn(database_url or config.database_url)
+    environment = getattr(config, "app_env", "test")
+    runtime_profile = getattr(config, "runtime_profile_id", None)
+    profile_sslmode = runtime_database_sslmode(runtime_profile)
+    requires_verify_full = (
+        environment in {"staging", "production"} and profile_sslmode == "verify-full"
+    )
+    authority = build_database_connection_authority(
+        database_url or config.database_url,
+        command_timeout_seconds=config.database_command_timeout_seconds,
+        application_name="codestra-middleware/" + (runtime_profile or environment),
+        secure_environment=requires_verify_full,
+        validate_tls_files=requires_verify_full,
+    )
     return create_async_engine(
-        "postgresql+asyncpg://",
+        authority.sqlalchemy_url,
         pool_pre_ping=True,
         pool_size=config.database_pool_size,
         max_overflow=config.database_max_overflow,
         pool_timeout=config.database_pool_timeout_seconds,
         pool_recycle=config.database_pool_recycle_seconds,
-        connect_args={
-            "dsn": native_dsn,
-            "command_timeout": config.database_command_timeout_seconds,
-        },
+        connect_args=authority.connect_args,
     )
-
 
 engine: AsyncEngine = _build_engine(settings)
 SessionFactory: async_sessionmaker[AsyncSession] = async_sessionmaker(
