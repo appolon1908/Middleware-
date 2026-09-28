@@ -86,7 +86,6 @@ def test_client_certificate_and_key_are_atomic() -> None:
         )
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX private-key mode contract")
 def test_tls_files_are_readable_and_private(tmp_path: Path) -> None:
     ca = tmp_path / "ca.crt"
     cert = tmp_path / "client.crt"
