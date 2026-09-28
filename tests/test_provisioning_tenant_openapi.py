@@ -21,6 +21,6 @@ def test_provisioning_read_and_transition_openapi_expose_verified_tenant_selecto
         parameters = operation.get("parameters", [])
         header = next(
             item for item in parameters
-            if item.get("in") == "header" and item.get("name") == "X-Codestra-Tenant-ID"
+            if item.get("in") == "header" and item.get("name") == "X-Tenant-ID"
         )
         assert header["required"] is False

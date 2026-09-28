@@ -881,7 +881,7 @@ async def create_provisioning_request(
 @router.get("/requests/{request_id}")
 async def get_provisioning_request(
     request_id: UUID,
-    x_tenant_id: str | None = Header(default=None, alias="X-Codestra-Tenant-ID"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ):
@@ -969,7 +969,7 @@ async def _transition(
 @router.post("/requests/{request_id}/reconcile")
 async def reconcile_provisioning_request(
     request_id: UUID, body: TransitionRequest,
-    x_tenant_id: str | None = Header(default=None, alias="X-Codestra-Tenant-ID"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ):
@@ -980,7 +980,7 @@ async def reconcile_provisioning_request(
 @router.post("/requests/{request_id}/suspend")
 async def suspend_provisioning_request(
     request_id: UUID, body: TransitionRequest,
-    x_tenant_id: str | None = Header(default=None, alias="X-Codestra-Tenant-ID"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ):
@@ -991,7 +991,7 @@ async def suspend_provisioning_request(
 @router.post("/requests/{request_id}/reactivate")
 async def reactivate_provisioning_request(
     request_id: UUID, body: TransitionRequest,
-    x_tenant_id: str | None = Header(default=None, alias="X-Codestra-Tenant-ID"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ):
@@ -1002,7 +1002,7 @@ async def reactivate_provisioning_request(
 @router.post("/requests/{request_id}/revoke")
 async def revoke_provisioning_request(
     request_id: UUID, body: TransitionRequest,
-    x_tenant_id: str | None = Header(default=None, alias="X-Codestra-Tenant-ID"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ):
