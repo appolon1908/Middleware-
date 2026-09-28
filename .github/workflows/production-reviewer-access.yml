@@ -52,7 +52,7 @@ jobs:
         github.event.comment.user.id == 275410064 &&
         github.event.comment.user.login == 'appolon1908-hue'
       )
-    runs-on: [self-hosted, Linux, X64, middleware-ci]
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","middleware-ci"]') }}
     timeout-minutes: 10
     env:
       EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
@@ -111,7 +111,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-    runs-on: [self-hosted, Linux, X64, middleware-ci]
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","middleware-ci"]') }}
     timeout-minutes: 20
     environment:
       name: repository-administration

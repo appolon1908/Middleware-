@@ -25,7 +25,7 @@ concurrency:
 jobs:
   validate:
     name: validate (${{ matrix.component }})
-    runs-on: [self-hosted, Linux, X64, middleware-ci]
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","middleware-ci"]') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -90,7 +90,7 @@ jobs:
           docker build --build-arg "VCS_REF=${GITHUB_SHA}" --tag "codestra-websocket-gateway:${GITHUB_SHA}" websocket_gateway
 
   source-security:
-    runs-on: [self-hosted, Linux, X64, middleware-ci]
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","middleware-ci"]') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
