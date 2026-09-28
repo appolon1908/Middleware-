@@ -1447,7 +1447,7 @@ def test_migration_is_single_successor_and_does_not_enable_effects() -> None:
         .read_text(encoding="utf-8")
     )
     assert 'revision = "0072_campaign_recycling_core"' in source
-    assert 'down_revision = "0071_tenant_rls_scope"' in source
+    assert 'down_revision = "0071_defer_unbound_tenant_rls"' in source
     assert "transition_id uuid NOT NULL UNIQUE" in source
     assert "correlation_id text NOT NULL" in source
     assert "ledger_version bigint NOT NULL DEFAULT 1" in source

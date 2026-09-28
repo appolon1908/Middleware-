@@ -1,7 +1,7 @@
 """MCR Milestone 10 durable lifecycle, suppression and exposure state.
 
 Revision ID: 0072_campaign_recycling_core
-Revises: 0071_tenant_rls_scope
+Revises: 0071_defer_unbound_tenant_rls
 
 This migration creates the durable state required by the frozen MCR-A
 contracts. It does not enable any provider capability or register public
@@ -14,7 +14,7 @@ reservation and its canonical command/outbox intent in one database transaction.
 from alembic import op
 
 revision = "0072_campaign_recycling_core"
-down_revision = "0071_tenant_rls_scope"
+down_revision = "0071_defer_unbound_tenant_rls"
 branch_labels = None
 depends_on = None
 
