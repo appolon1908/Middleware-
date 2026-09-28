@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from scripts.mcr_dependency_contract import DEPENDENCIES, load_dependency_contract
+from scripts.mcr_dependency_contract import load_dependency_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "ingtrader21-spec/Middleware-"

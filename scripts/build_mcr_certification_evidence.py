@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from scripts.mcr_dependency_contract import DEPENDENCIES, load_dependency_contract
+from scripts.mcr_dependency_contract import load_dependency_contract
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 SCENARIOS = {
