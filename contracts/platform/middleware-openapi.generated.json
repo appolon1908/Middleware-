@@ -9722,7 +9722,7 @@
           },
           {
             "in": "header",
-            "name": "X-Correlation-Id",
+            "name": "X-Correlation-ID",
             "required": true,
             "schema": {
               "maxLength": 200,
@@ -16834,7 +16834,7 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
+              "title": "X-Correlation-ID",
               "type": "string"
             }
           },

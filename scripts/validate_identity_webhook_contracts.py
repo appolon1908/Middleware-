@@ -53,7 +53,7 @@ EXPECTED_REQUIRED_HEADERS = {
     "X-Codestra-Tenant-Id",
     "X-Codestra-Timestamp",
     "X-Codestra-Signature",
-    "X-Correlation-Id",
+    "X-Correlation-ID",
 }
 EXPECTED_REQUIRED_HEADER_ORDER = [
     "Authorization",
@@ -65,7 +65,7 @@ EXPECTED_REQUIRED_HEADER_ORDER = [
     "X-Codestra-Tenant-Id",
     "X-Codestra-Timestamp",
     "X-Codestra-Signature",
-    "X-Correlation-Id",
+    "X-Correlation-ID",
 ]
 EXPECTED_ENVELOPE_REQUIRED = [
     "event_id",

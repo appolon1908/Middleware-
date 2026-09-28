@@ -4092,8 +4092,8 @@ paths:
         required: false
         schema:
           type: string
+          title: X-Correlation-ID
           default: ''
-          title: X-Correlation-Id
       - name: X-Policy-Revision
         in: header
         required: true
@@ -10619,7 +10619,7 @@ paths:
           type: string
           minLength: 5
           maxLength: 200
-      - name: X-Correlation-Id
+      - name: X-Correlation-ID
         in: header
         required: true
         schema:

@@ -834,7 +834,7 @@ async def _steps_for(session: AsyncSession, request: AgentProvisioningRequest) -
 async def create_provisioning_request(
     body: ProvisioningCreate,
     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
-    x_correlation_id: str = Header("", alias="X-Correlation-ID"),
+    x_correlation_id: str = Header("", alias="X-Correlation-ID", title="X-Correlation-ID"),
     x_policy_revision: str = Header(..., alias="X-Policy-Revision"),
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),

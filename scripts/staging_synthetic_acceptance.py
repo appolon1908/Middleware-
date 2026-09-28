@@ -214,7 +214,7 @@ def build_signed_event(
         "X-Codestra-Tenant-Id": tenant_id,
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": f"sha256={signature}",
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
     return event, body, headers
 
