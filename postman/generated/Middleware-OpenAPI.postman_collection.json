@@ -17613,6 +17613,96 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "const allowedSuccessStatuses = [200, 201];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Run No Effect Rehearsal",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_schema_head\": \"\",\n  \"expected_source_sha\": \"\",\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "rehearsals",
+                "no-effect"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/rehearsals/no-effect"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get No Effect Rehearsal",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "rehearsals",
+                "{{rehearsal_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/rehearsals/{{rehearsal_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
@@ -18991,6 +19081,10 @@
     },
     {
       "key": "record_id",
+      "value": ""
+    },
+    {
+      "key": "rehearsal_id",
       "value": ""
     },
     {
