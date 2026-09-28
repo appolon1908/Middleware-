@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "ada92f27a3be27bdbe16c1a4e3b9d46f4b676fb0101ad41034ecba7356a4ca6b"
+    "b899351a57028fa27711f34a5b50ada1624203fb037ec7200cb1d698343a0d0f"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -679,8 +679,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "3ff117c75ad334886170d903d594150"
         ),
         ".github/workflows/production-reviewer-access.yml": (
-            "fe8a41c98753e0a981a2673df0a7a324"
-            "394b93a7ac5290dd684e0ede090d58de"
+            "73fd772d59f794f74a035e020720bb24"
+            "375d7010b9cbbea33ec59d93ee86d02c"
         ),
         ".github/workflows/python-quality-baseline.yml": (
             "35ecd2dac4328dea5615d5939d39e5682"
@@ -733,10 +733,10 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
 }
 APPROVED_JOB_EXECUTABLE_CONFIGURATION_SHA256: dict[str, dict[str, str]] = {
     "ingtrader21-spec/Middleware-": {
-        ".github/workflows/connector-runtime-api-ci.yml": "917ab06febf30f0d81146fc147794dace9510f7bb0a6fb903dd69b2244d4e1d0",
+        ".github/workflows/connector-runtime-api-ci.yml": "56c6d866a29d5ca6c9b70885a975f65390dcf8637c6f98a6515c4e1586e0e6f3",
         ".github/workflows/connector-storage-ci.yml": "eada698e8756b76431a43f8d54d1aa192b9d964bca9a5e76d90476f35135bc7a",
         ".github/workflows/lead-automation-v1.yml": "9cdf5b9ce21f528bb8d0cb29b170586d212f5dfeb0e4ad237bb531a41bd89274",
-        ".github/workflows/integrated-monitoring.yml": "a48fce82339f859f7d4c5b8a7e7f3fa6a0ed33bcbf7217232928629bc7c76fdf",
+        ".github/workflows/integrated-monitoring.yml": "8075ce263cd1cd233e5cadbb021c71d61cb96087414f3817236ab08fa51d7907",
         ".github/workflows/odoo-calling-contract.yml": (
             "03d93c41717cf69ac764a9665eb42fb71"
             "7d342aef6ff1fc52f8d050f7feb580d"
