@@ -131,8 +131,6 @@ def test_protected_ci_lanes_keep_fork_pull_requests_off_the_governed_runner():
         "production-route-contract.yml",
         "python-quality-baseline.yml",
         "codeql.yml",
-        "production-orchestrator-contract.yml",
-        "trusted-production-orchestrator-gate.yml",
     )
     for name in workflows:
         source = (ROOT / ".github/workflows" / name).read_text()
@@ -140,6 +138,15 @@ def test_protected_ci_lanes_keep_fork_pull_requests_off_the_governed_runner():
         assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" not in source, name
         assert "runs-on: ubuntu-latest" not in source
         assert "runs-on: ubuntu-24.04" not in source
+
+
+def test_pull_request_target_gates_stay_byte_pinned_on_the_governed_runner():
+    # pull_request_target runs base-branch code and is pinned by exact bytes
+    # in validate_repository_governance.py; the fork selector does not apply.
+    for name in ("production-orchestrator-contract.yml", "trusted-production-orchestrator-gate.yml"):
+        source = (ROOT / ".github/workflows" / name).read_text()
+        assert "pull_request_target:" in source
+        assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" in source
 
 
 def test_required_ci_stays_on_the_governed_runner_for_its_egress_guard():
