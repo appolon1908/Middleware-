@@ -12667,6 +12667,193 @@
           }
         },
         {
+          "name": "Connectors Catalog",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "connectors"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/connectors"
+            }
+          }
+        },
+        {
+          "name": "Connector Catalog Item",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "connectors",
+                "{connector_id}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/connectors/{connector_id}"
+            }
+          }
+        },
+        {
+          "name": "Connector Capabilities",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "connectors",
+                "{connector_id}",
+                "capabilities"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/connectors/{connector_id}/capabilities"
+            }
+          }
+        },
+        {
+          "name": "Connector Health",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "connectors",
+                "{connector_id}",
+                "health"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/connectors/{connector_id}/health"
+            }
+          }
+        },
+        {
+          "name": "Connector Operator Readback",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"operation_id\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "connectors",
+                "{connector_id}",
+                "readback"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/connectors/{connector_id}/readback"
+            }
+          }
+        },
+        {
+          "name": "Connector Operator Reconcile",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"operation_id\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "connectors",
+                "{connector_id}",
+                "reconcile"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/connectors/{connector_id}/reconcile"
+            }
+          }
+        },
+        {
           "name": "List Dead Letters",
           "request": {
             "header": [
