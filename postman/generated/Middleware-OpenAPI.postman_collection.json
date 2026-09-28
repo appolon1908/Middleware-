@@ -10079,15 +10079,6 @@
         {
           "name": "N8N Dead Letter",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -10108,11 +10099,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -10135,31 +10121,7 @@
         {
           "name": "N8N Dispatch",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
-              {
-                "key": "X-Timestamp",
-                "type": "text",
-                "value": "{{x_timestamp}}"
-              },
-              {
-                "key": "X-Nonce",
-                "type": "text",
-                "value": "{{x_nonce}}"
-              },
-              {
-                "key": "X-Signature",
-                "type": "text",
-                "value": "{{x_signature}}"
-              },
               {
                 "key": "X-Tenant-ID",
                 "type": "text",
@@ -10179,11 +10141,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -10206,15 +10163,6 @@
         {
           "name": "N8N Error",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -10235,11 +10183,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -10262,15 +10205,6 @@
         {
           "name": "N8N Progress",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -10291,11 +10225,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -10318,15 +10247,6 @@
         {
           "name": "N8N Reconciliation",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -10347,11 +10267,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -10572,31 +10487,7 @@
         {
           "name": "Odoo Command",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
-              {
-                "key": "X-Timestamp",
-                "type": "text",
-                "value": "{{x_timestamp}}"
-              },
-              {
-                "key": "X-Nonce",
-                "type": "text",
-                "value": "{{x_nonce}}"
-              },
-              {
-                "key": "X-Signature",
-                "type": "text",
-                "value": "{{x_signature}}"
-              },
               {
                 "key": "X-Tenant-ID",
                 "type": "text",
@@ -10616,11 +10507,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -11625,6 +11511,72 @@
         }
       ],
       "name": "kyyow-observability-sync"
+    },
+    {
+      "item": [
+        {
+          "name": "List Legacy Effects",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "legacy-effects"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/legacy-effects"
+            }
+          }
+        },
+        {
+          "name": "Get Legacy Effect",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "legacy-effects",
+                "{effect_id}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/legacy-effects/{effect_id}"
+            }
+          }
+        }
+      ],
+      "name": "legacy-effects"
     },
     {
       "item": [

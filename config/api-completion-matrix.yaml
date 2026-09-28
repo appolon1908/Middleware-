@@ -345,6 +345,18 @@ operations:
   canonical_operation_id: ingress_kyqra_gateway_results_api_v1_kyqra_results_post
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
+- domain: legacy-effects
+  method: GET
+  path: /api/v1/legacy-effects
+  canonical_operation_id: list_legacy_effects_api_v1_legacy_effects_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: legacy-effects
+  method: GET
+  path: /api/v1/legacy-effects/{effect_id}
+  canonical_operation_id: get_legacy_effect_api_v1_legacy_effects__effect_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
 - domain: n8n
   method: POST
   path: /api/v1/n8n/results
