@@ -353,7 +353,7 @@ def test_real_progressive_rls_keeps_workers_visible_and_safe_tables_isolated(mon
 
             conn = await asyncpg.connect(url)
             try:
-                assert head == "0073_campaign_recycling_delivery_events"
+                assert head == "0074_mcr_odoo_handoff"
                 assert await conn.fetchval(
                     "SELECT version_num FROM public.alembic_version"
                 ) == head

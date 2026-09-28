@@ -64,7 +64,7 @@ from scripts.release_manifest import (  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "codestra.middleware.release-gate.v1"
 # Must equal app.core.config.CANONICAL_SCHEMA_HEAD (asserted by the tests).
-EXPECTED_SCHEMA_HEAD = "0073_campaign_recycling_delivery_events"
+EXPECTED_SCHEMA_HEAD = "0074_mcr_odoo_handoff"
 MIGRATIONS_RELATIVE = Path("migrations/versions")
 PASS = "PASS"
 FAIL = "FAIL"

@@ -108,7 +108,7 @@ def test_admission_requires_exactly_one_alembic_head_0067() -> None:
     value = source()
     assert "mapfile -t HEADS < <(alembic heads | awk '{print $1}')" in value
     assert 'test "${#HEADS[@]}" -eq 1' in value
-    assert 'test "${HEADS[0]}" = "0073_campaign_recycling_delivery_events"' in value
+    assert 'test "${HEADS[0]}" = "0074_mcr_odoo_handoff"' in value
     assert "0059_integrated_monitoring" not in value
     assert "alembic upgrade head" in value
 
