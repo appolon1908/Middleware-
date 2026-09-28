@@ -4188,6 +4188,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Tenant-Id
       responses:
         '200':
           description: Successful Response
@@ -4230,6 +4238,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Tenant-Id
       requestBody:
         required: true
         content:
@@ -4278,6 +4294,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Tenant-Id
       requestBody:
         required: true
         content:
@@ -4326,6 +4350,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Tenant-Id
       requestBody:
         required: true
         content:
@@ -4374,6 +4406,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Tenant-Id
       requestBody:
         required: true
         content:
