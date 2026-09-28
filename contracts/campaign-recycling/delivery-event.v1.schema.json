@@ -73,7 +73,7 @@
         "lifecycle": null
       },
       "deferred": {
-        "exposure": "indeterminate",
+        "exposure": "status",
         "channel_health": null,
         "lifecycle": null
       },
@@ -118,8 +118,7 @@
       "click": {
         "exposure": "engagement_outcome",
         "channel_health": null,
-        "lifecycle": "STRONG_ENGAGEMENT_RECORDED",
-        "lifecycle_condition": "automated_suspected != true"
+        "lifecycle": "STRONG_ENGAGEMENT_RECORDED"
       },
       "reply": {
         "exposure": "engagement_outcome",
@@ -138,7 +137,7 @@
         "source",
         "event_id"
       ],
-      "payload_digest": "payload_hash = sha256 of the canonical JSON event (sort_keys, compact separators) excluding received_at and payload_hash",
+      "payload_digest": "payload_hash = sha256 of the canonical JSON event (sort_keys, compact separators) excluding received_at",
       "same_digest": "202 duplicate=true; effects are not re-applied",
       "different_digest": "409 replay_conflict; the event is quarantined and never applied",
       "origin_identity": "When origin is present, (origin.inbox, origin.inbox_event_id) is also unique, so re-projecting an inbox row cannot create a second normalized event."
