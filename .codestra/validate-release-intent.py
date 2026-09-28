@@ -158,7 +158,7 @@ EXPECTED_CHECK_WORKFLOWS = {
     },
 }
 ORCHESTRATOR_CONTRACT_WORKFLOW_SHA256 = (
-    "ba4debdfb600f020616a1f911a04d284e7270d428c120ae5f5f8076f0c4c4ecb"
+    "adaf9e95e28592ac6b4ee58005c2068a0b5d70342c871ba3621d57f89a79d64a"
 )
 EXPECTED_CHECK_WORKFLOW_SHA256 = {
     "appolon1908-hue/Infustruction-repo": {
@@ -221,7 +221,7 @@ KEYCLOAK_PRODUCTION_VALIDATOR_SHA256 = (
     "83d2fce102104543b871530f11115f20"
 )
 MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256 = (
-    "b87c10b9cf1c445b04de9431c16b542ab1afb08defb4f4a97c05c5926c2dad49"
+    "6ada7ba55213f074263247cea892b3401f0c59a8db74599fda9e684f5df57eb4"
 )
 BACKEND_PRODUCTION_VALIDATOR_SHA256 = (
     "6006bbc7850ce7666de926b6cad2585b"
@@ -381,8 +381,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "fcdd0d5c3832479b10deda8c6a6afca6"
     ),
     "ingtrader21-spec/Middleware-": (
-        "0e327e9a0e0bd8a0df2c55c925485237a8"
-        "5b3bb175862bfcaa71ef7029ead1ff"
+        "400f55de0e44aff9fe1bd3fbcd2f3697a3"
+        "2a7ddfc41accf97bcde195a97fddf3"
     ),
     "appolon1908-hue/codestra": (
         "4e3ea69c3ec2a4bd6e4b50395672f44d"
