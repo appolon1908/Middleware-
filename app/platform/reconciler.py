@@ -36,7 +36,7 @@ from app.core.config import Settings
 from app.platform.adapter import AdapterContext, ReadbackResult, ReadbackStatus
 from app.platform.metrics import KernelMetrics
 from app.platform.registry import AdapterRegistry
-from app.platform.bus import worker_identity
+from app.platform.bus import status_readback, worker_identity
 
 logger = logging.getLogger("codestra.platform.reconciler")
 
@@ -162,6 +162,11 @@ class Reconciler:
         advertised = self.registry.advertised(ownership.adapter_id)
         attempt = await self.commands.latest_attempt(claim.tenant_id, claim.command_id)
         envelope = await self.commands.load_envelope(claim.tenant_id, claim.command_id)
+        if envelope.target not in adapter.capabilities().connector_ids:
+            reason = "connector unavailable during reconciliation"
+            await self.commands.transition(claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=self.reconciler_id, reason=reason)
+            await self.source.resolve(claim, reconciler_id=self.reconciler_id, action="dead_letter", reason=reason)
+            return ReconciliationDecision(claim.command_id, adapter.adapter_id, None, "dead_letter", "dead_lettered")
         context = AdapterContext(
             tenant_id=operation.tenant_id,
             command_id=str(operation.command_id),
@@ -176,9 +181,17 @@ class Reconciler:
         self.metrics.adapter_requests.labels(adapter=adapter.adapter_id, operation="reconcile").inc()
         started = time.perf_counter()
         try:
-            readback = await asyncio.wait_for(adapter.reconcile(operation, context), timeout=self.timeout_seconds)
+            # The provider status surface is the cheapest proof of a failed
+            # asynchronous operation; otherwise the connector's reconcile hook
+            # performs the deeper lookup.
+            readback = await status_readback(adapter, operation, context, pending_is_unavailable=False)
+            if readback is None:
+                readback = await asyncio.wait_for(adapter.reconcile(operation, context), timeout=self.timeout_seconds)
         except Exception as exc:  # noqa: BLE001
-            readback = ReadbackResult(ReadbackStatus.UNAVAILABLE, safe_error_code=type(exc).__name__)
+            readback = ReadbackResult(
+                ReadbackStatus.UNAVAILABLE, provider_operation_id=operation.provider_operation_id,
+                evidence={"retry_hint": "reconcile"}, safe_error_code=type(exc).__name__,
+            )
         finally:
             self.metrics.adapter_latency.labels(adapter=adapter.adapter_id, operation="reconcile").observe(time.perf_counter() - started)
 
