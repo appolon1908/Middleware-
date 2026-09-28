@@ -353,7 +353,7 @@ def test_real_progressive_tenant_rls_scope_and_isolation(monkeypatch):
 
             conn = await asyncpg.connect(url)
             try:
-                assert head == "0073_campaign_recycling_delivery_events"
+                assert head == "0074_mcr_odoo_handoff"
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_schema_migrations"
                 ) == 15
