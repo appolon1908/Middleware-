@@ -252,6 +252,29 @@ VICIDIAL_ENDPOINT_ADAPTER_PORT = 8444
 VICIDIAL_SECRET_ROOT = Path("/run/secrets/vicidial-mtls")
 
 
+
+def _is_synthetic_ci_jwks_url(value: str) -> bool:
+    """The disposable CI JWKS fixture: plaintext only on loopback.
+
+    CI assigns the fixture a free loopback port per job, so the port is not
+    fixed; the scheme, host and path are.
+    """
+    try:
+        parts = urlsplit(value)
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "http"
+        and parts.hostname == "127.0.0.1"
+        and parts.netloc == f"127.0.0.1:{port}"
+        and port is not None
+        and parts.path == "/certs.json"
+        and not parts.query
+        and not parts.fragment
+    )
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=None, extra="ignore", populate_by_name=True
@@ -1122,7 +1145,7 @@ class Settings(BaseSettings):
         return (
             self.app_env in {"development", "test"}
             and self.issuer == SYNTHETIC_CI_ISSUER
-            and self.jwks_uri == SYNTHETIC_CI_JWKS_URL
+            and _is_synthetic_ci_jwks_url(self.jwks_uri)
         )
 
     @property

@@ -705,15 +705,53 @@ def test_ci_readiness_identity_uses_canonical_jwks_url_alias() -> None:
     assert settings.jwks_uri == "http://127.0.0.1:8120/certs.json"
 
 
+def test_ci_readiness_identity_accepts_assigned_loopback_jwks_port() -> None:
+    settings = Settings.from_env(
+        {
+            "APP_ENV": "test",
+            "ALLOW_IN_MEMORY_STORAGE": "true",
+            "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
+            "KEYCLOAK_JWKS_URL": "http://127.0.0.1:43127/certs.json",
+        }
+    )
+    assert settings.synthetic_ci_identity is True
+
+
+@pytest.mark.parametrize(
+    "jwks_url",
+    [
+        "http://localhost:43127/certs.json",
+        "http://10.0.0.5:43127/certs.json",
+        "http://127.0.0.1/certs.json",
+        "http://127.0.0.1:43127/other.json",
+        "http://127.0.0.1:43127/certs.json?x=1",
+        "http://user@127.0.0.1:43127/certs.json",
+    ],
+)
+def test_ci_readiness_identity_rejects_non_fixture_plaintext_jwks(jwks_url: str) -> None:
+    with pytest.raises(ConfigurationError):
+        Settings.from_env(
+            {
+                "APP_ENV": "test",
+                "ALLOW_IN_MEMORY_STORAGE": "true",
+                "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
+                "KEYCLOAK_JWKS_URL": jwks_url,
+            }
+        )
+
+
 @pytest.mark.parametrize("environment", ["staging", "production"])
+@pytest.mark.parametrize(
+    "jwks_url", ["http://127.0.0.1:8120/certs.json", "http://127.0.0.1:43127/certs.json"]
+)
 def test_synthetic_ci_identity_is_forbidden_in_deployable_environments(
-    environment: str,
+    environment: str, jwks_url: str
 ) -> None:
     with pytest.raises(ConfigurationError):
         Settings.from_env(
             {
                 "APP_ENV": environment,
                 "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
-                "KEYCLOAK_JWKS_URL": "http://127.0.0.1:8120/certs.json",
+                "KEYCLOAK_JWKS_URL": jwks_url,
             }
         )
