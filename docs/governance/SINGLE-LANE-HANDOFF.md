@@ -13,9 +13,9 @@ Every new Middleware agent starts with `AGENTS.md` and `scripts/agent_preflight.
 - Write lane: the owning workstation's checkout of that branch (`./scripts/agent_preflight.sh --start` on that host records the worktree); every other checkout is read-only reconciliation/evidence
 - Production/provider effects: fail-closed
 
-## Absorbed lanes
+## Pending lanes
 
-PR #355 (`mission/mcr-c-completion-safe-20260924`, certified head `d03f7099e05b7bb7888ca8631cdbc10401cc72bb`) and the preserved `mcr-c-final-convergence` worktree (`7d713735e46a0d0efc437808ad34f42ecdc41c6c`) are absorbed into #397: the MCR runtime shell is the single journey/next-action authority, with the MCR migrations renumbered 0072–0074 behind `0071_defer_unbound_tenant_rls`. Their worktrees stay preserved read-only; do not restart a writer on them.
+PR #355 (`mission/mcr-c-completion-safe-20260924`, certified head `d03f7099e05b7bb7888ca8631cdbc10401cc72bb`) and the preserved `mcr-c-final-convergence` worktree (`7d713735e46a0d0efc437808ad34f42ecdc41c6c`) are not yet absorbed: the MCR stack is held back until the certify gate's textual rules accept its contract identifiers. Their worktrees stay preserved read-only; do not restart a writer on them.
 
 ## One-line continuation
 

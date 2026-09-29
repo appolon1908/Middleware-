@@ -64,7 +64,7 @@ from scripts.release_manifest import (  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "codestra.middleware.release-gate.v1"
 # Must equal app.core.config.CANONICAL_SCHEMA_HEAD (asserted by the tests).
-EXPECTED_SCHEMA_HEAD = "0071_tenant_rls_scope"
+EXPECTED_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
 MIGRATIONS_RELATIVE = Path("migrations/versions")
 PASS = "PASS"
 FAIL = "FAIL"
