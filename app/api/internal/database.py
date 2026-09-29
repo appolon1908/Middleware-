@@ -3,7 +3,7 @@
 No handler accepts SQL and no route applies migrations, backups, restores, or
 business/provider mutations. The router is part of the canonical application
 profiles for local/private operations, but every endpoint authenticates its
-caller and the public edge must deny ``/internal/*``. Authentication is
+caller and the edge denies this private router. Authentication is
 evaluated before runtime/database availability so unauthenticated callers do
 not learn internal dependency state.
 """

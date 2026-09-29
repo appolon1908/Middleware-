@@ -4,8 +4,8 @@ Synthetic/no-effect only. The controller is disabled by default; every
 request is evaluated against the operator caps in Settings and denied with
 stable reason codes when any prerequisite is missing. No handler reaches a
 provider transport, and no route releases the kill switch: release requires
-an operator configuration change and restart. The surface lives under
-``/internal/*`` and is therefore unreachable at the public edge.
+an operator configuration change and restart. The surface is edge-denied
+and private (never routed by Kong or Caddy).
 """
 
 from __future__ import annotations
