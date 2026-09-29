@@ -230,7 +230,7 @@ async def test_handler_returning_future_completes_under_owned_quarantine() -> No
     future: asyncio.Future[None] = asyncio.get_running_loop().create_future()
 
     def handler(item: OutboxRecord) -> asyncio.Future[None]:
-        assert item.idempotency_key == "idem-12345678"
+        assert item.idempotency_key == record().idempotency_key
         store.events.append("handler")
         asyncio.get_running_loop().call_soon(future.set_result, None)
         return future
