@@ -169,4 +169,3 @@ def create_app(
     assert_unique_routes(app, deployed=profile is not AppProfile.MONOLITH)
     appolon_routes.install_canonical_openapi(app)
     return app
-
