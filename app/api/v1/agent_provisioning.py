@@ -1142,6 +1142,7 @@ async def provisioning_readback(
 ):
     await _set_provisioning_rls_context(session, principal, tenant_id)
     request = await _get_request(request_id, session)
+    require_tenant_match(principal, request.tenant_id)
     steps = await _steps_for(session, request)
 
     latest: dict[str, dict[str, Any]] = {}
@@ -1206,6 +1207,7 @@ async def create_repair_intent(
 ):
     await _set_provisioning_rls_context(session, principal, body.tenant_id)
     request = await _get_request(request_id, session, for_update=True)
+    require_tenant_match(principal, request.tenant_id)
 
     existing = (
         await session.execute(
