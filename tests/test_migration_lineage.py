@@ -50,6 +50,24 @@ def test_repository_alembic_graph_is_complete_and_acyclic() -> None:
     assert graph["20260925_0005"] == ("20260828_0004",)
 
 
+def test_connector_runtime_readiness_and_ci_require_the_single_graph_head() -> None:
+    import re
+
+    module = _load_module()
+    graph = module.discover_repository_graph(ROOT)
+    parents = {parent for downs in graph.values() for parent in downs}
+    heads = set(graph) - parents
+    assert len(heads) == 1, heads
+    (head,) = heads
+    # Readiness compares the database head for equality, so a stale default
+    # reports a correctly migrated database as not ready.
+    config = (ROOT / "services/connector-runtime/src/codestra_connector_runtime/api/config.py").read_text(encoding="utf-8")
+    assert re.search(r'readiness_requires_migration: str = "([^"]+)"', config).group(1) == head
+    workflow = (ROOT / ".github/workflows/connector-runtime-api-ci.yml").read_text(encoding="utf-8")
+    pinned = re.findall(r"test \"\$\(alembic current \| awk '\{print \$1\}'\)\" = \"([^\"]+)\"", workflow)
+    assert pinned and set(pinned) == {head}, pinned
+
+
 def test_runtime_manifest_exactly_matches_reviewed_alembic_source() -> None:
     module = _load_module()
     assert module.load_authority_manifest(ROOT) == module.discover_repository_graph(ROOT)

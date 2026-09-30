@@ -76,7 +76,7 @@ jobs:
       - name: Verify current migration head
         working-directory: services/connector-runtime
         run: |
-          test "$(alembic current | awk '{print $1}')" = "20260828_0004"
+          test "$(alembic current | awk '{print $1}')" = "20260925_0005"
       - name: Run Connector Runtime API and storage tests
         working-directory: services/connector-runtime
         run: pytest -q -m 'postgres or not postgres'
@@ -85,7 +85,7 @@ jobs:
         run: |
           alembic downgrade 20260828_0001
           alembic upgrade head
-          test "$(alembic current | awk '{print $1}')" = "20260828_0004"
+          test "$(alembic current | awk '{print $1}')" = "20260925_0005"
       - name: Re-run API integration after migration replay
         working-directory: services/connector-runtime
         run: pytest -q tests/test_management_api.py
