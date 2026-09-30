@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "3f3d14fe7748642a7bd12a98dc8278619a7665284756b947a150f4ca0b678269"
+    "2350f456d848ac52725d3a954dbc172d67720226ff09c0ca37531ce03446ddf6"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -671,8 +671,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "50caaed769389cb30fc725766ea6bed6"
         ),
         ".github/workflows/middleware-ci.yml": (
-            "e8213e47823a0c60c136c08f0070fd172"
-            "efcdd562517e1228a22465df6bedf9f"
+            "3c10b06262c5b235eafca508d30098f51"
+            "fc24b0fa9417e9dde3f1328f70ddbeb"
         ),
         ".github/workflows/integration-main-release-authorities.yml": (
             "910acf0149a0b9060544817a71577222a"
@@ -733,7 +733,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
 }
 APPROVED_JOB_EXECUTABLE_CONFIGURATION_SHA256: dict[str, dict[str, str]] = {
     "ingtrader21-spec/Middleware-": {
-        ".github/workflows/connector-runtime-api-ci.yml": "2d6eed0242ad2e2e1fbd1c7b1b5320dce6abe7da3fd35ad3426a10b71855d092",
+        ".github/workflows/connector-runtime-api-ci.yml": "438ab1f1ef7db9dc6f5b006b17542a628eb5ea43506d5f24f1a05b89a5b11a6f",
         ".github/workflows/connector-storage-ci.yml": "39df4c72bffce26b181b1857d408664419164fd0dab10283d4fb98f52b5d3329",
         ".github/workflows/lead-automation-v1.yml": "68e8e4bf4820b13ff3cc0c2497404ebb217984728b1d2e8a64d6e862142b7bc5",
         ".github/workflows/integrated-monitoring.yml": "154353f72d9ae4b3e387c99c911b52862ab5a1b964bb745340a75123d1984513",
