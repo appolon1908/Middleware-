@@ -147,12 +147,12 @@ def main() -> int:
         "rebuilt patched final base stage",
         errors,
     )
-    require(
-        dockerfile,
-        "libpcre2-8-0=10.42-1+deb12u1",
-        "fixed PCRE2 runtime package",
-        errors,
-    )
+    for package_pin, label in (
+        ("libpcre2-8-0=10.42-1+deb12u1", "fixed PCRE2 runtime package"),
+        ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
+        ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
+    ):
+        require(dockerfile, package_pin, label, errors)
     require(dockerfile, "--require-hashes", "hashed dependency install", errors)
     for target in ("runtime", "worker", "connector-runtime", "test"):
         require(dockerfile, f" AS {target}", f"supported {target} target", errors)
@@ -194,7 +194,7 @@ def main() -> int:
         "only-fixed: true": "actionable vulnerability gate",
         "cosign sign --yes": "image signature",
         '--annotations "codestra.source_sha=$RELEASE_SOURCE_SHA"': "source annotation",
-        '--annotations "codestra.schema_head=0067_service_catalog_monitoring_state"': "schema annotation",
+        '--annotations "codestra.schema_head=0074_mcr_odoo_handoff"': "schema annotation",
         "cosign attest --yes": "SBOM attestation",
         "--type slsaprovenance1": "signed SLSA provenance v1 attestation",
         "cosign sign-blob --yes": "manifest signature",

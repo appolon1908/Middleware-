@@ -107,7 +107,15 @@ class Stack:
         assert self.platform.registry_error is None, self.platform.registry_error
         self.platform.dispatch.worker_id = worker_id
         self.outbox = PostgresOutboxStore(pool)
-        self.worker = OutboxWorker(self.outbox, {ADAPTER_COMMAND_DESTINATION: self.platform.dispatch}, poll_seconds=0.01, lease_seconds=60.0, handler_timeout_seconds=45.0, max_attempts=3)
+        self.worker = OutboxWorker(
+            self.outbox,
+            {ADAPTER_COMMAND_DESTINATION: self.platform.dispatch},
+            effect_gate=lambda record: record.destination == ADAPTER_COMMAND_DESTINATION,
+            poll_seconds=0.01,
+            lease_seconds=60.0,
+            handler_timeout_seconds=45.0,
+            max_attempts=3,
+        )
         self.worker.worker_id = worker_id
 
     @property
@@ -213,8 +221,11 @@ async def test_stale_attempt_fencing_and_cancel_semantics(pool: asyncpg.Pool, mo
     stack = Stack(_settings(monkeypatch), pool)
     fresh = _envelope()
     await stack.submit(fresh)
-    cancelled = await stack.platform.kernel.cancel(TENANT, fresh.command_id, principal=_principal(), idempotency_key="cancel-0000001", expected_version=1, reason="operator")
+    cancelled = await stack.platform.kernel.cancel(TENANT, fresh.command_id, principal=_principal(), idempotency_key="cancel-0000001", expected_version=1, reason="operator", mutation_correlation_id="cancel-request-corr")
     assert cancelled.state == "cancelled"
+    events = await stack.commands.list_events(TENANT, fresh.command_id, limit=20)
+    assert events[-1].safe_metadata["mutation_correlation_id"] == "cancel-request-corr"
+    assert cancelled.correlation_id != "cancel-request-corr"
     rows = await stack.outbox_rows(fresh.command_id)
     assert rows[0]["cancelled_at"] is not None
     assert await stack.worker.run_once() is False  # a cancelled intent is never claimed

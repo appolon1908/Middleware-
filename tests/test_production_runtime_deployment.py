@@ -42,7 +42,7 @@ def valid_response() -> dict[str, str]:
             "RELEASE_ID": RELEASE_ID,
             "VERSION_SOURCE_SHA": SOURCE_SHA,
             "VERSION_IMAGE_DIGEST": IMAGE_DIGEST,
-            "VERSION_SCHEMA_HEAD": "0067_service_catalog_monitoring_state",
+            "VERSION_SCHEMA_HEAD": "0074_mcr_odoo_handoff",
             "BACKUP_SHA256": "sha256:" + "c" * 64,
             "CONFIGURATION_CHECKSUM": "d" * 64,
             "ROLLBACK_RTO_SECONDS": "4",
@@ -171,3 +171,18 @@ def test_evidence_accepts_complete_pass_bundle(tmp_path: Path) -> None:
         release_run_id=RELEASE_RUN_ID,
         release_id=RELEASE_ID,
     )
+
+
+def test_canary_uses_fail_closed_startup_launcher() -> None:
+    compose = (ROOT / "deploy/production/compose.canary.yaml").read_text()
+    startup = (ROOT / "scripts/start_integration_api.py").read_text()
+    assert "/app/scripts/start_integration_api.py" in compose
+    assert "app.entrypoints.integration_api:app" not in compose
+    assert "validate_runtime(SERVICE_INTEGRATION_API)" in startup
+    assert '"--workers={workers}"' in startup
+
+
+def test_deploy_controller_expects_canonical_integration_health_identity() -> None:
+    controller = (ROOT / "deploy/production/server/codestra-middleware-deploy").read_text()
+    assert '"service": "middleware-integration-api"' in controller
+    assert 'health != {"status": "ok", "service": "middleware-api"' not in controller

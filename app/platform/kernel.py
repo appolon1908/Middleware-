@@ -119,7 +119,7 @@ class DenialAuditSink:
     writes ``middleware_control_audit`` (immutable); the memory one keeps a list."""
 
     async def record(self, audit: DenialAudit) -> None:  # pragma: no cover - protocol
-        raise NotImplementedError
+        raise RuntimeError("denial audit sink is not configured")
 
 
 class MemoryDenialAuditSink(DenialAuditSink):
@@ -350,6 +350,7 @@ class CommandKernel:
         idempotency_key: str,
         expected_version: int,
         reason: str,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         operation = await self.commands.mutate_operation(
             tenant_id,
@@ -359,8 +360,32 @@ class CommandKernel:
             idempotency_key=idempotency_key,
             expected_version=expected_version,
             reason=reason,
+            mutation_correlation_id=mutation_correlation_id,
         )
         self.metrics.cancellations.labels(result=operation.state).inc()
+        return operation
+
+    async def retry(
+        self,
+        tenant_id: str,
+        operation_id: UUID,
+        *,
+        principal: KernelPrincipal,
+        idempotency_key: str,
+        expected_version: int,
+        reason: str,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        operation = await self.commands.mutate_operation(
+            tenant_id,
+            operation_id,
+            action="retry",
+            actor_id=principal.subject,
+            idempotency_key=idempotency_key,
+            expected_version=expected_version,
+            reason=reason,
+            mutation_correlation_id=mutation_correlation_id,
+        )
         return operation
 
     # ------------------------------------------------------------------
@@ -377,6 +402,7 @@ class CommandKernel:
         expected_version: int,
         reason: str,
         new_idempotency_key: str | None = None,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         if PLATFORM_OPERATOR_ROLE not in principal.roles:
             raise ReplayNotAllowed("replay requires the platform-operator role")
@@ -395,6 +421,7 @@ class CommandKernel:
                 idempotency_key=idempotency_key,
                 expected_version=expected_version,
                 reason=f"REPROCESS: {reason}",
+                mutation_correlation_id=mutation_correlation_id,
             )
             self.metrics.replays.labels(mode="REPROCESS").inc()
             return operation
@@ -409,6 +436,14 @@ class CommandKernel:
             advertised = self.registry.advertised(ownership.adapter_id)
             if not advertised.safe_reexecution:
                 raise ReplayNotAllowed(f"adapter {ownership.adapter_id} does not support safe re-execution")
+        await self.commands.get_dead_letter(tenant_id, operation_id)
+        replay_id = uuid4()
+        replay_request = await self.commands.create_replay(
+            tenant_id, operation_id, replay_id=replay_id, actor_id=principal.subject,
+            idempotency_key=idempotency_key, reason=reason,
+        )
+        if replay_request.replay_command_id is not None:
+            return await self.commands.get(tenant_id, replay_request.replay_command_id)
         envelope = await self.commands.load_envelope(tenant_id, operation_id)
         replayed = envelope.model_copy(
             update={
@@ -419,7 +454,9 @@ class CommandKernel:
             }
         )
         result = await self.submit(replayed, principal, replay_mode=ReplayMode.REEXECUTE, replay_of=operation_id)
+        await self.commands.complete_replay(tenant_id, replay_request.replay_id, result.operation.command_id)
         self.metrics.replays.labels(mode="REEXECUTE").inc()
+        self.metrics.replay_outcomes.labels(result="submitted").inc()
         return result.operation
 
     # ------------------------------------------------------------------

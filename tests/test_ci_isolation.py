@@ -112,8 +112,17 @@ def test_middleware_ci_uses_dynamic_service_ports_on_self_hosted_runner():
     assert "job.services.redis.ports['6379']" in source
 
 
-def test_protected_ci_lanes_use_governed_self_hosted_runner():
-    expected = "runs-on: [self-hosted, Linux, X64, middleware-ci]"
+FORK_AWARE_RUNNER = (
+    "runs-on: ${{ github.event_name == 'pull_request' && "
+    "github.event.pull_request.head.repo.full_name != github.repository && "
+    "'ubuntu-24.04' || fromJSON('[\"self-hosted\",\"Linux\",\"X64\",\"middleware-ci\"]') }}"
+)
+
+
+def test_protected_ci_lanes_keep_fork_pull_requests_off_the_governed_runner():
+    """Decision D1: trusted events use the governed self-hosted runner; only
+    pull requests from forks fall back to a GitHub-hosted runner, so untrusted
+    code never reaches the persistent host."""
     workflows = (
         "middleware-ci.yml",
         "release-component-ci.yml",
@@ -122,14 +131,29 @@ def test_protected_ci_lanes_use_governed_self_hosted_runner():
         "production-route-contract.yml",
         "python-quality-baseline.yml",
         "codeql.yml",
-        "production-orchestrator-contract.yml",
-        "trusted-production-orchestrator-gate.yml",
     )
     for name in workflows:
         source = (ROOT / ".github/workflows" / name).read_text()
-        assert expected in source
+        assert FORK_AWARE_RUNNER in source, name
+        assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" not in source, name
         assert "runs-on: ubuntu-latest" not in source
         assert "runs-on: ubuntu-24.04" not in source
+
+
+def test_pull_request_target_gates_stay_byte_pinned_on_the_governed_runner():
+    # pull_request_target runs base-branch code and is pinned by exact bytes
+    # in validate_repository_governance.py; the fork selector does not apply.
+    for name in ("production-orchestrator-contract.yml", "trusted-production-orchestrator-gate.yml"):
+        source = (ROOT / ".github/workflows" / name).read_text()
+        assert "pull_request_target:" in source
+        assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" in source
+
+
+def test_required_ci_stays_on_the_governed_runner_for_its_egress_guard():
+    # The root-owned egress guard exists only on the governed host.
+    source = (ROOT / ".github/workflows/required-ci.yml").read_text()
+    assert "sudo -n /usr/local/sbin/codestra-ci-egress-guard apply" in source
+    assert source.count("runs-on: [self-hosted, Linux, X64, middleware-ci]") == 2
 
 
 def test_required_ci_allocates_job_local_http_probe_ports():

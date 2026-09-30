@@ -64,6 +64,26 @@ EXPECTED_PROFILE: dict[str, Any] = {
     },
     "secret_path_prefix": "/run/secrets/middleware-staging-",
     "production_activation_allowed": False,
+    # Compose topology alternate (verify-full with client certificates only);
+    # there is deliberately no plaintext Redis alternate.
+    "database_alternates": [
+        {
+            "scheme": "postgresql",
+            "host": "postgres",
+            "port": 5432,
+            "name": "middleware_staging",
+            "usernames": [
+                "middleware_api",
+                "middleware_worker",
+                "middleware_reconciler",
+                "middleware_scheduler",
+            ],
+            "sslmode": "verify-full",
+            "sslrootcert": "/run/secrets/middleware-staging-db-ca.crt",
+            "sslcert": "/run/secrets/middleware-staging-db-client.crt",
+            "sslkey": "/run/secrets/middleware-staging-db-client.key",
+        }
+    ],
 }
 WEBHOOK_SECRET_NAMES = {
     "WEBHOOK_SECRET_ODOO_INTEGRATION",
@@ -88,6 +108,12 @@ EXPECTED_ROUTER_REGISTRY_MODULE = "router_registry"
 EXPECTED_REGISTRY_ROUTERS = {
     "internal_ai_jobs_router": ("api.internal.ai_jobs", "router"),
     "internal_database_router": ("api.internal.database", "router"),
+    "internal_provider_canaries_router": ("api.internal.provider_canaries", "router"),
+    "internal_production_decision_router": ("api.internal.production_decision", "router"),
+    "internal_release_certification_router": (
+        "api.internal.release_certification",
+        "router",
+    ),
     "klyrow_events_router": ("api.internal.klyrow_events", "router"),
     "klyrow_mail_router": ("api.internal.klyrow_mail", "router"),
     "telnexa_events_router": ("api.internal.telnexa_events", "router"),
@@ -104,6 +130,7 @@ EXPECTED_REGISTRY_ROUTERS = {
     "calls_router": ("api.v1.calls", "router"),
     "campaign_search_router": ("api.v1.campaign_search", "router"),
     "campaigns_router": ("api.v1.campaigns", "router"),
+    "campaign_recycling_router": ("api.v1.campaign_recycling", "router"),
     "commands_router": ("api.v1.commands", "router"),
     "contacts_router": ("api.v1.contacts", "router"),
     "control_legacy_events_router": ("api.v1.control", "legacy_events_router"),
@@ -163,6 +190,8 @@ EXPECTED_REGISTRY_TUPLES = {
     "CANONICAL_ROUTERS": frozenset(
         {
             "internal_database_router",
+            "internal_release_certification_router",
+            "internal_production_decision_router",
             "platform_kernel_router",
             "automation_v2_router",
             "automation_router",
@@ -180,6 +209,7 @@ EXPECTED_REGISTRY_TUPLES = {
             "tickets_router",
             "tenants_router",
             "campaigns_router",
+            "campaign_recycling_router",
             "monitoring_router",
             "observability_sync_router",
             "integrations_router",
@@ -191,6 +221,7 @@ EXPECTED_REGISTRY_TUPLES = {
     ),
     "INTEGRATION_ROUTERS": frozenset(
         {
+            "internal_provider_canaries_router",
             "commands_router",
             "control_router",
             "reports_router",

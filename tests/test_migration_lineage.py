@@ -43,9 +43,11 @@ def test_repository_alembic_graph_is_complete_and_acyclic() -> None:
         "20260828_0002",
         "20260828_0003",
         "20260828_0004",
+        "20260925_0005",
     }
     assert graph["20260828_0001"] == ()
     assert graph["20260828_0004"] == ("20260828_0003",)
+    assert graph["20260925_0005"] == ("20260828_0004",)
 
 
 def test_runtime_manifest_exactly_matches_reviewed_alembic_source() -> None:
@@ -56,10 +58,10 @@ def test_runtime_manifest_exactly_matches_reviewed_alembic_source() -> None:
 
 def test_known_database_revision_is_accepted() -> None:
     module = _load_module()
-    report = module.validate_observed_revisions(["20260828_0004"], root=ROOT)
+    report = module.validate_observed_revisions(["20260925_0005"], root=ROOT)
     assert report.alembic_table_present is True
-    assert report.database_revisions == ("20260828_0004",)
-    assert "20260828_0004" in report.authority_revisions
+    assert report.database_revisions == ("20260925_0005",)
+    assert "20260925_0005" in report.authority_revisions
 
 
 def test_unknown_staging_revision_fails_closed() -> None:

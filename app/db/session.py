@@ -14,7 +14,10 @@ working.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from uuid import UUID
+import re
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -22,32 +25,74 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import Settings, settings
+from app.core.config import Settings, runtime_database_sslmode, settings
+from app.db.connection import build_database_connection_authority
 
 
-def _native_asyncpg_dsn(database_url: str) -> str:
-    """Return a native asyncpg DSN while preserving libpq TLS query policy."""
-    prefix = "postgresql+asyncpg://"
-    if database_url.startswith(prefix):
-        return "postgresql://" + database_url[len(prefix):]
-    return database_url
+TENANT_CONTEXT_GUC = "app.tenant_id"
+
+
+TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+
+
+def _canonical_tenant_id(tenant_id: str | UUID) -> str:
+    """Validate and normalize the scalar tenant identifier used by PostgreSQL RLS.
+
+    Middleware currently has both UUID-backed and text-backed tenant columns.
+    The transaction context therefore carries a canonical scalar string; each
+    RLS policy owns any table-specific type cast it requires.
+    """
+    value = str(tenant_id).strip()
+    if not value:
+        raise ValueError("tenant_id is required")
+    if not TENANT_ID_PATTERN.fullmatch(value):
+        raise ValueError("tenant_id contains unsupported characters")
+    return value
+
+
+async def set_transaction_tenant_context(
+    session: AsyncSession,
+    tenant_id: str | UUID,
+) -> str:
+    """Set the tenant identifier for the current PostgreSQL transaction only.
+
+    ``set_config(..., true)`` is PostgreSQL's transaction-local equivalent of
+    ``SET LOCAL``. The value is discarded on COMMIT/ROLLBACK, preventing
+    tenant context from leaking through pooled connections.
+    """
+    normalized = _canonical_tenant_id(tenant_id)
+    await session.execute(
+        text("SELECT set_config(:setting_name, :tenant_id, true)"),
+        {"setting_name": TENANT_CONTEXT_GUC, "tenant_id": normalized},
+    )
+    return normalized
+
+
 
 
 def _build_engine(config: Settings, database_url: str | None = None) -> AsyncEngine:
-    native_dsn = _native_asyncpg_dsn(database_url or config.database_url)
+    environment = getattr(config, "app_env", "test")
+    runtime_profile = getattr(config, "runtime_profile_id", None)
+    profile_sslmode = runtime_database_sslmode(runtime_profile)
+    requires_verify_full = (
+        environment in {"staging", "production"} and profile_sslmode == "verify-full"
+    )
+    authority = build_database_connection_authority(
+        database_url or config.database_url,
+        command_timeout_seconds=config.database_command_timeout_seconds,
+        application_name="codestra-middleware/" + (runtime_profile or environment),
+        secure_environment=requires_verify_full,
+        validate_tls_files=requires_verify_full,
+    )
     return create_async_engine(
-        "postgresql+asyncpg://",
+        authority.sqlalchemy_url,
         pool_pre_ping=True,
         pool_size=config.database_pool_size,
         max_overflow=config.database_max_overflow,
         pool_timeout=config.database_pool_timeout_seconds,
         pool_recycle=config.database_pool_recycle_seconds,
-        connect_args={
-            "dsn": native_dsn,
-            "command_timeout": config.database_command_timeout_seconds,
-        },
+        connect_args=authority.connect_args,
     )
-
 
 engine: AsyncEngine = _build_engine(settings)
 SessionFactory: async_sessionmaker[AsyncSession] = async_sessionmaker(

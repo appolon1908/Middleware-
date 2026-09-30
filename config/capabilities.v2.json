@@ -8,6 +8,7 @@
     "CRAWLER_EXECUTION": false,
     "CRAWLER_WRITEBACK": false,
     "DEAD_LETTER_REPLAY": false,
+    "DJONE_CONTROL": false,
     "EMAIL_DELIVERY": false,
     "EXTERNAL_MODEL_CALLS": false,
     "INTERNAL_TELEPHONY_CALLS": false,
@@ -19,7 +20,11 @@
     "PROVISIONING_WRITE": false,
     "SMS_DELIVERY": false,
     "SOCIAL_PUBLISH": false,
-    "TELEPHONY_ADMIN_WRITE": false
+    "TELEPHONY_ADMIN_WRITE": false,
+    "AUDIT_EXPORT": false,
+    "NOTIFICATION_DELIVERY": false,
+    "WEBHOOK_DELIVERY": false,
+    "WHATSAPP_DELIVERY": false
   },
   "activation_requirements": [
     "protected_merged_sha",

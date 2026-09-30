@@ -101,7 +101,7 @@ async def accept_webhook(
     if signed.tenant_id != envelope.tenant_id:
         raise RequestValidationError("X-Codestra-Tenant-Id does not match body")
     if signed.correlation_id != envelope.correlation_id:
-        raise RequestValidationError("X-Correlation-Id does not match body")
+        raise RequestValidationError("X-Correlation-ID does not match body")
     if envelope.idempotency_key != signed.idempotency_key:
         raise RequestValidationError("body idempotency_key does not match headers")
     if envelope.source != route.producer_client_id:
