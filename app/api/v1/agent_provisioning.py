@@ -941,6 +941,11 @@ async def _transition(
                     session, request, system="keycloak", operation="disable_user",
                     state="failed", error_code="KEYCLOAK_ADAPTER_ERROR", error_summary=str(exc),
                 )
+                # The identity is still enabled: keep the prior state and the
+                # failed step, and let the caller retry rather than record a
+                # suspended request that can still sign in.
+                await session.commit()
+                raise HTTPException(502, "identity disable failed; request not suspended") from exc
         request.state = "SUSPENDED"
         request.version += 1
         await _append_audit(session, request, from_state=from_state, to_state="SUSPENDED", action=action, principal=principal)
@@ -977,6 +982,11 @@ async def _transition(
                     session, request, system="keycloak", operation="disable_user",
                     state="failed", error_code="KEYCLOAK_ADAPTER_ERROR", error_summary=str(exc),
                 )
+                # The identity is still enabled: keep the prior state and the
+                # failed step, and let the caller retry rather than record a
+                # revoked request that can still sign in.
+                await session.commit()
+                raise HTTPException(502, "identity disable failed; request not revoked") from exc
         request.state = "REVOKED"
         request.version += 1
         await _append_audit(session, request, from_state=from_state, to_state="REVOKED", action=action, principal=principal)

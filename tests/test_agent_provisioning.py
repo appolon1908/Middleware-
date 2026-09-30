@@ -362,6 +362,79 @@ async def test_suspend_reactivate_and_revoke_transition_lifecycle(client, author
 
 
 @pytest.mark.asyncio
+async def test_suspend_and_revoke_do_not_claim_success_when_identity_disable_fails(
+    client, authority, monkeypatch,
+):
+    """A request whose Keycloak user is still enabled must not read as
+    SUSPENDED or REVOKED: the failed step is kept and the caller retries."""
+    from dataclasses import dataclass
+
+    from app.adapters.keycloak.lifecycle_client import (
+        KeycloakLifecycleAdapter,
+        KeycloakLifecycleError,
+    )
+
+    @dataclass(frozen=True)
+    class _KeycloakRecord:
+        keycloak_subject: str
+        enabled: bool = True
+
+    async def _query_user(self, email):
+        return _KeycloakRecord(keycloak_subject="kc-subject-synthetic-disable")
+
+    async def _assign_roles(self, subject, roles):
+        return None
+
+    disable_ok = {"value": False}
+
+    async def _disable_user(self, subject):
+        if not disable_ok["value"]:
+            raise KeycloakLifecycleError("synthetic disable failure")
+
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "query_user_by_email", _query_user)
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "create_user", _query_user)
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "assign_approved_roles", _assign_roles)
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "disable_user", _disable_user)
+    monkeypatch.setattr(settings, "live_identity_provisioning_enabled", True)
+
+    token = authority()
+    body = _body(channels={"odoo": True, "phone": False, "webrtc": False, "sms": False, "email": False})
+    created = await client.post(
+        "/platform/v1/agent-provisioning/requests", json=body, headers=_headers(token),
+    )
+    assert created.status_code == 202
+    assert created.json()["keycloak_subject"] == "kc-subject-synthetic-disable"
+    initial_state = created.json()["state"]
+    request_pk = await _internal_id_for(body["request_id"])
+
+    for action in ("suspend", "revoke"):
+        refused = await client.post(
+            f"/platform/v1/agent-provisioning/requests/{request_pk}/{action}",
+            json={"reason": "offboarding"}, headers=_headers(token),
+        )
+        assert refused.status_code == 502, refused.text
+
+    current = await client.get(
+        f"/platform/v1/agent-provisioning/requests/{request_pk}", headers=_headers(token),
+    )
+    assert current.status_code == 200
+    assert current.json()["state"] == initial_state
+    failed = [
+        step for step in current.json()["steps"]
+        if step["operation"] == "disable_user" and step["state"] == "failed"
+    ]
+    assert len(failed) == 2
+
+    disable_ok["value"] = True
+    revoked = await client.post(
+        f"/platform/v1/agent-provisioning/requests/{request_pk}/revoke",
+        json={"reason": "offboarding"}, headers=_headers(token),
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["state"] == "REVOKED"
+
+
+@pytest.mark.asyncio
 async def test_real_identity_failure_emits_provision_failed_outbox_event(
     client, authority, monkeypatch,
 ):
