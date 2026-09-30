@@ -363,7 +363,13 @@ jobs:
           RUNTIME_INTEGRATION_ALLOW_DISPOSABLE: "YES"
           DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_test_runtime
           REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
-        run: bash scripts/integration_ci.sh
+          # The governed runner is persistent and runs jobs concurrently; keep
+          # pytest's temp root out of the shared /tmp, as required-ci does.
+          TMPDIR: ${{ runner.temp }}/middleware-runtime-integration
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR"
+          bash scripts/integration_ci.sh
 
   nats-jetstream-integration:
     name: Disposable NATS JetStream integration
