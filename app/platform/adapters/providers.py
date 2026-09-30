@@ -345,6 +345,11 @@ class OdooAdapter(LegacyBridge):
     async def _readback_crm(self, operation: CommandOperation, context: AdapterContext) -> ReadbackResult:
         if self.crm_bridge is None:
             return ReadbackResult(ReadbackStatus.UNAVAILABLE, safe_error_code="crm_bridge_not_configured")
+        configured = getattr(self.crm_bridge, "configured_tenant_id", None)
+        if isinstance(configured, str) and configured and configured != operation.tenant_id:
+            # Same boundary as execute: another tenant's operation must not
+            # be confirmed against this bridge's Odoo.
+            return ReadbackResult(ReadbackStatus.MISMATCH, safe_error_code="crm_bridge_tenant_mismatch")
         entity = operation.command_type.split(".")[1]
         reference = operation.provider_operation_id or ""
         if entity in CRM_LIST_READBACK:
