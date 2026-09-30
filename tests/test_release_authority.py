@@ -216,7 +216,7 @@ def test_pre_transfer_package_is_a_bounded_release_surface(
     )
 
 
-def test_release_schema_head_is_0067() -> None:
+def test_release_schema_head_is_0071() -> None:
     text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
     assert f"EXPECTED_SCHEMA_HEAD: {CANONICAL_SCHEMA_HEAD}" in text
     assert f"codestra.schema_head={CANONICAL_SCHEMA_HEAD}" in text

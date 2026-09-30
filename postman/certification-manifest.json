@@ -20,7 +20,7 @@
   "status": "UNVERIFIED",
   "required_runtime_evidence": [
     "exact source SHA",
-    "Alembic head 0067",
+    "Alembic head 0071_defer_unbound_tenant_rls",
     "TLS verify-full",
     "backup verified",
     "isolated restore verified",
