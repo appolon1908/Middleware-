@@ -910,3 +910,80 @@ async def test_sms_reconcile_does_not_replay_a_succeeded_sender_profile_step(
         if step["operation"] == "provision_sender_profile" and step["state"] == "succeeded"
     ]
     assert len(succeeded_steps) == 1
+
+
+async def _sql(statement: str, **params):
+    engine = create_async_engine(os.environ["DATABASE_URL"], poolclass=NullPool)
+    try:
+        async with engine.begin() as connection:
+            result = await connection.execute(text(statement), params)
+            return result.scalars().all() if result.returns_rows else None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_webrtc_revoke_never_records_a_revocation_it_did_not_perform(
+    client, authority, monkeypatch,
+):
+    """The local session row may only turn REVOKED after VICIdial revoked the
+    credential; with writes closed or the provider failing it stays active."""
+    from app.adapters.vicidial.mtls_client import VicidialMtlsError
+
+    calls: list[dict] = []
+    fail = {"value": True}
+
+    class _FakeVicidialClient:
+        def __init__(self, _settings):
+            pass
+
+        def revoke_webrtc(self, payload, **_kwargs):
+            calls.append(payload)
+            if fail["value"]:
+                raise VicidialMtlsError("synthetic revoke failure")
+            return {"revoked": True}
+
+    monkeypatch.setattr(agent_provisioning, "VicidialMtlsClient", _FakeVicidialClient)
+
+    token = authority()
+    body = _body(
+        channels={"odoo": True, "phone": False, "webrtc": False, "sms": False, "email": False},
+        campaigns=[{
+            "campaign_id": "TEST_SYN", "role": "supervisor",
+            "vicidial_user_id": "COD0017", "vicidial_user_group": "COD_TEST_SDR",
+            "vicidial_supervisor_subject": "supervisor-cod",
+        }],
+    )
+    created = await client.post(
+        "/platform/v1/agent-provisioning/requests", json=body, headers=_headers(token),
+    )
+    assert created.status_code == 202
+    request_pk = await _internal_id_for(body["request_id"])
+    await _sql(
+        "INSERT INTO agent_webrtc_session (id, tenant_id, request_id, employee_id, campaign_id,"
+        " extension, state, expires_at, correlation_id) VALUES (:id, 'COD', :rid, :emp,"
+        " 'TEST_SYN', '6101', 'ISSUED', now() + interval '5 minutes', 'corr-webrtc')",
+        id=str(uuid4()), rid=request_pk, emp=body["employee_id"],
+    )
+    url = f"/platform/v1/agent-provisioning/{request_pk}/webrtc/revoke"
+    session_state = "SELECT state FROM agent_webrtc_session WHERE request_id = CAST(:rid AS uuid)"
+    try:
+        closed = await client.post(url, json={"reason": "offboarding"}, headers=_headers(token))
+        assert closed.status_code == 403
+        assert calls == []
+        assert await _sql(session_state, rid=request_pk) == ["ISSUED"]
+
+        monkeypatch.setattr(settings, "vicidial_write_enabled", True)
+        monkeypatch.setattr(settings, "live_writes_enabled", True)
+        failed = await client.post(url, json={"reason": "offboarding"}, headers=_headers(token))
+        assert failed.status_code == 502
+        assert await _sql(session_state, rid=request_pk) == ["ISSUED"]
+
+        fail["value"] = False
+        revoked = await client.post(url, json={"reason": "offboarding"}, headers=_headers(token))
+        assert revoked.status_code == 200
+        assert revoked.json()["state"] == "REVOKED"
+        assert len(calls) == 2
+        assert await _sql(session_state, rid=request_pk) == ["REVOKED"]
+    finally:
+        await _sql("DELETE FROM agent_webrtc_session WHERE request_id = CAST(:rid AS uuid)", rid=request_pk)

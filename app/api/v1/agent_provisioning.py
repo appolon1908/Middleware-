@@ -1596,33 +1596,45 @@ async def revoke_webrtc_session(
     if not rows:
         return {"request_id": str(request.id), "state": "REVOKED", "replayed": True}
 
-    if settings.vicidial_write_enabled and settings.live_writes_enabled:
-        campaign_id = rows[0].campaign_id
-        campaign = next(
-            (
-                item
-                for item in request.campaigns_json
-                if item.get("campaign_id") == campaign_id
-            ),
-            None,
-        )
-        if campaign is None:
-            raise HTTPException(409, "CAMPAIGN_INVALID")
-        user_id = campaign.get("vicidial_user_id")
-        supervisor = campaign.get("vicidial_supervisor_subject")
-        if user_id and supervisor:
-            VicidialMtlsClient(settings).revoke_webrtc(
-                {
-                    "context": {
-                        "tenant_id": request.tenant_id,
-                        "business_unit": campaign.get("campaign_id"),
-                        "supervisor_subject": supervisor,
-                    },
-                    "user_id": user_id,
+    # Marking the sessions revoked without the provider call would leave a
+    # live WebRTC credential behind a local REVOKED row.
+    if not (settings.vicidial_write_enabled and settings.live_writes_enabled):
+        raise HTTPException(403, "EFFECT_DISABLED")
+    campaign_id = rows[0].campaign_id
+    campaign = next(
+        (
+            item
+            for item in request.campaigns_json
+            if item.get("campaign_id") == campaign_id
+        ),
+        None,
+    )
+    if campaign is None:
+        raise HTTPException(409, "CAMPAIGN_INVALID")
+    user_id = campaign.get("vicidial_user_id")
+    supervisor = campaign.get("vicidial_supervisor_subject")
+    if not user_id or not supervisor:
+        raise HTTPException(409, "VICIDIAL_PROVISIONING_FAILED")
+    try:
+        VicidialMtlsClient(settings).revoke_webrtc(
+            {
+                "context": {
+                    "tenant_id": request.tenant_id,
+                    "business_unit": campaign.get("campaign_id"),
+                    "supervisor_subject": supervisor,
                 },
-                correlation_id=request.correlation_id,
-                request_id=request.request_id,
-            )
+                "user_id": user_id,
+            },
+            correlation_id=request.correlation_id,
+            request_id=request.request_id,
+        )
+    except VicidialMtlsError as exc:
+        await _add_step(
+            session, request, system="vicidial", operation="revoke_webrtc",
+            state="failed", error_code="VICIDIAL_ADAPTER_ERROR", error_summary=str(exc),
+        )
+        await session.commit()
+        raise HTTPException(502, "WEBRTC_REVOKE_FAILED") from exc
 
     for row in rows:
         row.state = "REVOKED"
