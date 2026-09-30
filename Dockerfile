@@ -21,9 +21,9 @@ RUN apk add --no-cache \
       libffi-dev=3.5.2-r1 \
       linux-headers=7.0.0-r1 \
       ncurses-dev=6.6_p20260516-r0 \
-      libcrypto3=3.5.8-r0 \
-      libssl3=3.5.8-r0 \
-      openssl-dev=3.5.8-r0 \
+      libcrypto3=3.5.9-r0 \
+      libssl3=3.5.9-r0 \
+      openssl-dev=3.5.9-r0 \
       readline-dev=8.3.3-r1 \
       tar=1.35-r5 \
       xz-dev=5.8.4-r0 \
@@ -78,7 +78,7 @@ RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements.lock
 
 FROM builder AS test
-RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 openssl=3.5.8-r0
+RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 openssl=3.5.9-r0
 RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements-test.lock
 WORKDIR /app
