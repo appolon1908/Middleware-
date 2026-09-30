@@ -4,7 +4,7 @@ x-middleware-canary-runtime: &middleware-canary-runtime
   image: ${MIDDLEWARE_IMAGE_REFERENCE:?exact signed image reference required}
   env_file:
     - ${MIDDLEWARE_RUNTIME_ENV_FILE:?root-owned production runtime environment required}
-  environment:
+  environment: &middleware-canary-environment
     APP_ENV: production
     RUNTIME_PROFILE_ID: codestra-middleware-production-compose-v1
     APP_VERSION: ${MIDDLEWARE_APP_VERSION:?immutable application version required}
@@ -90,7 +90,10 @@ services:
     <<: *middleware-canary-runtime
     # Fail-closed launcher validates the integration service before the
     # uvicorn multi-worker supervisor is exec'd.
+    # YAML merge keys are shallow: re-merge the shared mapping so the
+    # service-specific keys extend it instead of replacing it.
     environment:
+      <<: *middleware-canary-environment
       PORT: "8095"
       UVICORN_WORKERS: "2"
       FORWARDED_ALLOW_IPS: ${MIDDLEWARE_FORWARDED_ALLOW_IPS:-127.0.0.1}

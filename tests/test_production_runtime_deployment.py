@@ -182,6 +182,26 @@ def test_canary_uses_fail_closed_startup_launcher() -> None:
     assert '"--workers={workers}"' in startup
 
 
+def test_canary_api_service_inherits_the_complete_shared_environment() -> None:
+    import yaml
+
+    compose = yaml.safe_load((ROOT / "deploy/production/compose.canary.yaml").read_text())
+    services = compose["services"]
+    shared = services["middleware-migrate-canary"]["environment"]
+    api = services["middleware-api-canary"]["environment"]
+    # YAML merge keys are shallow: a service-level `environment:` replaces the
+    # anchor's mapping unless it re-merges it, silently dropping APP_ENV,
+    # release identity and every explicit effect-off switch.
+    assert set(shared) <= set(api), sorted(set(shared) - set(api))
+    assert {key: api[key] for key in shared} == shared
+    assert api["APP_ENV"] == "production"
+    assert set(api) - set(shared) == {"PORT", "UVICORN_WORKERS", "FORWARDED_ALLOW_IPS"}
+    assert api["PORT"] == "8095"
+    effect_switches = {key: value for key, value in api.items() if value in {"true", "false"}}
+    assert effect_switches and all(value == "false" for value in effect_switches.values()), effect_switches
+    assert api["PRODUCTION_DIALING"] == "DISABLED"
+
+
 def test_deploy_controller_expects_canonical_integration_health_identity() -> None:
     controller = (ROOT / "deploy/production/server/codestra-middleware-deploy").read_text()
     assert '"service": "middleware-integration-api"' in controller
