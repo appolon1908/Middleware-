@@ -123,6 +123,9 @@ class LegacyBridge(BaseAdapter):
     required_settings: tuple[str, ...] = ()
     transient_errors: tuple[type[BaseException], ...] = ()
     rejected_errors: tuple[type[BaseException], ...] = ()
+    # Raised after the request may have reached the provider. Checked before
+    # transient_errors, which usually name their base class.
+    unknown_errors: tuple[type[BaseException], ...] = ()
     readiness_probe: Callable[[], Awaitable[bool]] | None = None
     supports_cancel: bool = False
     supports_status: bool = True
@@ -160,6 +163,8 @@ class LegacyBridge(BaseAdapter):
             raw = await self.legacy.execute(request)
         except self.rejected_errors as exc:
             return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code=type(exc).__name__)
+        except self.unknown_errors as exc:
+            return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code=type(exc).__name__)
         except self.transient_errors as exc:
             return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.RETRYABLE_BEFORE_EFFECT, safe_error_code=type(exc).__name__)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
@@ -442,10 +447,10 @@ def _try(name: str, build: Callable[[], BaseAdapter]) -> BaseAdapter | None:
 def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> tuple[BaseAdapter, ...]:
     """The real provider adapters, each registered only when it validates."""
     from app.calling_contract import HANGUP, ORIGINATE
-    from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError
-    from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError
+    from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError, KlyrowEmailUnknownOutcomeError
+    from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError, OdooUnknownOutcomeError
     from app.postly_social_adapter import PostlySocialAdapter, PostlySocialAdapterError
-    from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter
+    from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter, TelnexaUnknownOutcomeError
     from app.vicidial_internal_call_adapter import VicidialInternalCallAdapter, VicidialInternalCallPreDispatchRejected
     from app.platform.adapters.whatsapp import WhatsAppProviderAdapter
 
@@ -469,6 +474,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
             crm_bridge=crm_bridge,
             supported_command_types=frozenset({OdooProviderAdapter.UPSERT_LEAD}) | frozenset(CRM_BRIDGE_COMMANDS),
             transient_errors=(OdooProviderAdapterError,),
+            unknown_errors=(OdooUnknownOutcomeError,),
         )
 
     candidates: tuple[tuple[str, Callable[[], BaseAdapter]], ...] = (
@@ -484,6 +490,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 legacy=KlyrowEmailAdapter(settings),
                 supported_command_types=frozenset({KlyrowEmailAdapter.COMMAND_TYPE}),
                 transient_errors=(KlyrowEmailAdapterError,),
+                unknown_errors=(KlyrowEmailUnknownOutcomeError,),
                 required_settings=("KLYROW_EMAIL_API_BASE_URL", "KLYROW_EMAIL_MTLS_CA_FILE", "KLYROW_EMAIL_MTLS_CERT_FILE", "KLYROW_EMAIL_MTLS_KEY_FILE"),
             ),
         ),
@@ -497,6 +504,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 legacy=TelnexaSmsAdapter(settings),
                 supported_command_types=frozenset({TelnexaSmsAdapter.SUBMIT_SMS}),
                 transient_errors=(TelnexaProviderAdapterError,),
+                unknown_errors=(TelnexaUnknownOutcomeError,),
                 required_settings=("TELNEXA_SMS_BASE_URL", "TELNEXA_SMS_API_KEY"),
             ),
         ),
