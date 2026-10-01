@@ -46,7 +46,7 @@ def test_current_authority_must_require_schema_0010(tmp_path: Path) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
     errors = validator.validate_assets(tmp_path)
     assert any(
-        "must require schema 0073_campaign_recycling_delivery_events" in error for error in errors
+        "must require schema 0074_mcr_odoo_handoff" in error for error in errors
     )
 
 

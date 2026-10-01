@@ -179,6 +179,8 @@ def test_mcr_tables_are_tenant_owned() -> None:
         "mcr_exposures",
         "mcr_lead_lifecycle_current",
         "mcr_lead_lifecycle_events",
+        "mcr_odoo_handoff_reconciliations",
+        "mcr_odoo_handoffs",
         "mcr_suppressions",
     }
     for record in mcr.values():

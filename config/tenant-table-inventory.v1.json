@@ -512,6 +512,24 @@
       "ownership": "tenant_owned",
       "parent_table": null,
       "remediation": null,
+      "source": "migrations/versions/0074_mcr_odoo_handoff.py",
+      "table": "mcr_odoo_handoff_reconciliations",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0074_mcr_odoo_handoff.py",
+      "table": "mcr_odoo_handoffs",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
       "source": "migrations/versions/0072_campaign_recycling_core.py",
       "table": "mcr_suppressions",
       "tenant_representation": "tenant_id_not_null"
