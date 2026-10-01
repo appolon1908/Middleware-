@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.communications import CommunicationMessage, MessageStatus
 from app.core.config import settings
-from app.db.session import get_session
+from app.db.session import get_session, set_transaction_tenant_context
 from app.telnexa_callback_identity import (
     CLIENT_CERTIFICATE_HEADER_CONTRACT,
     TelnexaCallbackIdentity,
@@ -869,6 +869,8 @@ async def receive_telnexa_event(
     if event.event_id.startswith(SYNTHETIC_EVENT_PREFIX):
         # Synthetic callbacks are only ever verified, never projected.
         raise HTTPException(422, "synthetic_telnexa_event_rejected")
+
+    await set_transaction_tenant_context(db, event.tenant_id)
 
     body_hash = hashlib.sha256(body).hexdigest()
     payload_json = json.dumps(

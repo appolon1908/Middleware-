@@ -68,6 +68,7 @@ from app.core.provisioning_auth import (
     require_current_policy_revision,
     require_provisioning_scope,
     require_tenant_match,
+    resolve_tenant_context,
 )
 from app.db.models import (
     AgentProvisioningAudit,
@@ -190,12 +191,11 @@ async def _set_provisioning_rls_context(
     Single-tenant service tokens remain backward compatible. Multi-tenant
     tokens must name the tenant explicitly before an RLS-protected lookup.
     """
-    if tenant_id is None:
-        if len(principal.tenant_ids) != 1:
-            raise HTTPException(422, "tenant_id is required for multi-tenant authority")
-        tenant_id = next(iter(principal.tenant_ids))
-    require_tenant_match(principal, tenant_id)
-    return await set_transaction_tenant_context(session, tenant_id)
+    if tenant_id is None and len(principal.tenant_ids) != 1:
+        raise HTTPException(422, "tenant_id is required for multi-tenant authority")
+    return await set_transaction_tenant_context(
+        session, resolve_tenant_context(principal, tenant_id)
+    )
 
 
 def _hash(value: str) -> str:

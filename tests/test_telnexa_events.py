@@ -76,6 +76,7 @@ class _Session:
         self.updated_payload: dict[str, object] | None = None
         self.timeline: list[dict[str, object]] = []
         self.calls: list[tuple[str, dict[str, object]]] = []
+        self.info: dict[str, str] = {}
         self.commit_count = 0
         self.rollback_count = 0
 

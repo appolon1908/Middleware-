@@ -48,3 +48,48 @@ async def test_transaction_local_tenant_context_does_not_leak_through_pool() -> 
                 assert value == tenant_b
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_bound_tenant_context_is_restored_after_commit_and_rollback() -> None:
+    engine = create_async_engine(_async_dsn(), pool_size=1, max_overflow=0)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    tenant_id = "tenant-text-a"
+    try:
+        async with sessions() as session:
+            await set_transaction_tenant_context(session, tenant_id)
+            assert await session.scalar(
+                text("SELECT current_setting('app.tenant_id', true)")
+            ) == tenant_id
+
+            await session.commit()
+            assert await session.scalar(
+                text("SELECT current_setting('app.tenant_id', true)")
+            ) == tenant_id
+
+            await session.rollback()
+            assert await session.scalar(
+                text("SELECT current_setting('app.tenant_id', true)")
+            ) == tenant_id
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_asyncpg_tenant_connection_does_not_leak_through_pool() -> None:
+    import asyncpg
+
+    from app.db.tenant_context import asyncpg_tenant_connection
+
+    pool = await asyncpg.create_pool(os.environ["DATABASE_URL"], min_size=1, max_size=1)
+    try:
+        async with asyncpg_tenant_connection(pool, "tenant-a") as conn:
+            assert await conn.fetchval("SELECT current_setting('app.tenant_id', true)") == "tenant-a"
+
+        async with pool.acquire() as reused:
+            assert await reused.fetchval("SELECT current_setting('app.tenant_id', true)") in (None, "")
+
+        async with asyncpg_tenant_connection(pool, "tenant-b") as conn:
+            assert await conn.fetchval("SELECT current_setting('app.tenant_id', true)") == "tenant-b"
+    finally:
+        await pool.close()
