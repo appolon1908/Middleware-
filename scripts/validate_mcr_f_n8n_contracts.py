@@ -144,7 +144,7 @@ def validate(contract=None, api=None):
         check(entry.get("x-effects") == "none", f"{operation}: effect bypass")
         check(entry.get("x-request-schema") == model, f"{operation}: schema")
         refs = {v.get("$ref") for v in entry.get("parameters", [])}
-        for name in ["TenantId", "CorrelationId", "CausationId"] + (["IdempotencyKey"] if method == "post" else []):
+        for name in ["TenantId", "CorrelationId", "CausationId"] + (["IdempotencyHeader"] if method == "post" else []):
             check("#/components/parameters/" + name in refs, f"{operation}: missing {name}")
         check({"200", "401", "403", "404", "409", "422", "503"} <= set(entry.get("responses", {})), f"{operation}: responses")
     for name, schema in api["components"]["schemas"].items():

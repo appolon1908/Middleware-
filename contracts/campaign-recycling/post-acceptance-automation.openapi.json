@@ -34,7 +34,7 @@
             "$ref": "#/components/parameters/CausationId"
           },
           {
-            "$ref": "#/components/parameters/IdempotencyKey"
+            "$ref": "#/components/parameters/IdempotencyHeader"
           }
         ],
         "responses": {
@@ -278,7 +278,7 @@
             "$ref": "#/components/parameters/CausationId"
           },
           {
-            "$ref": "#/components/parameters/IdempotencyKey"
+            "$ref": "#/components/parameters/IdempotencyHeader"
           }
         ],
         "responses": {
@@ -838,7 +838,7 @@
             "$ref": "#/components/parameters/CausationId"
           },
           {
-            "$ref": "#/components/parameters/IdempotencyKey"
+            "$ref": "#/components/parameters/IdempotencyHeader"
           },
           {
             "name": "dead_letter_id",
@@ -1118,7 +1118,7 @@
           "pattern": "\\S"
         }
       },
-      "IdempotencyKey": {
+      "IdempotencyHeader": {
         "name": "Idempotency-Key",
         "in": "header",
         "required": true,
