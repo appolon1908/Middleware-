@@ -46,6 +46,8 @@ def _configure(monkeypatch, module, claims: dict | None) -> None:
         ("post", "/api/v1/operations/maintenance/recover"),
         ("post", "/api/v1/operations/reconciliation"),
         ("post", "/api/v1/operations/dead-letters/00000000-0000-4000-8000-000000000001/replay"),
+        ("get", "/api/v1/operations/dead-letters"),
+        ("get", "/api/v1/operations/reliability"),
     ],
 )
 def test_role_header_alone_never_grants_integration_admin(method: str, path: str) -> None:

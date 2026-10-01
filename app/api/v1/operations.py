@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.integration_admin_auth import IntegrationAdminPrincipal, require_integration_admin
@@ -15,12 +15,20 @@ router = APIRouter(prefix="/api/v1/operations", tags=["operations"])
 
 
 @router.get("/reliability")
-async def reliability(db: AsyncSession = Depends(get_session)):
+async def reliability(
+    db: AsyncSession = Depends(get_session),
+    principal: IntegrationAdminPrincipal = Depends(require_integration_admin),
+):
     return {"outbox": await queue_metrics(db)}
 
 
 @router.get("/dead-letters")
-async def dead_letters(limit: int = 100, db: AsyncSession = Depends(get_session)):
+async def dead_letters(
+    limit: int = Query(default=100, ge=1, le=100),
+    db: AsyncSession = Depends(get_session),
+    principal: IntegrationAdminPrincipal = Depends(require_integration_admin),
+):
+    # Dead letters span every tenant; only a verified administrator may read them.
     return {"items": await list_dead_letters(db, limit)}
 
 
