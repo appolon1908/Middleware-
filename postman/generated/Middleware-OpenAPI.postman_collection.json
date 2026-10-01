@@ -3527,6 +3527,122 @@
               }
             }
           ],
+          "name": "Read Automation Execution",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v2",
+                "automation",
+                "executions",
+                "{{job_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/v2/automation/executions/{{job_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Cancel Automation Execution",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v2",
+                "automation",
+                "executions",
+                "{{job_id}}",
+                "cancel"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/v2/automation/executions/{{job_id}}/cancel"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Read Automation Execution Result",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v2",
+                "automation",
+                "executions",
+                "{{job_id}}",
+                "result"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/v2/automation/executions/{{job_id}}/result"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "name": "Claim Automation Job",
           "request": {
             "body": {

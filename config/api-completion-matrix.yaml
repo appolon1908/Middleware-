@@ -2230,6 +2230,24 @@ operations:
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: v2
+  method: GET
+  path: /v2/automation/executions/{job_id}
+  canonical_operation_id: read_automation_execution_v2_automation_executions__job_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: v2
+  method: POST
+  path: /v2/automation/executions/{job_id}/cancel
+  canonical_operation_id: cancel_automation_execution_v2_automation_executions__job_id__cancel_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: v2
+  method: GET
+  path: /v2/automation/executions/{job_id}/result
+  canonical_operation_id: read_automation_execution_result_v2_automation_executions__job_id__result_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: v2
   method: POST
   path: /v2/automation/jobs/claim
   canonical_operation_id: claim_automation_job_v2_automation_jobs_claim_post
