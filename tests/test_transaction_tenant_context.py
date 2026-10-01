@@ -102,3 +102,19 @@ def test_unbound_session_transactions_carry_no_tenant_context() -> None:
     _restore_transaction_tenant_context(_SyncSession({}), None, connection)
 
     assert connection.calls == []
+
+
+def test_resolve_tenant_id_is_fail_closed() -> None:
+    from app.db.tenant_context import resolve_tenant_id
+
+    assert resolve_tenant_id(["tenant-a"]) == "tenant-a"
+    assert resolve_tenant_id(["tenant-a", "tenant-b"], "tenant-b") == "tenant-b"
+    for authorized, requested in (
+        (["tenant-a", "tenant-b"], None),
+        ([], None),
+        (["*"], "tenant-a"),
+        (["tenant-a"], "tenant-b"),
+        (["tenant-a"], "bad tenant"),
+    ):
+        with pytest.raises(ValueError):
+            resolve_tenant_id(authorized, requested)

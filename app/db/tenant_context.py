@@ -9,7 +9,7 @@ with is_local=true. They never create connection-persistent tenant state.
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
@@ -32,6 +32,29 @@ def canonical_tenant_id(tenant_id: str | UUID) -> str:
     if not TENANT_ID_PATTERN.fullmatch(value):
         raise ValueError("tenant_id contains unsupported characters")
     return value
+
+
+def resolve_tenant_id(
+    authorized_tenants: Iterable[str],
+    requested_tenant_id: str | None = None,
+) -> str:
+    """Resolve exactly one tenant from verified authority.
+
+    Multi-tenant callers must name the tenant; wildcards and an implicit
+    first-tenant fallback are never accepted. Transport-agnostic so HTTP
+    routes and workers share one fail-closed rule.
+    """
+    tenants = tuple(dict.fromkeys(str(item).strip() for item in authorized_tenants if str(item).strip()))
+    if "*" in tenants:
+        raise ValueError("wildcard tenant authorization is prohibited")
+    if requested_tenant_id is not None:
+        requested = canonical_tenant_id(requested_tenant_id)
+        if requested not in tenants:
+            raise ValueError("tenant authority does not cover requested tenant")
+        return requested
+    if len(tenants) != 1:
+        raise ValueError("explicit tenant_id is required for multi-tenant authority")
+    return canonical_tenant_id(tenants[0])
 
 
 async def set_asyncpg_transaction_tenant_context(

@@ -31,6 +31,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 from app.core.jwt_auth import JWTAuthError, KeycloakValidator, identity_validator_kwargs
+from app.db.tenant_context import resolve_tenant_id
 
 BEARER = HTTPBearer(auto_error=False)
 
@@ -112,12 +113,10 @@ def resolve_tenant_context(
     which authorized tenant is being addressed; no wildcard or implicit
     first-tenant fallback is permitted.
     """
-    if requested_tenant is not None:
-        require_tenant_match(principal, requested_tenant)
-        return requested_tenant
-    if len(principal.tenant_ids) == 1:
-        return next(iter(principal.tenant_ids))
-    raise HTTPException(403, "explicit authorized tenant context required")
+    try:
+        return resolve_tenant_id(principal.tenant_ids, requested_tenant)
+    except ValueError:
+        raise HTTPException(403, "explicit authorized tenant context required") from None
 
 
 def require_current_policy_revision(policy_revision: str) -> None:

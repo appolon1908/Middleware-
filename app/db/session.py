@@ -13,7 +13,7 @@ working.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -32,6 +32,7 @@ from app.db.tenant_context import (
     TENANT_CONTEXT_GUC,
     TENANT_CONTEXT_INFO_KEY,
     canonical_tenant_id,
+    resolve_tenant_id,
 )
 
 
@@ -73,6 +74,17 @@ async def set_transaction_tenant_context(
         {"setting_name": TENANT_CONTEXT_GUC, "tenant_id": normalized},
     )
     return normalized
+
+
+async def bind_transaction_tenant(
+    session: AsyncSession,
+    authorized_tenants: Iterable[str],
+    requested_tenant_id: str | None = None,
+) -> str:
+    """Resolve verified authority and install the transaction-local RLS GUC."""
+    return await set_transaction_tenant_context(
+        session, resolve_tenant_id(authorized_tenants, requested_tenant_id)
+    )
 
 
 @asynccontextmanager

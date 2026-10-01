@@ -13,7 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.session import get_session
+from app.core.social_auth import SocialPrincipal, require_social_permission, require_social_principal
+from app.db.session import bind_transaction_tenant, get_session, resolve_tenant_id
 from app.social.adapters import HootsuiteProviderAdapter, PostlyProviderAdapter
 from app.social.domain import Capability, JobType
 from app.social.providers import SocialError, SocialProviderRegistry
@@ -76,16 +77,8 @@ def _error(exc: SocialError) -> HTTPException:
     )
 
 
-def _require(permission: str, supplied: str | None) -> None:
-    permissions = {item.strip() for item in (supplied or "").split(",") if item.strip()}
-    if permission not in permissions and "social.admin" not in permissions:
-        raise HTTPException(
-            403,
-            {
-                "code": "SOCIAL_PERMISSION_DENIED",
-                "message": f"Permission {permission} is required",
-            },
-        )
+def _require(permission: str, principal: SocialPrincipal) -> None:
+    require_social_permission(principal, permission)
 
 
 def _ids(request: Request) -> tuple[str, str]:
@@ -112,9 +105,9 @@ def _post(post: Any) -> dict[str, Any]:
 
 @router.get("/providers")
 async def providers(
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> list[dict[str, Any]]:
-    _require("social.read", x_codestra_permissions)
+    _require("social.read", principal)
     return [
         {"provider": item.name, "capabilities": sorted(item.get_capabilities())}
         for item in registry.providers()
@@ -123,9 +116,9 @@ async def providers(
 
 @router.get("/providers/{provider}")
 async def provider(
-    provider: str, x_codestra_permissions: str | None = Header(None)
+    provider: str, principal: SocialPrincipal = Depends(require_social_principal)
 ) -> dict[str, Any]:
-    _require("social.read", x_codestra_permissions)
+    _require("social.read", principal)
     try:
         adapter = registry.get(provider)
         result = await adapter.health_check()
@@ -138,10 +131,11 @@ async def provider(
 @router.get("/accounts")
 async def accounts(
     session: AsyncSession = Depends(get_session),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> list[dict[str, Any]]:
-    _require("social.accounts.read", x_codestra_permissions)
+    _require("social.accounts.read", principal)
     if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
         return await SqlSocialRepository(session).list_accounts()
     return [
         {
@@ -162,10 +156,11 @@ async def accounts(
 async def account(
     account_id: UUID,
     session: AsyncSession = Depends(get_session),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
-    _require("social.accounts.read", x_codestra_permissions)
+    _require("social.accounts.read", principal)
     if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
         rows = await SqlSocialRepository(session).list_accounts(account_id)
         if not rows:
             raise HTTPException(
@@ -205,9 +200,10 @@ async def create_post(
     response: Response,
     session: AsyncSession = Depends(get_session),
     idempotency_key: str = Header(min_length=1, max_length=255),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
-    _require("social.write", x_codestra_permissions)
+    _require("social.write", principal)
+    await bind_transaction_tenant(session, principal.tenant_ids, str(body.tenant_id))
     correlation_id, request_id = _ids(request)
     try:
         if settings.social_sql_repository_enabled:
@@ -265,11 +261,12 @@ async def create_post(
 async def get_post(
     post_id: UUID,
     session: AsyncSession = Depends(get_session),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
-    _require("social.read", x_codestra_permissions)
+    _require("social.read", principal)
     try:
         if settings.social_sql_repository_enabled:
+            await bind_transaction_tenant(session, principal.tenant_ids)
             return _post(await SqlSocialRepository(session).get_post(post_id))
         return _post(service.repository.posts[post_id])
     except (KeyError, SocialError) as exc:
@@ -285,10 +282,11 @@ async def update_post(
     body: UpdateSocialPost,
     request: Request,
     session: AsyncSession = Depends(get_session),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
-    _require("social.write", x_codestra_permissions)
+    _require("social.write", principal)
     if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
         correlation_id, request_id = _ids(request)
         try:
             return _post(
@@ -328,8 +326,8 @@ async def update_post(
 
 
 @router.post("/media", status_code=202)
-async def media(x_codestra_permissions: str | None = Header(None)) -> dict[str, Any]:
-    _require("social.write", x_codestra_permissions)
+async def media(principal: SocialPrincipal = Depends(require_social_principal)) -> dict[str, Any]:
+    _require("social.write", principal)
     raise HTTPException(
         503,
         {
@@ -341,9 +339,10 @@ async def media(x_codestra_permissions: str | None = Header(None)) -> dict[str, 
 
 @router.post("/campaigns", status_code=201)
 async def create_campaign(
-    body: CreateCampaign, x_codestra_permissions: str | None = Header(None)
+    body: CreateCampaign, principal: SocialPrincipal = Depends(require_social_principal)
 ) -> dict[str, Any]:
-    _require("social.write", x_codestra_permissions)
+    _require("social.write", principal)
+    resolve_tenant_id(principal.tenant_ids, str(body.tenant_id))
     campaign_id = uuid4()
     campaign_store[campaign_id] = {
         "id": campaign_id,
@@ -358,11 +357,13 @@ async def create_campaign(
 
 @router.get("/campaigns/{campaign_id}")
 async def get_campaign(
-    campaign_id: UUID, x_codestra_permissions: str | None = Header(None)
+    campaign_id: UUID, principal: SocialPrincipal = Depends(require_social_principal)
 ) -> dict[str, Any]:
-    _require("social.read", x_codestra_permissions)
+    _require("social.read", principal)
     try:
-        return campaign_store[campaign_id]
+        item = campaign_store[campaign_id]
+        resolve_tenant_id(principal.tenant_ids, str(item["tenant_id"]))
+        return item
     except KeyError as exc:
         raise HTTPException(
             404,
@@ -375,9 +376,9 @@ async def get_campaign(
 
 @router.get("/analytics")
 async def analytics(
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
-    _require("social.analytics.read", x_codestra_permissions)
+    _require("social.analytics.read", principal)
     return {"items": [], "sync_enabled": False}
 
 
@@ -387,13 +388,15 @@ async def _command(
     request: Request,
     idempotency_key: str,
     permission: str,
-    supplied: str | None,
+    principal: SocialPrincipal,
     session: AsyncSession,
     *,
     dry_run: bool = False,
     content_approved: bool = False,
 ) -> dict[str, Any]:
-    _require(permission, supplied)
+    _require(permission, principal)
+    if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
     correlation_id, request_id = _ids(request)
     try:
         if dry_run and (
@@ -509,7 +512,7 @@ async def schedule(
     request: Request,
     session: AsyncSession = Depends(get_session),
     idempotency_key: str = Header(min_length=1, max_length=255),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
     return await _command(
         post_id,
@@ -517,7 +520,7 @@ async def schedule(
         request,
         idempotency_key,
         "social.schedule",
-        x_codestra_permissions,
+        principal,
         session,
     )
 
@@ -528,7 +531,7 @@ async def publish(
     request: Request,
     session: AsyncSession = Depends(get_session),
     idempotency_key: str = Header(min_length=1, max_length=255),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
     dry_run: bool = False,
     x_social_content_approved: bool = Header(False),
 ) -> dict[str, Any]:
@@ -538,7 +541,7 @@ async def publish(
         request,
         idempotency_key,
         "social.publish",
-        x_codestra_permissions,
+        principal,
         session,
         dry_run=dry_run,
         content_approved=x_social_content_approved,
@@ -551,7 +554,7 @@ async def cancel(
     request: Request,
     session: AsyncSession = Depends(get_session),
     idempotency_key: str = Header(min_length=1, max_length=255),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
     return await _command(
         post_id,
@@ -559,7 +562,7 @@ async def cancel(
         request,
         idempotency_key,
         "social.cancel",
-        x_codestra_permissions,
+        principal,
         session,
     )
 
@@ -570,7 +573,7 @@ async def delete(
     request: Request,
     session: AsyncSession = Depends(get_session),
     idempotency_key: str = Header(min_length=1, max_length=255),
-    x_codestra_permissions: str | None = Header(None),
+    principal: SocialPrincipal = Depends(require_social_principal),
 ) -> dict[str, Any]:
     return await _command(
         post_id,
@@ -578,7 +581,7 @@ async def delete(
         request,
         idempotency_key,
         "social.delete",
-        x_codestra_permissions,
+        principal,
         session,
     )
 
