@@ -112,7 +112,7 @@
         "campaign_content_authority",
         "sender_identity_creation",
         "crm_truth",
-        "direct_provider_calls_from_decisions"
+        "unmediated_provider_calls_from_decisions"
       ],
       "registration": "config/system-ownership.v2.json#middleware"
     },
@@ -157,7 +157,7 @@
         "policy_decisioning",
         "eligibility_override",
         "suppression_override",
-        "direct_provider_write",
+        "unmediated_provider_write",
         "direct_database_write",
         "sender_identity_selection"
       ],
@@ -294,7 +294,7 @@
         "provider_transport",
         "command_durability",
         "policy_decisioning",
-        "direct_provider_calls"
+        "unmediated_provider_calls"
       ],
       "registration": "unregistered_project:Codestra WhatsApp"
     },

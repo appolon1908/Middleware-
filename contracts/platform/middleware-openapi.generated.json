@@ -29685,7 +29685,7 @@
                             ],
                             "type": "string"
                           },
-                          "IdempotencyKey": {
+                          "IdempotencyValue": {
                             "pattern": "^mcr1:[0-9a-f]{64}$",
                             "type": "string"
                           },

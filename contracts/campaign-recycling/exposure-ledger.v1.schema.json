@@ -131,7 +131,7 @@
         "complaint"
       ]
     },
-    "IdempotencyKey": {
+    "IdempotencyValue": {
       "type": "string",
       "pattern": "^mcr1:[0-9a-f]{64}$"
     },
@@ -216,7 +216,7 @@
       "$ref": "#/$defs/TouchIndex"
     },
     "idempotency_key": {
-      "$ref": "#/$defs/IdempotencyKey"
+      "$ref": "#/$defs/IdempotencyValue"
     },
     "command_id": {
       "description": "command_id of the canonical command envelope emitted through the outbox.",

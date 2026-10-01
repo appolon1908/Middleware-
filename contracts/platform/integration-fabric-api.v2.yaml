@@ -11543,7 +11543,7 @@ paths:
                           - hard_bounce
                           - unsubscribe
                           - complaint
-                        IdempotencyKey:
+                        IdempotencyValue:
                           type: string
                           pattern: ^mcr1:[0-9a-f]{64}$
                         CampaignVersion:

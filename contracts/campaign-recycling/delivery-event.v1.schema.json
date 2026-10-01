@@ -308,7 +308,7 @@
     "exposure_idempotency_key": {
       "anyOf": [
         {
-          "$ref": "exposure-ledger.v1.schema.json#/$defs/IdempotencyKey"
+          "$ref": "exposure-ledger.v1.schema.json#/$defs/IdempotencyValue"
         },
         {
           "type": "null"

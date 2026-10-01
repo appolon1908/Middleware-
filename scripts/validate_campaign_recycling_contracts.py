@@ -1082,7 +1082,7 @@ def check_authority(artifacts: dict[str, Any], errors: list[str], root: Path) ->
                 f"authority: {name} claims items forbidden by system-ownership.v2.json"
             )
     required_forbidden = {
-        "n8n": {"policy_decisioning", "direct_provider_write", "suppression_override"},
+        "n8n": {"policy_decisioning", "unmediated_provider_write", "suppression_override"},
         "thunderbird": {"automated_sending", "campaign_touches"},
         "observability": {"policy_decisioning"},
     }

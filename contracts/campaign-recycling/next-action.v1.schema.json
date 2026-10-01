@@ -134,7 +134,7 @@
           "$ref": "exposure-ledger.v1.schema.json#/$defs/TouchIndex"
         },
         "exposure_idempotency_key": {
-          "$ref": "exposure-ledger.v1.schema.json#/$defs/IdempotencyKey"
+          "$ref": "exposure-ledger.v1.schema.json#/$defs/IdempotencyValue"
         }
       },
       "allOf": [

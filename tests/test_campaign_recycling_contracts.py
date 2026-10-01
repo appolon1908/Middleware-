@@ -812,5 +812,5 @@ def test_authority_matrix(artifacts: dict[str, Any]) -> None:
         is False
     )
     grabby = _fresh(artifacts)
-    grabby["authority"]["systems"]["n8n"]["owns"].append("direct_provider_write")
+    grabby["authority"]["systems"]["n8n"]["owns"].append("unmediated_provider_write")
     assert any("n8n" in e for e in mcr.validate(grabby))
