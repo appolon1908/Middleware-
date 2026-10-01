@@ -22,13 +22,13 @@ import json
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Path as PathParam, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api_inputs import optional_header, required_header
 from app.commands import API_OPERATION_STATES, CommandCapabilityDisabled, CommandEnvelope, CommandNotFound, CommandOperation, OperationEvent, redact_metadata
-from app.platform.kernel import ReplayNotAllowed, SCOPE_COMMAND, SCOPE_COMMAND_READ, SCOPE_COMMAND_REPLAY
+from app.platform.kernel import AdapterNotFound, CapabilityUnknown, ReplayNotAllowed, SCOPE_COMMAND, SCOPE_COMMAND_READ, SCOPE_COMMAND_REPLAY
 from app.platform.principal import KernelPrincipal, authenticate
 from app.core.policy_engine import PLATFORM_OPERATOR_ROLE
 from app.platform.rehearsal import NoEffectRehearsal, RehearsalRequest
@@ -376,6 +376,8 @@ async def submit_command(body: KernelCommandRequest, request: Request) -> JSONRe
         raise CommandCapabilityDisabled("command type does not have exactly one owning policy")
     if body.target is not None and body.target != policy.target:
         raise CommandCapabilityDisabled("command target does not own the command type")
+    if body.capability is not None and body.capability not in runtime.commands.policies.capabilities:
+        raise CapabilityUnknown("capability is not listed in the capability registry")
     if body.capability is not None and body.capability != policy.capability:
         raise CommandCapabilityDisabled("command capability does not match the owning policy")
     command = body.envelope(target=policy.target, capability=policy.capability)
@@ -570,24 +572,36 @@ async def cancel_replay(replay_id: UUID, request: Request) -> JSONResponse:
 # ----------------------------------------------------------------------
 # GET /platform/v1/kernel/describe
 # ----------------------------------------------------------------------
-def _adapter_rows(request: Request) -> list[dict[str, Any]]:
-    _runtime_container, platform = _runtime(request)
-    return platform.registry.describe()
+ADAPTER_ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 
 
 @router.get("/adapters")
-async def list_adapters(request: Request) -> dict[str, Any]:
+async def list_adapters(request: Request) -> JSONResponse:
+    """Registration, capability and readiness evidence; never a provider effect."""
     await authenticate(request, required_scope=SCOPE_COMMAND_READ)
-    return {"items": _adapter_rows(request)}
+    _runtime_container, platform = _runtime(request)
+    return JSONResponse(status_code=200, content=await platform.adapter_readback(), headers={"Cache-Control": "no-store"})
 
 
 @router.get("/adapters/{adapter_id}")
-async def get_adapter(adapter_id: str, request: Request) -> dict[str, Any]:
+async def get_adapter(
+    request: Request,
+    adapter_id: str = PathParam(..., pattern=ADAPTER_ID_PATTERN),
+) -> JSONResponse:
     await authenticate(request, required_scope=SCOPE_COMMAND_READ)
-    for row in _adapter_rows(request):
-        if row["adapter_id"] == adapter_id:
-            return row
-    raise CommandNotFound("adapter was not found")
+    _runtime_container, platform = _runtime(request)
+    readback = await platform.adapter_readback()
+    row = next((item for item in readback["adapters"] if item["adapter_id"] == adapter_id), None)
+    if row is None:
+        raise AdapterNotFound("adapter was not found")
+    detail = {
+        "adapter": row,
+        "capabilities": {name: readback["capabilities"][name] for name in row["capabilities"] if name in readback["capabilities"]},
+        "environment": readback["environment"],
+        "registration_mode": readback["registration_mode"],
+        "provider_effects_enabled": readback["provider_effects_enabled"],
+    }
+    return JSONResponse(status_code=200, content=detail, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/dead-letters/{operation_id}/replay", response_model=OperationStatus, status_code=202)

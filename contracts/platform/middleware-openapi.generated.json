@@ -18422,15 +18422,13 @@
     },
     "/platform/v1/adapters": {
       "get": {
+        "description": "Registration, capability and readiness evidence; never a provider effect.",
         "operationId": "list_adapters_platform_v1_adapters_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "title": "Response List Adapters Platform V1 Adapters Get",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -18477,6 +18475,7 @@
             "name": "adapter_id",
             "required": true,
             "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
               "title": "Adapter Id",
               "type": "string"
             }
@@ -18486,10 +18485,7 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "title": "Response Get Adapter Platform V1 Adapters  Adapter Id  Get",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"

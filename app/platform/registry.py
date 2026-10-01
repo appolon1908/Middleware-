@@ -122,6 +122,9 @@ class AdapterRegistry:
         (they cannot be activated by configuration alone)."""
         problems: list[str] = []
         for policy in self.policies.policies:
+            if policy.capability not in self.policies.capabilities:
+                problems.append(f"prefix {policy.prefix!r} requires unknown capability {policy.capability!r}")
+                continue
             enabled = self.policies.capabilities.get(policy.capability) is True
             owner = self._owners.get(policy.prefix)
             if enabled and owner is None:
@@ -171,6 +174,15 @@ class AdapterRegistry:
         if ownership is None:
             return None
         return self._adapters[ownership.adapter_id]
+
+    def capability_owners(self) -> dict[str, tuple[str, ...]]:
+        """Capability -> the adapters owning at least one of its prefixes."""
+        owners: dict[str, set[str]] = {}
+        for policy in self.policies.policies:
+            adapter_id = self._owners.get(policy.prefix)
+            if adapter_id is not None:
+                owners.setdefault(policy.capability, set()).add(adapter_id)
+        return {capability: tuple(sorted(ids)) for capability, ids in sorted(owners.items())}
 
     def owners(self) -> dict[str, str]:
         return dict(sorted(self._owners.items()))

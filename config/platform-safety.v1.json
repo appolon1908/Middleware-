@@ -18,7 +18,8 @@
     "test-syn": false,
     "vicidial-restricted": false,
     "connect-router": false,
-    "evolution-whatsapp": false
+    "evolution-whatsapp": false,
+    "djone-mixxx": false
   },
   "synthetic_tenants": [
     "TEST_SYN"
@@ -263,6 +264,18 @@
         "production"
       ],
       "campaign_scoped": true
+    },
+    "DJONE_CONTROL": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging",
+        "production"
+      ],
+      "campaign_scoped": false
     }
   },
   "limits": {

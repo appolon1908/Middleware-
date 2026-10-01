@@ -775,7 +775,7 @@
       "scope": "identity.request",
       "auth": "service-or-user-jwt",
       "request_schema": "none",
-      "response_schema": "openapi:inline:list_adapters_platform_v1_adapters_get:response",
+      "response_schema": "none",
       "idempotency": {
         "required": false,
         "carrier": "none",
@@ -811,7 +811,7 @@
       "scope": "identity.request",
       "auth": "service-or-user-jwt",
       "request_schema": "none",
-      "response_schema": "openapi:inline:get_adapter_platform_v1_adapters__adapter_id__get:response",
+      "response_schema": "none",
       "idempotency": {
         "required": false,
         "carrier": "none",
