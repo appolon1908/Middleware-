@@ -32,6 +32,31 @@ COMMAND_DESTINATIONS = frozenset(
 )
 ACTIVE_COMMAND_STATES = ("persisted", "queued", "dispatching", "accepted", "readback_pending")
 AUTHENTICATED_CLIENT_ID_KEY = "_authenticated_client_id"
+RESOLVE_RECONCILIATION_ACTION = "resolve_reconciliation"
+
+
+def _resolution_digest(
+    matched: bool,
+    expected_version: int,
+    reason: str,
+    provider_operation_id: str | None,
+    evidence: Mapping[str, Any],
+    mutation_correlation_id: str | None,
+) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "matched": matched,
+                "expected_version": expected_version,
+                "reason": reason[:2048],
+                "provider_operation_id": provider_operation_id,
+                "evidence_sha256": provider_evidence_digest(dict(evidence)),
+                "mutation_correlation_id": mutation_correlation_id,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
 CommandState = Literal[
     "persisted",
     "queued",
@@ -510,6 +535,23 @@ class CommandStore(Protocol):
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
         expected_version: int | None = None,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        ...
+
+    async def resolve_reconciliation(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        idempotency_key: str,
+        expected_version: int,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         ...
 
@@ -629,6 +671,7 @@ class MemoryCommandStore:
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
         expected_version: int | None = None,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         key = (tenant_id, command_id)
         entry = self._commands.get(key)
@@ -657,11 +700,42 @@ class MemoryCommandStore:
         self._commands[key] = (digest, updated)
         self._idempotency[(tenant_id, updated.idempotency_key)] = (digest, updated)
         events = self._events[key]
-        events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state="reconciliation_required", new_state=updated.state, actor_id=actor_id, reason=reason[:2048], safe_metadata={"provider_operation_id": provider_operation_id, "readback_evidence_sha256": evidence_digest, "reconciliation_status": "matched" if matched else "mismatch"}, created_at=now))
+        events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state="reconciliation_required", new_state=updated.state, actor_id=actor_id, reason=reason[:2048], safe_metadata={"provider_operation_id": provider_operation_id, "readback_evidence_sha256": evidence_digest, "reconciliation_status": "matched" if matched else "mismatch", **({"mutation_correlation_id": mutation_correlation_id} if mutation_correlation_id else {})}, created_at=now))
         attempts = self._attempts[key]
         if attempts:
             attempts[-1] = attempts[-1].model_copy(update={"state": updated.state, "provider_operation_id": provider_operation_id or attempts[-1].provider_operation_id, "safe_error_code": None if matched else "provider_readback_mismatch", "finished_at": now})
         return updated
+
+    async def resolve_reconciliation(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        idempotency_key: str,
+        expected_version: int,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        if (tenant_id, command_id) not in self._commands:
+            raise CommandNotFound("command operation was not found")
+        request_digest = _resolution_digest(matched, expected_version, reason, provider_operation_id, evidence, mutation_correlation_id)
+        mutation_key = (tenant_id, command_id, RESOLVE_RECONCILIATION_ACTION, actor_id, idempotency_key)
+        replay = self._mutations.get(mutation_key)
+        if replay:
+            if replay[0] != request_digest:
+                raise CommandConflict("idempotency key was reused with different mutation content")
+            return replay[1].model_copy(update={"duplicate": True})
+        operation = await self.reconcile(
+            tenant_id, command_id, matched=matched, actor_id=actor_id, reason=reason,
+            provider_operation_id=provider_operation_id, evidence=evidence, expected_version=expected_version,
+            mutation_correlation_id=mutation_correlation_id,
+        )
+        self._mutations[mutation_key] = (request_digest, operation)
+        return operation
 
     async def get(self, tenant_id: str, command_id: UUID) -> CommandOperation:
         entry = self._commands.get((tenant_id, command_id))
@@ -1670,6 +1744,7 @@ class PostgresCommandStore:
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
         expected_version: int | None = None,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         """Close (or keep parked) an operation awaiting reconciliation.
 
@@ -1678,108 +1753,175 @@ class PostgresCommandStore:
         activity records; a mismatch keeps the operation parked with the reason
         and the evidence so an operator (or the bounded reconciler budget) decides.
         """
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await set_asyncpg_transaction_tenant_context(conn, tenant_id)
+                return await self._reconcile_in_transaction(
+                    conn, tenant_id, command_id, matched=matched, actor_id=actor_id, reason=reason,
+                    provider_operation_id=provider_operation_id, evidence=evidence,
+                    expected_version=expected_version, mutation_correlation_id=mutation_correlation_id,
+                )
+
+    async def _reconcile_in_transaction(
+        self,
+        conn: Any,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        expected_version: int | None,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
         safe_reason = reason[:2048]
         safe_evidence = dict(evidence)
         evidence_digest = provider_evidence_digest(safe_evidence)
         next_state = "completed" if matched else "reconciliation_required"
+        current = await conn.fetchrow(
+            "SELECT state, resource_version FROM middleware_commands "
+            "WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+            tenant_id,
+            str(command_id),
+        )
+        if current is None:
+            raise CommandNotFound("command operation was not found")
+        if current["state"] != "reconciliation_required":
+            raise CommandConflict("operation is no longer awaiting reconciliation")
+        if (
+            expected_version is not None
+            and current["resource_version"] != expected_version
+        ):
+            raise CommandConflict("expected_version is stale")
+        if matched:
+            row = await conn.fetchrow(
+                """
+                UPDATE middleware_commands
+                SET state='completed',
+                    provider_operation_id=COALESCE($3, provider_operation_id),
+                    last_error=NULL,
+                    completed_at=now(),
+                    updated_at=now(),
+                    resource_version=resource_version+1
+                WHERE tenant_id=$1 AND command_id=$2
+                RETURNING *
+                """,
+                tenant_id,
+                str(command_id),
+                provider_operation_id,
+            )
+        else:
+            row = await conn.fetchrow(
+                """
+                UPDATE middleware_commands
+                SET provider_operation_id=COALESCE($3, provider_operation_id),
+                    last_error=$4,
+                    reconciliation_reason=$4,
+                    updated_at=now(),
+                    resource_version=resource_version+1
+                WHERE tenant_id=$1 AND command_id=$2
+                RETURNING *
+                """,
+                tenant_id,
+                str(command_id),
+                provider_operation_id,
+                safe_reason,
+            )
+        assert row is not None
+        await conn.execute(
+            """
+            INSERT INTO middleware_command_audit (
+                tenant_id, command_id, previous_state, new_state,
+                actor_id, reason, metadata
+            ) VALUES ($1,$2,'reconciliation_required',$3,$4,$5,$6::jsonb)
+            """,
+            tenant_id,
+            str(command_id),
+            next_state,
+            actor_id,
+            safe_reason,
+            json.dumps(
+                {
+                    "provider_operation_id": provider_operation_id,
+                    "readback_evidence_sha256": evidence_digest,
+                    "reconciliation_status": "matched" if matched else "mismatch",
+                    **({"mutation_correlation_id": mutation_correlation_id} if mutation_correlation_id else {}),
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+        await conn.execute(
+            """
+            UPDATE middleware_command_attempts
+            SET state=$3,
+                provider_operation_id=COALESCE($4, provider_operation_id),
+                result_payload=$5::jsonb,
+                error_code=CASE WHEN $3='reconciliation_required' THEN 'provider_readback_mismatch' ELSE NULL END,
+                error_detail=CASE WHEN $3='reconciliation_required' THEN $6 ELSE NULL END,
+                finished_at=now()
+            WHERE id=(
+                SELECT id FROM middleware_command_attempts
+                WHERE tenant_id=$1 AND command_id=$2
+                ORDER BY attempt_number DESC LIMIT 1
+            )
+            """,
+            tenant_id,
+            str(command_id),
+            next_state,
+            provider_operation_id,
+            json.dumps(safe_evidence, separators=(",", ":"), sort_keys=True),
+            safe_reason,
+        )
+        return self._operation(row, readback_evidence=safe_evidence, readback_evidence_sha256=evidence_digest)
+
+    async def resolve_reconciliation(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        idempotency_key: str,
+        expected_version: int,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        """Operator resolution: an idempotent ``reconcile`` recorded in the mutation ledger."""
+        request_digest = _resolution_digest(matched, expected_version, reason, provider_operation_id, evidence, mutation_correlation_id)
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await set_asyncpg_transaction_tenant_context(conn, tenant_id)
-                current = await conn.fetchrow(
-                    "SELECT state, resource_version FROM middleware_commands "
-                    "WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+                # Lock first so concurrent identical requests serialize and the
+                # second one replays the first one's recorded outcome.
+                locked = await conn.fetchval(
+                    "SELECT 1 FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
                     tenant_id,
                     str(command_id),
                 )
-                if current is None:
+                if locked is None:
                     raise CommandNotFound("command operation was not found")
-                if current["state"] != "reconciliation_required":
-                    raise CommandConflict("operation is no longer awaiting reconciliation")
-                if (
-                    expected_version is not None
-                    and current["resource_version"] != expected_version
-                ):
-                    raise CommandConflict("expected_version is stale")
-                if matched:
-                    row = await conn.fetchrow(
-                        """
-                        UPDATE middleware_commands
-                        SET state='completed',
-                            provider_operation_id=COALESCE($3, provider_operation_id),
-                            last_error=NULL,
-                            completed_at=now(),
-                            updated_at=now(),
-                            resource_version=resource_version+1
-                        WHERE tenant_id=$1 AND command_id=$2
-                        RETURNING *
-                        """,
-                        tenant_id,
-                        str(command_id),
-                        provider_operation_id,
-                    )
-                else:
-                    row = await conn.fetchrow(
-                        """
-                        UPDATE middleware_commands
-                        SET provider_operation_id=COALESCE($3, provider_operation_id),
-                            last_error=$4,
-                            reconciliation_reason=$4,
-                            updated_at=now(),
-                            resource_version=resource_version+1
-                        WHERE tenant_id=$1 AND command_id=$2
-                        RETURNING *
-                        """,
-                        tenant_id,
-                        str(command_id),
-                        provider_operation_id,
-                        safe_reason,
-                    )
-                assert row is not None
-                await conn.execute(
-                    """
-                    INSERT INTO middleware_command_audit (
-                        tenant_id, command_id, previous_state, new_state,
-                        actor_id, reason, metadata
-                    ) VALUES ($1,$2,'reconciliation_required',$3,$4,$5,$6::jsonb)
-                    """,
-                    tenant_id,
-                    str(command_id),
-                    next_state,
-                    actor_id,
-                    safe_reason,
-                    json.dumps(
-                        {
-                            "provider_operation_id": provider_operation_id,
-                            "readback_evidence_sha256": evidence_digest,
-                            "reconciliation_status": "matched" if matched else "mismatch",
-                        },
-                        separators=(",", ":"),
-                        sort_keys=True,
-                    ),
+                replay = await conn.fetchrow("""SELECT request_sha256, response_payload FROM middleware_operation_mutations
+                    WHERE tenant_id=$1 AND command_id=$2 AND action=$3 AND actor_id=$4 AND idempotency_key=$5""",
+                    tenant_id, str(command_id), RESOLVE_RECONCILIATION_ACTION, actor_id, idempotency_key)
+                if replay:
+                    if replay["request_sha256"] != request_digest:
+                        raise CommandConflict("idempotency key was reused with different mutation content")
+                    payload = json.loads(replay["response_payload"]) if isinstance(replay["response_payload"], str) else dict(replay["response_payload"])
+                    return CommandOperation.model_validate(payload).model_copy(update={"duplicate": True})
+                operation = await self._reconcile_in_transaction(
+                    conn, tenant_id, command_id, matched=matched, actor_id=actor_id, reason=reason,
+                    provider_operation_id=provider_operation_id, evidence=evidence,
+                    expected_version=expected_version, mutation_correlation_id=mutation_correlation_id,
                 )
-                await conn.execute(
-                    """
-                    UPDATE middleware_command_attempts
-                    SET state=$3,
-                        provider_operation_id=COALESCE($4, provider_operation_id),
-                        result_payload=$5::jsonb,
-                        error_code=CASE WHEN $3='reconciliation_required' THEN 'provider_readback_mismatch' ELSE NULL END,
-                        error_detail=CASE WHEN $3='reconciliation_required' THEN $6 ELSE NULL END,
-                        finished_at=now()
-                    WHERE id=(
-                        SELECT id FROM middleware_command_attempts
-                        WHERE tenant_id=$1 AND command_id=$2
-                        ORDER BY attempt_number DESC LIMIT 1
-                    )
-                    """,
-                    tenant_id,
-                    str(command_id),
-                    next_state,
-                    provider_operation_id,
-                    json.dumps(safe_evidence, separators=(",", ":"), sort_keys=True),
-                    safe_reason,
-                )
-        return self._operation(row, readback_evidence=safe_evidence, readback_evidence_sha256=evidence_digest)
+                payload = operation.model_dump(mode="json")
+                await conn.execute("""INSERT INTO middleware_operation_mutations (tenant_id, command_id, action, actor_id, idempotency_key, request_sha256, response_status, response_payload)
+                    VALUES ($1,$2,$3,$4,$5,$6,200,$7::jsonb)""", tenant_id, str(command_id), RESOLVE_RECONCILIATION_ACTION, actor_id, idempotency_key, request_digest, json.dumps(payload, separators=(",", ":"), sort_keys=True))
+                return operation
 
     async def ready(self) -> bool:
         try:
@@ -1923,6 +2065,7 @@ class CommandService:
     async def list_replays(self, *args: Any, **kwargs: Any) -> list[ReplayRecord]: return await self.store.list_replays(*args, **kwargs)
     async def transition(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.transition(*args, **kwargs)
     async def reconcile(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.reconcile(*args, **kwargs)
+    async def resolve_reconciliation(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.resolve_reconciliation(*args, **kwargs)
     async def latest_attempt(self, tenant_id: str, command_id: UUID) -> int: return await self.store.latest_attempt(tenant_id, command_id)
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope: return await self.store.load_envelope(tenant_id, command_id)
     async def backlog(self, tenant_id: str) -> tuple[int, int | None]: return await self.store.backlog(tenant_id)

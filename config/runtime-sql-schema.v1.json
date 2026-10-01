@@ -1,5 +1,5 @@
 {
-  "migration_history_sha256": "sha256:839f188fd4879339a0f2818628718809e8815750fd794bc052d4ba9c4493124a",
+  "migration_history_sha256": "sha256:a9d5784897369090c4063d71974573acc0d431c0cd181ccd67e05fbf9dced083",
   "schema_version": 1,
   "tables": {
     "campaign_design_approval": "sha256:658b1ff152fd2b5b696ab37d44d5d7b447970674784b43c59c6db6ca742ead71",
@@ -43,7 +43,7 @@
     "middleware_observability_incident_mutations": "sha256:0007d0b08023483ee435d6bc291f7891697b874fd2cfa6d909d5e968582764d5",
     "middleware_observability_incidents": "sha256:5912fed825d9797c53022dca7611f957c89893cb846a8b2b2ccdb24ad91d878d",
     "middleware_observability_notification_intents": "sha256:f7792de37d73e0a096f397c9784b70bcaf45bba94a9cc870858f3b72dd8b3f59",
-    "middleware_operation_mutations": "sha256:51ef60c1532c01733bd0bfeae1c5f04520b5a0cc127b28981c2e107a9a7d1145",
+    "middleware_operation_mutations": "sha256:3c78dc3b679c08b40f27e1ae8dc5790f9b7da9f5dc5b6fce312305d638e9d8ac",
     "middleware_outbox": "sha256:28a331291269b9aece020251d9bd542bf404a00f3160a27cd3361224c31aff85",
     "middleware_outbox_attempt_events": "sha256:4f1cb7361a2cc6ad285619c6ece7c7fb5a988a3245d7106653928b650cbc6821",
     "middleware_realtime_events": "sha256:f7d5a0794051b2986d7f78ac4148274346e671e4e30913bb03cc33d4a1aaec45",

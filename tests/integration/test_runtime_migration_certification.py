@@ -61,7 +61,7 @@ def test_real_fresh_and_predecessor_migrations(predecessor, monkeypatch):
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 15
+                    == 16
                 )
                 assert (
                     await conn.fetchval(
@@ -196,7 +196,7 @@ def test_actual_sql_structure_cannot_be_certified_from_intact_receipts(
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 15
+                    == 16
                 )
                 assert (
                     await conn.fetch(
@@ -359,7 +359,7 @@ def test_real_progressive_rls_keeps_workers_visible_and_safe_tables_isolated(mon
                 ) == head
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_schema_migrations"
-                ) == 15
+                ) == 16
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_automation_schema_migrations"
                 ) == 3

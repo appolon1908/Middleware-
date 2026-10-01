@@ -17724,6 +17724,81 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List Adapters",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "adapters"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/adapters"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get Adapter",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "adapters",
+                "{{adapter_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/adapters/{{adapter_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "const allowedSuccessStatuses = [200, 202];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
@@ -18390,6 +18465,59 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "const allowedSuccessStatuses = [202];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Replay Dead Letter",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 0,\n  \"mode\": \"\",\n  \"new_idempotency_key\": \"\",\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "dead-letters",
+                "{{operation_id}}",
+                "replay"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/dead-letters/{{operation_id}}/replay"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
@@ -18641,6 +18769,193 @@
               ],
               "query": [],
               "raw": "{{base_url}}/platform/v1/operations/{{operation_id}}/timeline"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List Reconciliation",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/reconciliation"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get Reconciliation",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation",
+                "{{operation_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/reconciliation/{{operation_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [202];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Request Reconciliation Readback",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 0,\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation",
+                "{{operation_id}}",
+                "readback"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/reconciliation/{{operation_id}}/readback"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Resolve Reconciliation",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"evidence\": {},\n  \"expected_version\": 0,\n  \"matched\": false,\n  \"provider_operation_id\": \"\",\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation",
+                "{{operation_id}}",
+                "resolve"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/reconciliation/{{operation_id}}/resolve"
             }
           }
         },
@@ -20114,6 +20429,10 @@
     },
     {
       "key": "activity_id",
+      "value": ""
+    },
+    {
+      "key": "adapter_id",
       "value": ""
     },
     {
