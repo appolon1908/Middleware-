@@ -897,16 +897,18 @@ def _public_contract_digest() -> str | None:
 
 __all__ = ["router", "CommandNotFound"]
 
-# Connector catalog/readiness projections. These routes are read-only and never
-# enable an effect; authentication/tenant policy remains the platform authority.
+# Connector catalog/readiness projections: read-only, never an effect, and
+# authenticated with the kernel read scope like every other route here.
 @router.get("/connectors")
 async def connectors_catalog(request: Request):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import list_connectors
     runtime, platform = _runtime(request)
     return {"items": await list_connectors(platform)}
 
 @router.get("/connectors/{connector_id}")
 async def connector_catalog_item(request: Request, connector_id: str):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import ConnectorCatalogError, describe_connector
     runtime, platform = _runtime(request)
     try:
@@ -916,6 +918,7 @@ async def connector_catalog_item(request: Request, connector_id: str):
 
 @router.get("/connectors/{connector_id}/capabilities")
 async def connector_capabilities(request: Request, connector_id: str):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import ConnectorCatalogError, describe_connector
     runtime, platform = _runtime(request)
     try:
@@ -927,6 +930,7 @@ async def connector_capabilities(request: Request, connector_id: str):
 
 @router.get("/connectors/{connector_id}/health")
 async def connector_health(request: Request, connector_id: str):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import ConnectorCatalogError, describe_connector
     runtime, platform = _runtime(request)
     try:

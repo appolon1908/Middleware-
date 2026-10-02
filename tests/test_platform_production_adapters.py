@@ -487,6 +487,19 @@ def test_adapter_readback_requires_read_scope(api) -> None:
     assert client.get("/platform/v1/adapters/odoo-19").status_code == 401
 
 
+def test_connector_catalog_requires_read_scope(api) -> None:
+    client, _, _ = api
+    for path in (
+        "/platform/v1/connectors",
+        "/platform/v1/connectors/odoo-19",
+        "/platform/v1/connectors/odoo-19/capabilities",
+        "/platform/v1/connectors/odoo-19/health",
+    ):
+        assert client.get(path).status_code == 401, path
+        assert client.get(path, headers=bearer("platform.command")).status_code == 401, path
+    assert client.get("/platform/v1/connectors", headers=bearer()).status_code == 200
+
+
 def test_adapter_readback_lists_production_posture(api) -> None:
     client, legacy, store = api
     response = client.get("/platform/v1/adapters", headers=bearer())
