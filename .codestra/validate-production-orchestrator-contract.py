@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "2350f456d848ac52725d3a954dbc172d67720226ff09c0ca37531ce03446ddf6"
+    "c52021990a3c39e08320f46b1918a4b28275927095587d814735695b7b1ea77e"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -671,29 +671,29 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "50caaed769389cb30fc725766ea6bed6"
         ),
         ".github/workflows/middleware-ci.yml": (
-            "3c10b06262c5b235eafca508d30098f51"
-            "fc24b0fa9417e9dde3f1328f70ddbeb"
+            "ad4685c7a16844e93be61953e6880998b"
+            "3ae772c3c0cfe88d12b01ee71db66c2"
         ),
         ".github/workflows/integration-main-release-authorities.yml": (
             "910acf0149a0b9060544817a71577222a"
             "3ff117c75ad334886170d903d594150"
         ),
         ".github/workflows/production-reviewer-access.yml": (
-            "20a9a5f1e5e1e12abaff1ce60c2c02cb"
-            "3142c3bfa58e9250dc2c5a56579a8d5d"
+            "fe8a41c98753e0a981a2673df0a7a324"
+            "394b93a7ac5290dd684e0ede090d58de"
         ),
         ".github/workflows/python-quality-baseline.yml": (
-            "40f5e29489e26cc52b5e7c5bb749347cf"
-            "8b50614a8ef9eabc5d125e46af33a71"
+            "cb89cb69636dc79a6a03e5df98abeb798"
+            "6a823e30c2d52b1d03980dddac58cca"
         ),
         ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
         ".github/workflows/production-route-contract.yml": (
-            "410240ab3d31d4ead8f634643829e9b7"
-            "294ee0ec5ed90b7210fb08a6362ee48c"
+            "89414a1aa1ed373a72f8e12c93156a2e"
+            "739e6594e0cd644f501875983720d879"
         ),
         ".github/workflows/release-component-ci.yml": (
-            "b1010d177cad4656752907ad288d2c"
-            "6d68e490472e40ad0d96fd271009680bc6"
+            "ae93e8bc281ea7a77385c026528697"
+            "009d8d5591439db870a36b16584ded9e8e"
         ),
     },
     "appolon1908-hue/beyvra-backend": {
@@ -733,10 +733,10 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
 }
 APPROVED_JOB_EXECUTABLE_CONFIGURATION_SHA256: dict[str, dict[str, str]] = {
     "ingtrader21-spec/Middleware-": {
-        ".github/workflows/connector-runtime-api-ci.yml": "438ab1f1ef7db9dc6f5b006b17542a628eb5ea43506d5f24f1a05b89a5b11a6f",
+        ".github/workflows/connector-runtime-api-ci.yml": "e62adfc9ea616b3a550987c9fa959c9a5c9cfeb66cbf54bc2becdc3e9d67a374",
         ".github/workflows/connector-storage-ci.yml": "39df4c72bffce26b181b1857d408664419164fd0dab10283d4fb98f52b5d3329",
         ".github/workflows/lead-automation-v1.yml": "68e8e4bf4820b13ff3cc0c2497404ebb217984728b1d2e8a64d6e862142b7bc5",
-        ".github/workflows/integrated-monitoring.yml": "154353f72d9ae4b3e387c99c911b52862ab5a1b964bb745340a75123d1984513",
+        ".github/workflows/integrated-monitoring.yml": "2afe0af0eadd53d8d5b61588781edab1d775bf17009266c4678fe3a9c41a39ec",
         ".github/workflows/odoo-calling-contract.yml": (
             "a92a6f8a5b8ba4f5c0ee4c0b2e5cacce5"
             "0a2135cb9c89ffdf0969ca9894bc500"
