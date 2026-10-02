@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   api-and-postgresql:
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","middleware-ci"]') }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:

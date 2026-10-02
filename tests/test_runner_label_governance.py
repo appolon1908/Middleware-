@@ -1,12 +1,12 @@
-"""Runner-label governance for the persistent self-hosted Middleware runner.
+"""Runner-label governance for Middleware CI execution.
 
-The governed host (labels ``self-hosted, Linux, X64, middleware-ci``) is a
-persistent operator machine, not an ephemeral VM. Under decision D1 trusted
-events run on it and pull requests from forks fall back to a GitHub-hosted
-runner; a small, named set of jobs is pinned to it by exact labels. Signing,
-publishing and release-provenance workflows never run on it.
+Portable validation/build/integration jobs run on ephemeral GitHub-hosted
+Ubuntu runners. Only jobs with host-only security or branch-materialization
+requirements may target the governed ``self-hosted, Linux, X64, middleware-ci``
+runner. Signing, publishing and release-provenance workflows never use that
+governed host.
 
-``tests/test_ci_isolation.py`` pins the fork-aware selector text, dynamic
+``tests/test_ci_isolation.py`` pins the portable hosted-runner policy, dynamic
 service ports and the required-ci egress guard; this module pins the job set
 and the workflow-wide invariants that no single workflow test can see.
 """
@@ -25,11 +25,7 @@ WORKFLOWS = ROOT / ".github/workflows"
 MIDDLEWARE_CI = WORKFLOWS / "middleware-ci.yml"
 
 GOVERNED_LABELS = ["self-hosted", "Linux", "X64", "middleware-ci"]
-FORK_AWARE_SELECTOR = (
-    "${{ github.event_name == 'pull_request' && "
-    "github.event.pull_request.head.repo.full_name != github.repository && "
-    "'ubuntu-24.04' || fromJSON('[\"self-hosted\",\"Linux\",\"X64\",\"middleware-ci\"]') }}"
-)
+HOSTED_RUNNER = "ubuntu-24.04"
 # Jobs pinned to the governed host by exact labels, each for a stated reason:
 # pull_request_target gates are byte-pinned base-branch code; required-ci owns
 # the host-only egress guard; the single-lane gate materializes branch refs.
@@ -85,7 +81,7 @@ def test_middleware_ci_job_set_and_required_context_names_are_stable() -> None:
     jobs = load(MIDDLEWARE_CI)["jobs"]
     assert {job_id: job["name"] for job_id, job in jobs.items()} == MIDDLEWARE_CI_JOB_NAMES
     for job_id, job in jobs.items():
-        assert job["runs-on"] == FORK_AWARE_SELECTOR, job_id
+        assert job["runs-on"] == HOSTED_RUNNER, job_id
 
 
 def test_required_aggregate_still_fails_closed_on_every_gate() -> None:
@@ -114,10 +110,8 @@ def test_governed_host_is_reached_only_through_approved_selectors(
     runs_on = job.get("runs-on")
     if not targets_governed_host(runs_on):
         return
-    if (workflow, job_id) in EXACT_LABEL_JOBS:
-        assert runs_on == EXACT_LABEL_JOBS[(workflow, job_id)], f"{workflow}:{job_id}"
-    else:
-        assert runs_on == FORK_AWARE_SELECTOR, f"{workflow}:{job_id} drifted from the fork-aware selector"
+    assert (workflow, job_id) in EXACT_LABEL_JOBS, f"{workflow}:{job_id} is not an approved governed-host job"
+    assert runs_on == EXACT_LABEL_JOBS[(workflow, job_id)], f"{workflow}:{job_id}"
 
 
 @pytest.mark.parametrize(
@@ -154,7 +148,7 @@ def test_middleware_ci_keeps_least_privilege_and_no_host_mutation() -> None:
         assert forbidden not in source, forbidden
 
 
-def test_runtime_integration_keeps_its_temp_root_off_the_shared_host_tmp() -> None:
+def test_runtime_integration_keeps_its_temp_root_job_local() -> None:
     step = load(MIDDLEWARE_CI)["jobs"]["runtime-integration"]["steps"][-1]
     assert step["env"]["TMPDIR"] == "${{ runner.temp }}/middleware-runtime-integration"
     assert 'mkdir -p "$TMPDIR"' in step["run"]
