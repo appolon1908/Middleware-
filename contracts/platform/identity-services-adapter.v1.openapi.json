@@ -3,7 +3,7 @@
   "info": {
     "title": "Private independent service adapter API",
     "version": "1.0.0",
-    "description": "Proposed service-owned contract; unverified and disabled. Never publicly route /internal or /metrics."
+    "description": "Proposed service-owned contract; unverified and disabled. Internal and metrics endpoints stay private and are never routed through the edge."
   },
   "servers": [
     {
