@@ -1,7 +1,7 @@
 # Middleware- — Architecture Charts
 
-> Repository: `appolon1908/Middleware-`  
-> Baseline branch: `main`  
+> Repository: `appolon1908/Middleware-`
+> Baseline branch: `main`
 > Repository-local visual architecture. Update with code, contract and deployment changes.
 
 ## 1. System context
