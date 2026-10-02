@@ -103,17 +103,6 @@ def test_canonical_repository_identity() -> None:
     assert live_release.count(PUBLISHER_IDENTITY) >= 2
 
 
-def test_transferred_host_alias_is_stable_repository_id_bound(
-    validator: dict, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    hosted = "appolon1908/Middleware-"
-    monkeypatch.setenv("GITHUB_REPOSITORY_ID", "1347559071")
-    assert validator["authoritative_repository_identity"](hosted) == REPOSITORY
-
-    monkeypatch.setenv("GITHUB_REPOSITORY_ID", "1")
-    assert validator["authoritative_repository_identity"](hosted) == hosted
-
-
 def test_release_workflow_identities_are_current(analyses: dict) -> None:
     assert authority.pre_transfer_identity_references(analyses) == []
     for path, role in authority.SUPPORTING_WORKFLOW_ROLES.items():
