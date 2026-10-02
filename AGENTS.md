@@ -33,6 +33,28 @@ A failing preflight is a STOP condition. Do not work around it with another work
 
 Production/provider effects remain fail-closed unless a separately approved release mission explicitly authorizes them. An agent must not enable live email/SMS/calling, payment/money movement, direct production database writes, or provider mutations as a side effect of implementation or testing.
 
+## Codestra continuation contract
+
+The repository-local rules above are the immediate authority. The external Codestra continuation protocol remains an additional coordination contract where accessible.
+
+Canonical protocol:
+https://github.com/ingtrader21-spec/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
+
+Quick start:
+https://github.com/ingtrader21-spec/codestra/blob/main/docs/AGENT-QUICKSTART.md
+
+Before changing code:
+1. Read `.codestra-mission/*` when present.
+2. Read the active Linear issue and linked Notion architecture when available.
+3. Inspect exact Git branch/HEAD/dirty/worktree/upstream/PR/CI state.
+4. Preserve all existing local work.
+5. If acting as Builder, verify exclusive issue ownership and use the declared active worktree.
+6. Do not invent or self-assign the next task.
+7. Update GitHub + Linear + Notion + the mission checkpoint before handoff when those systems are part of the mission.
+8. Do not cross the live-production approval boundary.
+
+The no-loss, one-writer, protected-merge, checkpoint, and production-boundary rules remain mandatory even when the external protocol repository is unavailable.
+
 ## Certification and publication
 
 Before publication:
