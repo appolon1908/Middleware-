@@ -75,7 +75,7 @@ jobs:
           npm run typecheck
           npm test
           npm run build
-          npx playwright install chromium firefox webkit
+          npx playwright install --with-deps chromium firefox webkit
           npm run test:browser
           docker build --build-arg "VCS_REF=${GITHUB_SHA}" --tag "codestra-agent-desktop:${GITHUB_SHA}" .
       - name: Validate WebSocket Gateway
