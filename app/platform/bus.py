@@ -67,6 +67,16 @@ from app.worker import KnownSafeRetryError
 
 logger = logging.getLogger("codestra.platform.bus")
 
+TRANSIENT_EXECUTION_DENIALS = frozenset(
+    {
+        "adapter_not_ready",
+        "global_backlog_unavailable",
+        "tenant_backlog_unavailable",
+        "global_backlog_saturated",
+        "tenant_backlog_saturated",
+    }
+)
+
 DEFAULT_ADAPTER_TIMEOUT_SECONDS = 30.0
 DEFAULT_BULKHEAD_CAPACITY = 8
 DEFAULT_BREAKER_THRESHOLD = 5
@@ -235,6 +245,11 @@ class AdapterDispatch:
             # Readiness runs before execute, so no provider effect can exist yet.
             logger.warning("adapter_readiness_failed", extra={"adapter": adapter.adapter_id, "error": type(exc).__name__})
             raise KnownSafeRetryError(f"adapter readiness unavailable: {type(exc).__name__}") from exc
+        try:
+            tenant_backlog, global_backlog = await self.commands.backlog(operation.tenant_id)
+        except Exception as exc:  # an unavailable backlog signal fails closed below
+            logger.warning("adapter_backlog_probe_failed", extra={"adapter": adapter.adapter_id, "error": type(exc).__name__})
+            tenant_backlog = global_backlog = None
         decision = self.safety.evaluate(
             SafetySubject(
                 tenant_id=operation.tenant_id,
@@ -244,14 +259,20 @@ class AdapterDispatch:
                 campaign_id=_campaign_id(envelope.payload),
                 correlation_id=operation.correlation_id,
             ),
-            SafetyContext(adapter_registered=True, adapter_ready=readiness.ready),
+            SafetyContext(
+                adapter_registered=True,
+                adapter_ready=readiness.ready,
+                tenant_backlog=tenant_backlog,
+                global_backlog=global_backlog,
+            ),
             consume_budget=False,
         )
         if not decision.allow:
             self.metrics.safety_denials.labels(reason=decision.reason_code).inc()
-            if decision.reason_code == "adapter_not_ready":
-                # Readiness is transient; back off without opening an attempt.
-                raise KnownSafeRetryError("adapter not ready")
+            if set(decision.reason_codes) <= TRANSIENT_EXECUTION_DENIALS:
+                # Readiness and backlog are transient for an admitted command;
+                # back off without opening an attempt instead of dead-lettering.
+                raise KnownSafeRetryError(f"execution deferred: {decision.reason_code}")
             await self._fail(operation, reason=f"safety denied at execution: {decision.reason_code}", attempt=None)
             return self._record(DispatchOutcome(command_id, None, "failed", False))
 

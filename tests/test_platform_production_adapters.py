@@ -18,12 +18,14 @@ from uuid import uuid4
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.application import AppProfile, create_app
 from app.commands import CommandCapabilityDisabled, CommandEnvelope, CommandPolicy, CommandPolicyRegistry, CommandService, MemoryCommandStore
 from app.control_plane_auth import ControlPlaneCaller
 from app.core.config import Settings
 from app.core.runtime import RuntimeContainer
+from app.identity_service_contract import SERVICE_COMMANDS
 from app.platform.adapters.fixtures import FixtureAdapter
 from app.platform.adapters.n8n import N8nWorkflowAdapter
 from app.platform.adapters.providers import LegacyBridge, OdooAdapter
@@ -339,7 +341,15 @@ async def test_every_production_command_is_denied_with_zero_provider_or_business
     platform, store = production_runtime(production, candidates=candidates)
     bus = MemoryExecutionBus(store, platform.dispatch)
     denied: dict[str, str] = {}
+    contract_refused: set[str] = set()
     for policy in platform.registry.policies.policies:
+        if policy.target in SERVICE_COMMANDS:
+            # Identity-service families accept only their reference-only
+            # contracts; an arbitrary probe is refused before admission.
+            with pytest.raises(ValidationError):
+                envelope(f"{policy.prefix}probe.v1", policy.target, policy.capability)
+            contract_refused.add(policy.prefix)
+            continue
         command = envelope(f"{policy.prefix}probe.v1", policy.target, policy.capability)
         with pytest.raises(SafetyDenied, match="capability_disabled"):
             await platform.kernel.submit(command, everyone())
@@ -347,13 +357,37 @@ async def test_every_production_command_is_denied_with_zero_provider_or_business
         # The ledger itself refuses a disabled capability even without the kernel.
         with pytest.raises(CommandCapabilityDisabled):
             await platform.kernel.commands.submit(command, authenticated_subject="user-1", authenticated_client_id="middleware-api", destination="adapter-command", decision_evidence={})
-    assert set(denied) == {policy.prefix for policy in platform.registry.policies.policies}
+    for target, (capability, command_type, fields) in sorted(SERVICE_COMMANDS.items()):
+        command = CommandEnvelope.model_validate(
+            {
+                "command_id": str(uuid4()),
+                "command_type": command_type,
+                "command_version": "1.0",
+                "target": target,
+                "tenant_id": TENANT,
+                "requested_by": "user-1",
+                "correlation_id": "corr-" + uuid4().hex[:12],
+                "idempotency_key": "idem-" + uuid4().hex,
+                "capability": capability,
+                "payload": {name: "ref-" + name.replace("_", "-") for name in sorted(fields)},
+            }
+        )
+        # Identity services ship quarantined: the kill switch denies first.
+        with pytest.raises(SafetyDenied, match="provider_kill_switch"):
+            await platform.kernel.submit(command, everyone())
+        denied[f"{target}:canonical"] = capability
+    assert set(denied) - {f"{target}:canonical" for target in SERVICE_COMMANDS} | contract_refused == {
+        policy.prefix for policy in platform.registry.policies.policies
+    }
     assert await bus.run_once() is False
     assert legacy.calls == []
     assert store._commands == {} and store._outbox == []
     records = platform.denials.records  # type: ignore[attr-defined]
     assert len(records) == len(denied)
-    assert {(record.kind, record.reason_code) for record in records} == {("safety_deny", "capability_disabled")}
+    assert {(record.kind, record.reason_code) for record in records} == {
+        ("safety_deny", "capability_disabled"),
+        ("safety_deny", "provider_kill_switch"),
+    }
 
 
 def test_safety_gate_denies_every_manifest_capability_even_with_a_ready_adapter(production: Settings) -> None:

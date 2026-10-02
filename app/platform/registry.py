@@ -5,7 +5,9 @@ requires every adapter to own at least one command prefix of the command
 registry (``connectors/generated/command-registry.v1.json`` through
 :class:`app.commands.CommandPolicyRegistry`), requires exactly one owner per
 prefix, requires readback support wherever the command registry demands it,
-and reports as not ready when an *enabled* capability has no ready adapter.
+refuses any capability the capability registry (``config/capabilities.v2.json``)
+does not list, and reports as not ready when an *enabled* capability has no
+ready adapter.
 The kernel routes only through :meth:`AdapterRegistry.owner_for`.
 """
 
