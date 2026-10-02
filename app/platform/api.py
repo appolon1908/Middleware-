@@ -9,7 +9,7 @@ rendered by the registry's error envelope (``error.code`` / ``message`` /
 ``correlation_id`` / ``retryable`` / ``details``).
 
 Scopes: ``platform.command`` (submit, cancel), ``platform.command.read``
-(operation, timeline, describe, rehearsal read-back),
+(operation, timeline, describe, rehearsal and adapter read-back),
 ``platform.command.replay`` + role ``platform-operator`` (replay, run the
 no-effect rehearsal).
 """
@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 import json
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Path as PathParam, Query, Request
@@ -41,6 +41,7 @@ router = APIRouter(prefix="/platform/v1", tags=["platform-command-kernel"])
 COMMAND_CONTRACT_VERSION = "command-envelope.v1"
 _SAFE_ERROR_CODE = re.compile(r"[^a-z0-9_.:-]+")
 TRACE_HEADERS = ("traceparent", "tracestate")
+ADAPTER_ID_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
 
 class KernelCommandRequest(BaseModel):
@@ -229,6 +230,83 @@ class RehearsalReport(BaseModel):
     provider_effects: int | None
     checks: list[RehearsalCheckResult]
     report_sha256: str
+
+
+class CapabilityState(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    known: bool
+    enabled: bool
+    classification: str
+    adapter_ids: list[str]
+
+
+class AdapterRegistrationRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adapter_id: str
+    provider_family: str
+    connector_ids: list[str]
+    capabilities: list[str]
+    registered: bool
+    reason: str
+
+
+class AdapterRow(AdapterRegistrationRow):
+    command_prefixes: list[str]
+    capability_states: dict[str, bool]
+    version: str | None = None
+    supports_readback: bool | None = None
+    supports_cancel: bool | None = None
+    supports_status: bool | None = None
+    safe_reexecution: bool | None = None
+    external_effect: bool | None = None
+
+
+class RegistrationEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    manifest_version: str
+    activation_authorized: bool
+    refused: bool
+    violations: list[str]
+    adapters: list[AdapterRegistrationRow]
+
+
+class AdapterReadinessEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adapter_registry: bool
+    platform_adapters: bool | None
+    probed_adapter_ids: list[str]
+
+
+class AdapterReadback(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    environment: str
+    source_sha: str
+    registration_mode: str
+    registration: RegistrationEvidence | None
+    registry_valid: bool
+    registry_error: str | None
+    adapters: list[AdapterRow]
+    capabilities: dict[str, CapabilityState]
+    unknown_capabilities: list[str]
+    effectful_capabilities_enabled: list[str]
+    provider_effects_enabled: bool
+    readiness: AdapterReadinessEvidence
+
+
+class AdapterDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    environment: str
+    registration_mode: str
+    registry_valid: bool
+    provider_effects_enabled: bool
+    adapter: AdapterRow
+    capabilities: dict[str, CapabilityState]
 
 
 # ----------------------------------------------------------------------
@@ -572,36 +650,35 @@ async def cancel_replay(replay_id: UUID, request: Request) -> JSONResponse:
 # ----------------------------------------------------------------------
 # GET /platform/v1/kernel/describe
 # ----------------------------------------------------------------------
-ADAPTER_ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
+_NO_STORE = {"Cache-Control": "no-store"}
 
 
-@router.get("/adapters")
+@router.get("/adapters", response_model=AdapterReadback)
 async def list_adapters(request: Request) -> JSONResponse:
     """Registration, capability and readiness evidence; never a provider effect."""
     await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     _runtime_container, platform = _runtime(request)
-    return JSONResponse(status_code=200, content=await platform.adapter_readback(), headers={"Cache-Control": "no-store"})
+    readback = AdapterReadback.model_validate(await platform.adapter_readback())
+    return JSONResponse(status_code=200, content=readback.model_dump(mode="json"), headers=_NO_STORE)
 
 
-@router.get("/adapters/{adapter_id}")
-async def get_adapter(
-    request: Request,
-    adapter_id: str = PathParam(..., pattern=ADAPTER_ID_PATTERN),
-) -> JSONResponse:
+@router.get("/adapters/{adapter_id}", response_model=AdapterDetail)
+async def get_adapter(adapter_id: Annotated[str, PathParam(pattern=ADAPTER_ID_PATTERN, max_length=100)], request: Request) -> JSONResponse:
     await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     _runtime_container, platform = _runtime(request)
-    readback = await platform.adapter_readback()
-    row = next((item for item in readback["adapters"] if item["adapter_id"] == adapter_id), None)
+    readback = AdapterReadback.model_validate(await platform.adapter_readback())
+    row = next((item for item in readback.adapters if item.adapter_id == adapter_id), None)
     if row is None:
-        raise AdapterNotFound("adapter was not found")
-    detail = {
-        "adapter": row,
-        "capabilities": {name: readback["capabilities"][name] for name in row["capabilities"] if name in readback["capabilities"]},
-        "environment": readback["environment"],
-        "registration_mode": readback["registration_mode"],
-        "provider_effects_enabled": readback["provider_effects_enabled"],
-    }
-    return JSONResponse(status_code=200, content=detail, headers={"Cache-Control": "no-store"})
+        raise AdapterNotFound("adapter is neither registered nor listed for this environment")
+    detail = AdapterDetail(
+        environment=readback.environment,
+        registration_mode=readback.registration_mode,
+        registry_valid=readback.registry_valid,
+        provider_effects_enabled=readback.provider_effects_enabled,
+        adapter=row,
+        capabilities={name: readback.capabilities[name] for name in row.capabilities if name in readback.capabilities},
+    )
+    return JSONResponse(status_code=200, content=detail.model_dump(mode="json"), headers=_NO_STORE)
 
 
 @router.post("/dead-letters/{operation_id}/replay", response_model=OperationStatus, status_code=202)
