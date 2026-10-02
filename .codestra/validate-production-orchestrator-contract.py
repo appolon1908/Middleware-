@@ -368,6 +368,28 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str, bool, bool]] = {
     "appolon1908-hue/Telnexa-web": (1346958528, "application", True, False),
     "appolon1908-hue/codestra-production-platform": (1314230781, "controller", False, False),
 }
+HOSTED_REPOSITORY_ALIASES: dict[str, tuple[int, str]] = {
+    # Repository ID is stable across GitHub owner transfers.  The current
+    # appolon1908 hosting location is accepted only when GitHub also supplies
+    # the exact transferred repository ID; copied repositories remain
+    # fail-closed and cannot inherit the protected release identity.
+    "appolon1908/Middleware-": (1347559071, "ingtrader21-spec/Middleware-"),
+}
+
+
+def authoritative_repository_identity(repository: str | None) -> str | None:
+    if repository is None:
+        return None
+    alias = HOSTED_REPOSITORY_ALIASES.get(repository)
+    if alias is None:
+        return repository
+    expected_id, canonical = alias
+    repository_id = os.environ.get("GITHUB_REPOSITORY_ID")
+    if repository_id == str(expected_id):
+        return canonical
+    return repository
+
+
 EXPECTED_ARTIFACT_POLICIES: dict[
     str, tuple[tuple[str, ...], bool, bool, bool, str | None, str | None]
 ] = {
@@ -2785,7 +2807,7 @@ def repository_script_has_runtime_mutation(
         )
     candidate = working_directory / relative_target
     if not candidate.exists():
-        repository = os.environ.get("GITHUB_REPOSITORY")
+        repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
         if not repository:
             repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
                 "repository",
@@ -2830,7 +2852,7 @@ def approved_read_only_script_invocation(
 ) -> bool:
     if dynamic_invocation_token(target):
         return False
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
@@ -3119,7 +3141,7 @@ def repository_script_path_has_runtime_mutation(
     if resolved == RELEASE_VALIDATOR_PATH.resolve():
         validate_release_validator_operations(source)
         return False
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
@@ -3548,7 +3570,7 @@ def test_runner_targets_have_runtime_mutation(
             for resolved_target in resolved_targets
         ):
             if default_discovery:
-                repository = os.environ.get("GITHUB_REPOSITORY")
+                repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
                 if not repository:
                     repository = json.loads(
                         CONTRACT_PATH.read_text(encoding="utf-8")
@@ -4891,7 +4913,7 @@ def job_executable_configuration_mutation(
 
 
 def job_executable_configuration_approved(workflow: str, path: str) -> bool:
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
@@ -4940,7 +4962,7 @@ def job_reusable_workflow_mutation(
 
 def workflow_script_aliases(workflow: str, path: str) -> dict[str, str]:
     aliases: dict[str, str] = {}
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
@@ -5135,7 +5157,7 @@ def step_has_runtime_mutation(
         # Workflow, job, and step environment mappings can preload code or
         # redirect executable/module resolution before the literal run block.
         return True
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
@@ -5235,7 +5257,7 @@ def workflow_has_runtime_mutation(
     path: str,
     seen_workflows: set[Path] | None = None,
 ) -> bool:
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
@@ -6687,7 +6709,9 @@ def validate_release_validator_operations(source: str) -> None:
 
 
 def validate(contract: dict[str, Any]) -> None:
-    repository = os.environ.get("GITHUB_REPOSITORY", contract.get("repository", ""))
+    repository = authoritative_repository_identity(
+        os.environ.get("GITHUB_REPOSITORY", contract.get("repository", ""))
+    )
     repository_id_text = os.environ.get("GITHUB_REPOSITORY_ID")
     require(contract.get("schema_version") == SCHEMA, "contract schema mismatch")
     require(repository in EXPECTED_IDENTITIES, "repository is outside the protected catalog identity map")
@@ -9390,7 +9414,7 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
 def require_mutating_jobs_disabled(workflow: str, path: str) -> None:
     mutating_jobs = 0
     script_aliases = workflow_script_aliases(workflow, path)
-    repository = os.environ.get("GITHUB_REPOSITORY")
+    repository = authoritative_repository_identity(os.environ.get("GITHUB_REPOSITORY"))
     if not repository:
         repository = json.loads(CONTRACT_PATH.read_text(encoding="utf-8")).get(
             "repository",
