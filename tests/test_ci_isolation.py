@@ -102,7 +102,7 @@ def test_required_ci_uses_disk_backed_runner_temp_for_heavy_python_steps():
     assert source.count("TMPDIR: ${{ runner.temp }}") >= 2
 
 
-def test_middleware_ci_uses_dynamic_service_ports_on_self_hosted_runner():
+def test_middleware_ci_uses_dynamic_service_ports_on_hosted_runner():
     source = (ROOT / ".github/workflows/middleware-ci.yml").read_text()
     assert source.count("- 5432/tcp") >= 2
     assert source.count("- 6379/tcp") >= 2
@@ -112,39 +112,42 @@ def test_middleware_ci_uses_dynamic_service_ports_on_self_hosted_runner():
     assert "job.services.redis.ports['6379']" in source
 
 
-FORK_AWARE_RUNNER = (
-    "runs-on: ${{ github.event_name == 'pull_request' && "
-    "github.event.pull_request.head.repo.full_name != github.repository && "
-    "'ubuntu-24.04' || fromJSON('[\"self-hosted\",\"Linux\",\"X64\",\"middleware-ci\"]') }}"
-)
+HOSTED_RUNNER = "runs-on: ubuntu-24.04"
 
 
-def test_protected_ci_lanes_keep_fork_pull_requests_off_the_governed_runner():
-    """Decision D1: trusted events use the governed self-hosted runner; only
-    pull requests from forks fall back to a GitHub-hosted runner, so untrusted
-    code never reaches the persistent host."""
+def test_portable_ci_lanes_use_ephemeral_github_hosted_runners():
+    """Portable CI must not depend on the persistent governed runner.
+
+    Host-only gates stay self-hosted below; everything in this list executes
+    on GitHub-hosted Ubuntu so repository CI cannot deadlock on runner loss.
+    """
     workflows = (
         "middleware-ci.yml",
         "release-component-ci.yml",
         "connector-sdk-ci.yml",
+        "connector-runtime-api-ci.yml",
+        "integrated-monitoring.yml",
+        "marketing-stage5-certification.yml",
         "production-integration-lock.yml",
+        "production-reviewer-access.yml",
         "production-route-contract.yml",
         "python-quality-baseline.yml",
         "codeql.yml",
+        "staging-intake-observability-contract.yml",
     )
     for name in workflows:
-        source = (ROOT / ".github/workflows" / name).read_text()
-        assert FORK_AWARE_RUNNER in source, name
-        assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" not in source, name
-        assert "runs-on: ubuntu-latest" not in source
-        assert "runs-on: ubuntu-24.04" not in source
+        source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
+        assert HOSTED_RUNNER in source, name
+        assert "fromJSON('[\"self-hosted\"" not in source, name
+        assert "runs-on: [self-hosted" not in source, name
+
 
 
 def test_pull_request_target_gates_stay_byte_pinned_on_the_governed_runner():
     # pull_request_target runs base-branch code and is pinned by exact bytes
     # in validate_repository_governance.py; the fork selector does not apply.
     for name in ("production-orchestrator-contract.yml", "trusted-production-orchestrator-gate.yml"):
-        source = (ROOT / ".github/workflows" / name).read_text()
+        source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
         assert "pull_request_target:" in source
         assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" in source
 
