@@ -102,6 +102,11 @@ def test_required_ci_uses_disk_backed_runner_temp_for_heavy_python_steps():
     assert source.count("TMPDIR: ${{ runner.temp }}") >= 2
 
 
+def test_middleware_ci_concurrency_namespace_escapes_legacy_self_hosted_queue():
+    source = (ROOT / ".github/workflows" / "middleware-ci.yml").read_text(encoding="utf-8")
+    assert "group: middleware-ci-hosted-v2-${{ github.workflow }}-${{ github.ref }}" in source
+    assert "cancel-in-progress: true" in source
+
 def test_middleware_ci_uses_dynamic_service_ports_on_hosted_runner():
     source = (ROOT / ".github/workflows/middleware-ci.yml").read_text()
     assert source.count("- 5432/tcp") >= 2
