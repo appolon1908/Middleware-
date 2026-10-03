@@ -148,13 +148,14 @@ def test_portable_ci_lanes_use_ephemeral_github_hosted_runners():
 
 
 
-def test_pull_request_target_gates_stay_byte_pinned_on_the_governed_runner():
-    # pull_request_target runs base-branch code and is pinned by exact bytes
-    # in validate_repository_governance.py; the fork selector does not apply.
+def test_pull_request_target_gates_stay_byte_pinned_on_protected_main():
+    # pull_request_target executes protected-base code. Keep these workflows
+    # byte-pinned to the independently reviewed protected-main hosted runner.
     for name in ("production-orchestrator-contract.yml", "trusted-production-orchestrator-gate.yml"):
         source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
         assert "pull_request_target:" in source
-        assert "runs-on: [self-hosted, Linux, X64, middleware-ci]" in source
+        assert HOSTED_RUNNER in source
+        assert "runs-on: [self-hosted" not in source
 
 
 def test_required_ci_stays_on_the_governed_runner_for_its_egress_guard():
