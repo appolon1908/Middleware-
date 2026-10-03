@@ -57,7 +57,7 @@ def test_whatsapp_adapter_ownership_is_synchronized_with_canonical_authority() -
         for item in load("config/system-integration-registry.v4.json")["systems"]
         if item["adapter_id"] == "evolution-whatsapp"
     )
-    repository = "ingtrader21-spec/Evolution-API"
+    repository = "appolon1908/Evolution-API"
     assert adapter["repository"] == manifest["repository"] == repository
     assert authority["principal_repository"] == system["current_repository"] == repository
     assert authority["github_repository_id"] == system["github_repository_id"] == 1384467115
