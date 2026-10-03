@@ -23,13 +23,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "1.0"
 SERVICE = "middleware-api"
-REPOSITORY = "ingtrader21-spec/Middleware-"
-# Releases signed before the repository transfer (appolon1908-hue -> ingtrader21-spec)
+REPOSITORY = "appolon1908/Middleware-"
+# Releases signed before the repository transfer (appolon1908 -> appolon1908)
 # carry the pre-transfer repository name and were published to the pre-transfer GHCR
 # package. They remain verifiable evidence, but only for the exact source SHA / image
 # digest pairs recorded here; every other manifest must name the current repository
 # and the current image repository.
-HISTORICAL_REPOSITORY = "appolon1908-hue/Middleware-"
+HISTORICAL_REPOSITORY = "appolon1908/Middleware-"
 HISTORICAL_RELEASES = {
     "164969b4824fb4d2eb38b232bfb7abc18e33d8ac": "sha256:18017a1a40a7969495661446badd8b43d1d4153c2036d89b0fb3065469e27941",
     "29b25cba8302cd15ef4d87b68f501da6347f2f17": "sha256:0f5a5b3b1c8166d6509b228541bee01533f5feb1dbef24ed2d241194ba610802",
@@ -39,22 +39,22 @@ HISTORICAL_RELEASES = {
 SOURCE_REF = "refs/heads/main"
 # The GHCR package is owned by the repository owner: a GitHub Actions installation
 # token can only publish to its own owner's namespace, so the transferred repository
-# publishes to ingtrader21-spec. The pre-transfer package keeps the historical digests
+# publishes to appolon1908. The pre-transfer package keeps the historical digests
 # and is accepted only for the pinned HISTORICAL_RELEASES.
-IMAGE_REPOSITORY = "ghcr.io/ingtrader21-spec/codestra-middleware"
-HISTORICAL_IMAGE_REPOSITORY = "ghcr.io/appolon1908-hue/codestra-middleware"
+IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
+HISTORICAL_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
 PLATFORMS = ["linux/amd64"]
 BASE_IMAGE = "python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56"
 WORKFLOW_PATH = ".github/workflows/release.yml"
 CERTIFICATE_IDENTITY = (
-    "https://github.com/ingtrader21-spec/Middleware-/"
+    "https://github.com/appolon1908/Middleware-/"
     ".github/workflows/release.yml@refs/heads/main"
 )
 # Sigstore identity under which the pinned pre-transfer releases were signed. It is
 # accepted only for those exact releases (see HISTORICAL_RELEASES); every new release
 # must be signed by the current repository's workflow identity.
 HISTORICAL_CERTIFICATE_IDENTITY = (
-    "https://github.com/appolon1908-hue/Middleware-/"
+    "https://github.com/appolon1908/Middleware-/"
     ".github/workflows/release.yml@refs/heads/main"
 )
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"

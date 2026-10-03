@@ -105,7 +105,7 @@ def release_evidence(
             {
                 "spdxVersion": "SPDX-2.3",
                 "SPDXID": "SPDXRef-DOCUMENT",
-                "name": f"ghcr.io/ingtrader21-spec/codestra-middleware@{IMAGE_DIGEST}",
+                "name": f"ghcr.io/appolon1908/codestra-middleware@{IMAGE_DIGEST}",
                 "documentNamespace": "https://anchore.com/syft/image/example",
                 "packages": [{"SPDXID": "SPDXRef-Package-fastapi", "name": "fastapi"}],
             }
@@ -219,7 +219,7 @@ def test_fully_bound_evidence_is_ready_for_signing(tmp_path: Path) -> None:
     assert report["decision"] == "READY_FOR_SIGNING", report
     assert all(check["status"] == PASS for check in report["checks"])
     assert by_id(report)["cosign_inputs"]["evidence"]["image_reference"] == (
-        f"ghcr.io/ingtrader21-spec/codestra-middleware@{IMAGE_DIGEST}"
+        f"ghcr.io/appolon1908/codestra-middleware@{IMAGE_DIGEST}"
     )
 
 

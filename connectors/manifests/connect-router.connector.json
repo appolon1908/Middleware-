@@ -113,7 +113,7 @@
     "runtime_activation_authorized": false,
     "source_only": true
   },
-  "repository": "ingtrader21-spec/Codestra-Connect",
+  "repository": "appolon1908/Codestra-Connect",
   "runtime_binding": {
     "base_url": "https://connect-router.internal.invalid",
     "health_path": "/health",
