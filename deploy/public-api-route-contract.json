@@ -775,7 +775,7 @@
       "scope": "platform.command.read",
       "auth": "service-or-user-jwt",
       "request_schema": "none",
-      "response_schema": "none",
+      "response_schema": "#/components/schemas/AdapterReadback",
       "idempotency": {
         "required": false,
         "carrier": "none",
@@ -811,7 +811,7 @@
       "scope": "platform.command.read",
       "auth": "service-or-user-jwt",
       "request_schema": "none",
-      "response_schema": "none",
+      "response_schema": "#/components/schemas/AdapterDetail",
       "idempotency": {
         "required": false,
         "carrier": "none",
