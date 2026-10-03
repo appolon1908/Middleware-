@@ -97,7 +97,7 @@ COMMAND_CONTRACT: dict[str, object] = {
 ADAPTER_CONTRACT: dict[str, object] = {
     "id": "klyrow-alert-email",
     "cell": "core-communications",
-    "repository": "appolon1908-hue/klyrow.com",
+    "repository": "appolon1908/klyrow.com",
     "command_prefixes": ["observability.alert."],
     "direct_n8n": False,
 }
@@ -464,7 +464,7 @@ def validate(root: Path = ROOT) -> tuple[int, int]:
         )
         if (
             re.fullmatch(
-                r"(?:ingtrader21-spec|appolon1908-hue)/[A-Za-z0-9_.-]+", repository
+                r"(?:appolon1908|appolon1908)/[A-Za-z0-9_.-]+", repository
             )
             is None
         ):
