@@ -68,7 +68,7 @@ jobs:
           POSTGRES_USER: middleware_ci
           POSTGRES_PASSWORD: ci-only-password
         ports:
-          - 5432:5432
+          - 5432/tcp
         options: >-
           --health-cmd "pg_isready -U middleware_ci -d middleware_rehearsal"
           --health-interval 5s
@@ -168,8 +168,8 @@ jobs:
 
       - name: Run exact-source tests
         env:
-          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:5432/middleware_rehearsal
-          TEST_DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:5432/middleware_rehearsal
+          DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
+          TEST_DATABASE_URL: postgresql+asyncpg://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal
           LIVE_WRITES_ENABLED: "false"
           VICIDIAL_WRITE_ENABLED: "false"
           CALLBACK_DISPATCH_ENABLED: "false"
@@ -182,7 +182,7 @@ jobs:
           ruff check --select E9,F63,F7,F82 app tests
           mapfile -t HEADS < <(alembic heads | awk '{print $1}')
           test "${#HEADS[@]}" -eq 1
-          test "${HEADS[0]}" = "0067_service_catalog_monitoring_state"
+          test "${HEADS[0]}" = "0071_defer_unbound_tenant_rls"
           alembic upgrade head
           python -m pytest -q tests
 

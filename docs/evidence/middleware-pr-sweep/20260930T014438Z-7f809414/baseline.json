@@ -1,0 +1,34 @@
+{
+ "run_id": "20260930T014438Z-7f809414",
+ "observed_at_utc": "2026-09-30T01:44:38Z",
+ "repository": "ingtrader21-spec/Middleware-",
+ "default_branch": "main",
+ "host": "vm (Claude Code cloud container, ephemeral)",
+ "user": "root",
+ "write_lane": {
+  "worktree": "scratchpad/replay",
+  "branch": "mission/middleware-v3-final-repository-convergence-20260927",
+  "owner": "this Claude Code session",
+  "local_head": "7f809414677c19eacb7d3c52caa9d412077b6c8d",
+  "upstream": "7f809414677c19eacb7d3c52caa9d412077b6c8d",
+  "remote": "7f809414677c19eacb7d3c52caa9d412077b6c8d",
+  "tree": "f334191f3aa1176e429afc5ddfd5311485dfd951",
+  "dirty_entries": 0
+ },
+ "candidate": {
+  "pr": 397,
+  "head": "7f809414677c19eacb7d3c52caa9d412077b6c8d",
+  "merge_state": "blocked"
+ },
+ "protected_main": "0606b0db9ff59802f8da3824d209d2effc13f87d",
+ "entry_gate": "agent_preflight.sh --start PASS",
+ "branch_protection": {
+  "readable": false,
+  "reason": "no API tool exposes rulesets/branch protection in this session; observed effects: merge_state=blocked with codestra/required-ci failing; CODEOWNERS * @appolon1908-hue @kazan555, .codestra/validate-release-intent.py @kazan555"
+ },
+ "preservation": {
+  "preserve/pr-sweep-20260930-replay-wt": "99f34e9ee2c0f3846bde992015251d52ff7bb6e4",
+  "preserve/pr-sweep-20260930-local-refs": "ff22191db19433495ecd8b44df168417c12755b7",
+  "note": "tag push to refs/tags/preserve/* refused (HTTP 403 by session git proxy); branches used instead"
+ }
+}

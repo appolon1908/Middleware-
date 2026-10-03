@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "ingtrader21-spec/Middleware-"
 VALIDATOR = ROOT / ".codestra" / "validate-production-orchestrator-contract.py"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
-CANONICAL_SCHEMA_HEAD = "0067_service_catalog_monitoring_state"
+CANONICAL_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
 PUBLISHER_IDENTITY = "https://github.com/ingtrader21-spec/Middleware-/.github/workflows/release.yml@refs/heads/main"
 
 
@@ -216,7 +216,7 @@ def test_pre_transfer_package_is_a_bounded_release_surface(
     )
 
 
-def test_release_schema_head_is_0067() -> None:
+def test_release_schema_head_is_0071() -> None:
     text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
     assert f"EXPECTED_SCHEMA_HEAD: {CANONICAL_SCHEMA_HEAD}" in text
     assert f"codestra.schema_head={CANONICAL_SCHEMA_HEAD}" in text

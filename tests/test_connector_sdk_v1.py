@@ -39,6 +39,7 @@ from middleware.connector_sdk import (
     ReadBackRequiredError,
     ReplayDecision,
     SemanticVersion,
+    StandardsValidationError,
     StaticCapabilityProvider,
     VerifiedWebhook,
     WebhookProcessor,
@@ -281,6 +282,9 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             {
                 "ai-provider",
                 "beyvra-nonfinancial",
+                "connect-router",
+                "djone-mixxx",
+                "evolution-whatsapp",
                 "klyrow-alert-email",
                 "klyrow-email",
                 "kyqra-crawler",
@@ -318,6 +322,18 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             SemanticVersion.parse("1.0.0+build.1"),
             SemanticVersion.parse("1.0.0+build.2"),
         )
+
+    def test_semver_parser_rejects_adversarial_invalid_input(self) -> None:
+        hostile = "0.0.0-" + ("-" * 20_000) + "."
+        with self.assertRaises(StandardsValidationError):
+            SemanticVersion.parse(hostile)
+
+    def test_oauth_scope_parser_rejects_adversarial_invalid_input(self) -> None:
+        raw = self.raw("klyrow-email")
+        raw["authentication"]["scopes"] = ["0" + ("--" * 10_000) + ":"]
+        with self.assertRaises(ManifestValidationError) as error:
+            parse_manifest(raw)
+        self.assertIn("invalid OAuth scope", str(error.exception))
 
     def test_same_version_different_digest_is_rejected(self) -> None:
         registry = ConnectorRegistry()

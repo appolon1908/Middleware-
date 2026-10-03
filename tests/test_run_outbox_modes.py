@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.commands import ADAPTER_COMMAND_DESTINATION
+from app.storage import NATS_JETSTREAM_DESTINATION
 from app.core.config import ConfigurationError, Settings
 from workers import run_outbox
 
@@ -33,8 +34,9 @@ class _Runtime:
 class _Worker:
     instances: list["_Worker"] = []
 
-    def __init__(self, store, handlers) -> None:
+    def __init__(self, store, handlers, *, effect_gate=None) -> None:
         self.handlers = dict(handlers)
+        self.effect_gate = effect_gate
         _Worker.instances.append(self)
 
     async def run_forever(self) -> None:
@@ -75,6 +77,10 @@ async def test_adapter_dispatch_alone_is_a_valid_worker_mode(worker_process) -> 
     await run_outbox.main()
     assert len(_Worker.instances) == 1
     assert list(_Worker.instances[0].handlers) == [ADAPTER_COMMAND_DESTINATION]
+    gate = _Worker.instances[0].effect_gate
+    assert gate(SimpleNamespace(destination=ADAPTER_COMMAND_DESTINATION)) is True
+    assert gate(SimpleNamespace(destination=NATS_JETSTREAM_DESTINATION)) is False
+    assert gate(SimpleNamespace(destination="unregistered")) is False
     assert runtime.closed is True
 
 

@@ -20,12 +20,32 @@ from urllib.parse import urlsplit
 
 from .errors import StandardsValidationError
 
-_SEMVER_RE = re.compile(
-    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
-    r"(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
-    r"(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?"
-    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
-)
+def _valid_semver_identifier(identifier: str, *, prerelease: bool) -> bool:
+    if not identifier:
+        return False
+
+    numeric = True
+    for char in identifier:
+        if "0" <= char <= "9":
+            continue
+        numeric = False
+        if char == "-" or "a" <= char <= "z" or "A" <= char <= "Z":
+            continue
+        return False
+
+    if prerelease and numeric and len(identifier) > 1 and identifier[0] == "0":
+        return False
+    return True
+
+
+def _valid_semver_core_identifier(identifier: str) -> bool:
+    return (
+        bool(identifier)
+        and all("0" <= char <= "9" for char in identifier)
+        and (len(identifier) == 1 or identifier[0] != "0")
+    )
+
+
 _TRACEPARENT_RE = re.compile(
     r"^00-"
     r"((?!0{32})[0-9a-f]{32})-"
@@ -138,15 +158,36 @@ class SemanticVersion:
 
     @classmethod
     def parse(cls, value: str) -> "SemanticVersion":
-        match = _SEMVER_RE.fullmatch(value)
-        if match is None:
-            raise StandardsValidationError(f"invalid Semantic Version: {value!r}")
-        prerelease = tuple(match.group(4).split(".")) if match.group(4) else ()
-        build = tuple(match.group(5).split(".")) if match.group(5) else ()
+        error = StandardsValidationError(f"invalid Semantic Version: {value!r}")
+
+        if value.count("+") > 1:
+            raise error
+        core_and_prerelease, plus, build_raw = value.partition("+")
+        build = tuple(build_raw.split(".")) if plus else ()
+        if plus and any(
+            not _valid_semver_identifier(identifier, prerelease=False)
+            for identifier in build
+        ):
+            raise error
+
+        core_raw, dash, prerelease_raw = core_and_prerelease.partition("-")
+        prerelease = tuple(prerelease_raw.split(".")) if dash else ()
+        if dash and any(
+            not _valid_semver_identifier(identifier, prerelease=True)
+            for identifier in prerelease
+        ):
+            raise error
+
+        core = tuple(core_raw.split("."))
+        if len(core) != 3 or any(
+            not _valid_semver_core_identifier(identifier) for identifier in core
+        ):
+            raise error
+
         return cls(
-            major=int(match.group(1)),
-            minor=int(match.group(2)),
-            patch=int(match.group(3)),
+            major=int(core[0]),
+            minor=int(core[1]),
+            patch=int(core[2]),
             prerelease=prerelease,
             build=build,
         )

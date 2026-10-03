@@ -102,6 +102,18 @@
       "name_aliases": []
     },
     {
+      "component": "evolution-whatsapp",
+      "github_repository_id": 1384467115,
+      "current_repository": "ingtrader21-spec/Evolution-API",
+      "authority_role": "whatsapp-evolution-transport-runtime",
+      "lifecycle": "active",
+      "cell": "communications",
+      "integration_mode": "provider-adapter",
+      "middleware_relationship": "target-and-event-source",
+      "adapter_id": "evolution-whatsapp",
+      "name_aliases": []
+    },
+    {
       "component": "telnexa-web",
       "github_repository_id": 1346958528,
       "current_repository": "appolon1908-hue/Telnexa-web",
@@ -442,6 +454,30 @@
           "status": "PREPARED_NOT_RENAMED"
         }
       ]
+    },
+    {
+      "component": "codestra-connect",
+      "github_repository_id": 1386450856,
+      "current_repository": "ingtrader21-spec/Codestra-Connect",
+      "authority_role": "connect-product-routing-source",
+      "lifecycle": "active",
+      "cell": "communications",
+      "integration_mode": "provider-adapter",
+      "middleware_relationship": "target-and-event-source",
+      "adapter_id": "connect-router",
+      "name_aliases": []
+    },
+    {
+      "component": "djone",
+      "github_repository_id": 1382566617,
+      "current_repository": "ingtrader21-spec/DJONE",
+      "authority_role": "djone-mixxx-native-control-source",
+      "lifecycle": "active",
+      "cell": "communications",
+      "integration_mode": "provider-adapter",
+      "middleware_relationship": "target-and-event-source",
+      "adapter_id": "djone-mixxx",
+      "name_aliases": []
     }
   ]
 }

@@ -2,7 +2,7 @@
   "mission": "PAS-102 Middleware DB Postman staging certification",
   "repository": "ingtrader21-spec/Middleware-",
   "base_sha": "2862af0aa97367b18cb360af69212abe4243a1ac",
-  "expected_alembic_head": "0067_service_catalog_monitoring_state",
+  "expected_alembic_head": "0071_defer_unbound_tenant_rls",
   "openapi": "contracts/platform/middleware-openapi.generated.json",
   "generated_collection": "postman/generated/Middleware-OpenAPI.postman_collection.json",
   "database_collection": "postman/collections/Middleware-V3-Database-Certification.postman_collection.json",
@@ -20,11 +20,12 @@
   "status": "UNVERIFIED",
   "required_runtime_evidence": [
     "exact source SHA",
-    "Alembic head 0067",
+    "Alembic head 0071_defer_unbound_tenant_rls",
     "TLS verify-full",
     "backup verified",
     "isolated restore verified",
     "public /internal/v1/database/* denied",
-    "raw SQL HTTP endpoints absent"
+    "raw SQL HTTP endpoints absent",
+    "runtime role isolated (no superuser/BYPASSRLS/table ownership)"
   ]
 }

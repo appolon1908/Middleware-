@@ -26,7 +26,7 @@ jobs:
           POSTGRES_USER: middleware
           POSTGRES_PASSWORD: middleware_ci_only
           POSTGRES_DB: middleware_test_calling
-        ports: [5432:5432]
+        ports: [5432/tcp]
         options: >-
           --health-cmd "pg_isready -U middleware -d middleware_test_calling"
           --health-interval 5s --health-timeout 5s --health-retries 10
@@ -56,7 +56,7 @@ jobs:
             -r requirements-test.txt
       - name: Exercise HTTP contracts and PostgreSQL reservation atomicity
         env:
-          CALLING_TEST_DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:5432/middleware_test_calling
+          CALLING_TEST_DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_test_calling
           TEMPORAL_INTEGRATION_TESTS: '1'
           CODESTRA_SELECTED_SERVER_B_ROOT: ${{ github.workspace }}/selected-server-b
           CODESTRA_SELECTED_SERVER_B_SHA: 9ac8ef4840f78ba4ad9b816e4e409298505103ce

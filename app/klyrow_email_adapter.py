@@ -26,6 +26,14 @@ class KlyrowEmailAdapterError(RuntimeError):
     pass
 
 
+class KlyrowEmailUnknownOutcomeError(KlyrowEmailAdapterError):
+    """The request may have reached Klyrow; the outcome could not be confirmed.
+
+    Raised only after the send. It must be reconciled by read-back, never
+    re-sent as if nothing had happened.
+    """
+
+
 class KlyrowEmailAdapter:
     """Transactional email transport from the durable command plane to Klyrow.
 
@@ -462,7 +470,7 @@ class KlyrowEmailAdapter:
             try:
                 reconciled = await self.readback(request)
             except KlyrowEmailAdapterError as readback_error:
-                raise KlyrowEmailAdapterError(
+                raise KlyrowEmailUnknownOutcomeError(
                     "Klyrow email outcome remains unknown after read-back failed"
                 ) from readback_error
             if reconciled.status == "matched":
@@ -475,11 +483,11 @@ class KlyrowEmailAdapter:
                     provider_operation_id=request.command_id,
                     readback_evidence=reconciled.readback_evidence,
                 )
-            raise KlyrowEmailAdapterError(
+            raise KlyrowEmailUnknownOutcomeError(
                 "Klyrow email submission failed"
             ) from exc
         if self._provider_id(value) != request.command_id:
-            raise KlyrowEmailAdapterError(
+            raise KlyrowEmailUnknownOutcomeError(
                 "Klyrow response did not bind the command identity"
             )
         return ActivityResult(

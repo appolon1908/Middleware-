@@ -18,6 +18,7 @@ CONTROLLER_PATH = ROOT / "deploy/production/server/codestra-middleware-deploy"
 BACKUP_PATH = ROOT / "deploy/production/server/codestra-middleware-backup"
 INSTALL_PATH = ROOT / "deploy/production/server/install-restricted-command.sh"
 WORKFLOW_PATH = ROOT / ".github/workflows/production-runtime-certification.yml"
+STARTUP_PATH = ROOT / "scripts/start_integration_api.py"
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -147,7 +148,7 @@ def validate_source(root: Path = ROOT) -> None:
     require(deployment.get("mode") == "READ_ONLY_CANARY", "deployment mode drift")
     require(deployment.get("source_ref") == "refs/heads/main", "source ref drift")
     require(
-        deployment.get("schema_head") == "0067_service_catalog_monitoring_state",
+        deployment.get("schema_head") == "0071_defer_unbound_tenant_rls",
         "schema head drift",
     )
     for key in (
@@ -201,6 +202,11 @@ def validate_source(root: Path = ROOT) -> None:
             f"unsafe compose pattern: {pattern}",
         )
 
+    startup = STARTUP_PATH.read_text(encoding="utf-8")
+    for item in ("validate_runtime(SERVICE_INTEGRATION_API)", "os.execv", '"--workers={workers}"'):
+        require(item in startup, f"startup validation authority missing: {item}")
+    require("app.entrypoints.integration_api:app" not in compose, "canary must not bypass startup validation with direct uvicorn")
+
     controller = CONTROLLER_PATH.read_text(encoding="utf-8")
     for item in (
         "--source-sha",
@@ -224,6 +230,7 @@ def validate_source(root: Path = ROOT) -> None:
         "automation_schema_head_mismatch",
         "platform_schema_incomplete",
         "GATEWAY_EXPOSURE=NONE",
+        '"service": "middleware-integration-api"',
     ):
         require(item in controller, f"controller requirement missing: {item}")
     forbidden_shell = (
@@ -316,7 +323,7 @@ def validate_response(
         "RELEASE_ID": release_id,
         "VERSION_SOURCE_SHA": source_sha,
         "VERSION_IMAGE_DIGEST": image_reference.rsplit("@", 1)[1],
-        "VERSION_SCHEMA_HEAD": "0067_service_catalog_monitoring_state",
+        "VERSION_SCHEMA_HEAD": "0071_defer_unbound_tenant_rls",
     }
     for key, expected in expected_dynamic.items():
         require(values.get(key) == expected, f"response dynamic value mismatch: {key}")

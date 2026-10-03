@@ -1,4 +1,4 @@
-﻿"""Validate the Tempo service registration and monitoring registry linkage."""
+"""Validate the Tempo service registration and monitoring registry linkage."""
 
 import json
 from pathlib import Path

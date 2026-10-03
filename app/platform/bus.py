@@ -213,6 +213,9 @@ class AdapterDispatch:
             await self._fail(operation, reason="no adapter owns this command", attempt=None)
             return self._record(DispatchOutcome(command_id, None, "failed", False))
         adapter = self.registry.adapter(ownership.adapter_id)
+        if envelope.target not in adapter.capabilities().connector_ids:
+            await self._fail(operation, reason="connector unavailable for adapter", attempt=None)
+            return self._record(DispatchOutcome(command_id, None, "failed", False))
         family = envelope.command_type.split(".", 1)[0]
         timeout = self.timeout_for(ownership)
 
@@ -223,7 +226,15 @@ class AdapterDispatch:
 
         # Safety is re-evaluated at execution time: a kill switch tripped after
         # acceptance must stop the effect here.
-        readiness = await adapter.readiness(self.context(operation, attempt=outbox_attempt, timeout=timeout, trace=trace, payload=envelope.payload))
+        try:
+            readiness = await asyncio.wait_for(
+                adapter.readiness(self.context(operation, attempt=outbox_attempt, timeout=timeout, trace=trace, payload=envelope.payload)),
+                timeout=timeout,
+            )
+        except Exception as exc:
+            # Readiness runs before execute, so no provider effect can exist yet.
+            logger.warning("adapter_readiness_failed", extra={"adapter": adapter.adapter_id, "error": type(exc).__name__})
+            raise KnownSafeRetryError(f"adapter readiness unavailable: {type(exc).__name__}") from exc
         decision = self.safety.evaluate(
             SafetySubject(
                 tenant_id=operation.tenant_id,
@@ -328,12 +339,22 @@ class AdapterDispatch:
             breaker.record_failure()
             self.metrics.adapter_failures.labels(adapter=adapter.adapter_id, operation="execute", result="transient").inc()
             exhausted = context.attempt >= self.bus.max_attempts
-            await self._fail(operation, reason=safe, attempt=attempt, retryable=not exhausted)
             if exhausted:
+                await self.commands.transition(
+                    tenant_id, command_id, new_state="failed", actor_id=self.worker_id,
+                    reason=safe, expected_attempt=attempt,
+                )
                 await self.commands.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=self.worker_id, reason="retry budget exhausted")
+                await self.commands.record_dead_letter(
+                    tenant_id, command_id, actor_id=self.worker_id,
+                    reason_code="retry_exhausted", error_class=(result.error_class.value if result.error_class else "retryable"),
+                    terminal_reason=safe, retry_exhausted=True,
+                )
                 self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
+                self.metrics.retry_exhaustions.inc()
                 self._record(DispatchOutcome(command_id, attempt, "dead_lettered", False, result))
                 raise KnownSafeRetryError(f"retry budget exhausted: {safe}")
+            await self._fail(operation, reason=safe, attempt=attempt, retryable=True)
             self._record(DispatchOutcome(command_id, attempt, "queued", False, result))
             raise KnownSafeRetryError(safe)
 
@@ -364,7 +385,9 @@ class AdapterDispatch:
         self.metrics.adapter_requests.labels(adapter=adapter.adapter_id, operation="readback").inc()
         started = time.perf_counter()
         try:
-            readback = await asyncio.wait_for(adapter.readback(operation, context), timeout=context.timeout_seconds)
+            readback = await status_readback(adapter, operation, context, pending_is_unavailable=True)
+            if readback is None:
+                readback = await asyncio.wait_for(adapter.readback(operation, context), timeout=context.timeout_seconds)
         except Exception as exc:  # noqa: BLE001
             readback = ReadbackResult(ReadbackStatus.UNAVAILABLE, safe_error_code=type(exc).__name__)
         finally:
@@ -423,10 +446,21 @@ class AdapterDispatch:
             if current.state == "persisted":
                 await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
             await self.commands.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=self.worker_id, reason=reason)
+            await self.commands.record_dead_letter(
+                tenant_id, command_id, actor_id=self.worker_id,
+                reason_code="terminal_failure", error_class="non_retryable",
+                terminal_reason=reason, poisoned="poison" in reason.lower(),
+            )
             return
         await self.commands.transition(tenant_id, command_id, new_state="failed", actor_id=self.worker_id, reason=reason, expected_attempt=attempt)
         if retryable:
             await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="scheduled for a known-safe retry")
+        else:
+            await self.commands.record_dead_letter(
+                tenant_id, command_id, actor_id=self.worker_id,
+                reason_code="terminal_failure", error_class="non_retryable",
+                terminal_reason=reason, poisoned="poison" in reason.lower(),
+            )
 
     @staticmethod
     def _safe_reason(result: AdapterResult) -> str:
@@ -462,3 +496,32 @@ __all__ = [
     "AUTHENTICATED_CLIENT_ID_KEY",
     "CommandConflict",
 ]
+
+
+async def status_readback(
+    adapter: Adapter, operation: CommandOperation, context: AdapterContext, *, pending_is_unavailable: bool,
+) -> ReadbackResult | None:
+    """Ask the provider's status surface first when it has one.
+
+    A status that proves failure (rejected/cancelled) or names a different
+    provider reference decides the read-back; a pending status (dispatcher
+    only) defers to reconciliation. Anything else returns None so the
+    adapter's full read-back/reconcile hook decides.
+    """
+    if not (adapter.capabilities().supports_status and operation.provider_operation_id):
+        return None
+    status = adapter.normalize_result(await asyncio.wait_for(adapter.status(operation, context), timeout=context.timeout_seconds))
+    reference = status.provider_operation_id or operation.provider_operation_id
+    if status.provider_operation_id and status.provider_operation_id != operation.provider_operation_id:
+        return ReadbackResult(ReadbackStatus.MISMATCH, provider_operation_id=status.provider_operation_id, safe_error_code="provider_reference_mismatch")
+    if pending_is_unavailable and status.outcome is Outcome.ACCEPTED:
+        return ReadbackResult(
+            ReadbackStatus.UNAVAILABLE, provider_operation_id=reference,
+            evidence={"provider_state": "pending", "retry_hint": "reconcile"}, safe_error_code="provider_operation_pending",
+        )
+    if status.outcome in {Outcome.REJECTED, Outcome.CANCELLED}:
+        return ReadbackResult(
+            ReadbackStatus.MISMATCH, provider_operation_id=reference,
+            evidence={"provider_state": status.outcome.value.lower()}, safe_error_code=status.safe_error_code or "provider_operation_failed",
+        )
+    return None
