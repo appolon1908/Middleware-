@@ -29,7 +29,7 @@ SHA40 = re.compile(r"^[0-9a-f]{40}$")
 # Every observed signed release was published to the pre-transfer package;
 # forward releases publish to ghcr.io/appolon1908/codestra-middleware
 # (config/middleware-forward-release-authority.v1.json artifactAuthority).
-OBSERVED_SIGNED_IMAGE = "ghcr.io/appolon1908/codestra-middleware"
+OBSERVED_SIGNED_IMAGE = "ghcr.io/appolon1908-hue/codestra-middleware"
 
 
 def _read(root: Path, relative: Path, errors: list[str]) -> str:

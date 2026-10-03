@@ -30,8 +30,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_SHA: 29b25cba8302cd15ef4d87b68f501da6347f2f17
       IMAGE_DIGEST: sha256:0f5a5b3b1c8166d6509b228541bee01533f5feb1dbef24ed2d241194ba610802
-      IMAGE: ghcr.io/appolon1908/codestra-middleware@sha256:0f5a5b3b1c8166d6509b228541bee01533f5feb1dbef24ed2d241194ba610802
-      SIGNER: https://github.com/appolon1908/Middleware-/.github/workflows/release.yml@refs/heads/main
+      IMAGE: ghcr.io/appolon1908-hue/codestra-middleware@sha256:0f5a5b3b1c8166d6509b228541bee01533f5feb1dbef24ed2d241194ba610802
+      SIGNER: https://github.com/appolon1908-hue/Middleware-/.github/workflows/release.yml@refs/heads/main
       ISSUER: https://token.actions.githubusercontent.com
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,11 +44,11 @@ jobs:
         run: |
           set -Eeuo pipefail
           test "$GITHUB_REPOSITORY" = appolon1908/Middleware-
-          gh api repos/appolon1908/Middleware-/actions/runs/33922375053 > "$RUNNER_TEMP/original-run.json"
+          gh api repos/appolon1908-hue/Middleware-/actions/runs/33922375053 > "$RUNNER_TEMP/original-run.json"
           jq -e --arg sha "$SOURCE_SHA" '.conclusion == "success" and .head_sha == $sha and .event == "workflow_run" and .path == ".github/workflows/release.yml"' "$RUNNER_TEMP/original-run.json"
-          gh api repos/appolon1908/Middleware-/actions/artifacts/9955590882 > "$RUNNER_TEMP/artifact.json"
+          gh api repos/appolon1908-hue/Middleware-/actions/artifacts/9955590882 > "$RUNNER_TEMP/artifact.json"
           jq -e '.expired == false and .workflow_run.id == 33922375053 and .digest == "sha256:e04928d95ec12a429096af180f3bbd40891af324eff0f4868f5a7d638e74c5b6"' "$RUNNER_TEMP/artifact.json"
-          gh api repos/appolon1908/Middleware-/actions/artifacts/9955590882/zip > "$RUNNER_TEMP/original-release.zip"
+          gh api repos/appolon1908-hue/Middleware-/actions/artifacts/9955590882/zip > "$RUNNER_TEMP/original-release.zip"
           echo "e04928d95ec12a429096af180f3bbd40891af324eff0f4868f5a7d638e74c5b6  $RUNNER_TEMP/original-release.zip" | sha256sum --check --strict
           mkdir "$RUNNER_TEMP/original-release"
           unzip -q "$RUNNER_TEMP/original-release.zip" -d "$RUNNER_TEMP/original-release"
@@ -285,6 +285,7 @@ jobs:
           Path(os.environ["RUNNER_TEMP"], "middleware-slsa-v1-predicate.json").write_text(
               json.dumps(predicate, sort_keys=True, separators=(",", ":")) + "\n",
               encoding="utf-8",
+              newline="\n",
           )
           PY
           cosign sign --yes \

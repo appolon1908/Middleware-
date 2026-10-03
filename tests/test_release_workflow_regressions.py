@@ -20,14 +20,19 @@ REVIEWER = WORKFLOWS / "production-reviewer-access.yml"
 
 
 def bash_executable() -> str:
-    found = shutil.which("bash")
-    if found:
-        return found
-    for candidate in (
+    candidates = (
         os.path.join(os.environ.get("LOCALAPPDATA", r"C:\Users\Default\AppData\Local"), "Programs", "Git", "bin", "bash.exe"),
         r"C:\Program Files\Git\bin\bash.exe",
         r"C:\Program Files\Git\usr\bin\bash.exe",
-    ):
+    )
+    if os.name == "nt":
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                return candidate
+    found = shutil.which("bash")
+    if found:
+        return found
+    for candidate in candidates:
         if os.path.exists(candidate):
             return candidate
     return "bash"
@@ -114,7 +119,7 @@ class ReleaseWorkflowRegressions(unittest.TestCase):
                 self.assertEqual(arguments[:6], ["issue", "comment", "130", "--repo", environment["GITHUB_REPOSITORY"], "--body"])
                 self.assertEqual(len(arguments), 7)
                 body = arguments[6]
-                self.assertTrue(body.startswith(f"## Production reviewer access — {expected}\n\n"))
+                self.assertTrue(body.startswith(f"## Production reviewer access - {expected}\n\n"))
                 self.assertIn(f"`SOURCE_SHA={environment['GITHUB_SHA']}`", body)
                 self.assertNotIn("\n          ", body)
                 self.assertIn("No runtime, deployment, credential value", body)

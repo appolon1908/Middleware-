@@ -99,7 +99,7 @@ def test_canonical_repository_identity() -> None:
     assert "github.repository == 'appolon1908/Middleware-'" in text
     assert 'test "$GITHUB_REPOSITORY" = "appolon1908/Middleware-"' in text
     live_release = text.split("\n  release:\n", 1)[1]
-    assert "https://github.com/appolon1908/Middleware-/" not in live_release
+    assert "https://github.com/appolon1908-hue/Middleware-/" not in live_release
     assert live_release.count(PUBLISHER_IDENTITY) >= 2
 
 
@@ -121,7 +121,7 @@ def test_release_workflow_identities_are_current(analyses: dict) -> None:
 
 
 CANONICAL_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
-PRE_TRANSFER_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
+PRE_TRANSFER_IMAGE_REPOSITORY = "ghcr.io/appolon1908-hue/codestra-middleware"
 
 
 def test_canonical_package_is_owned_by_the_repository_owner() -> None:
@@ -583,7 +583,7 @@ def test_tokenizer_fallback_preserves_command_boundaries(validator: dict) -> Non
 def test_publishing_job_must_be_disabled_or_narrowly_approved(validator: dict) -> None:
     live_publisher = (
         "name: probe\non: workflow_dispatch\njobs:\n  publish:\n    runs-on: ubuntu-24.04\n    steps:\n"
-        "      - run: docker push ghcr.io/appolon1908/codestra-middleware:x\n"
+        "      - run: docker push ghcr.io/appolon1908-hue/codestra-middleware:x\n"
     )
     with pytest.raises(validator["ContractError"]):
         validator["require_mutating_jobs_disabled"](
@@ -592,7 +592,7 @@ def test_publishing_job_must_be_disabled_or_narrowly_approved(validator: dict) -
     disabled_publisher = (
         "name: probe\non: workflow_dispatch\njobs:\n  publish:\n"
         "    # RUNTIME_MUTATION_DISABLED=true\n    if: ${{ false }}\n    runs-on: ubuntu-24.04\n    steps:\n"
-        "      - run: docker push ghcr.io/appolon1908/codestra-middleware:x\n"
+        "      - run: docker push ghcr.io/appolon1908-hue/codestra-middleware:x\n"
     )
     validator["require_mutating_jobs_disabled"](
         disabled_publisher, "synthetic-publisher.yml"

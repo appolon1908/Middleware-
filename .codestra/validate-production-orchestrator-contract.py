@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "916502960e5f7d28227fe02b61d9031f437f7683cb32918ecdb53e1537e78e4d"
+    "0e1bb89035b6fe4e5bfe95a5310217e90a3fbd83d866878c493e41a55ad7eae9"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -489,7 +489,7 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
         ),
         "scripts/nats_integration_ci.sh": "88d843c665cece68e0fb56a931c295ee10490446cad7b64d9f5356c1cbf7263d",
         "scripts/project_ci.sh": "12a529ea96f39baec5f1eeb287209dc9db355e5dca000cbbfd7494303501b2ae",
-        "scripts/release_manifest.py": "e6655e28aaf1d3152a692fdf8fe6115c67254c986920501bbf13ef5c8d568d32",
+        "scripts/release_manifest.py": "b306ecaa24d74675fb18aac6a3287fbe09b78571c48a32d1eb80bea82c14df1c",
         "scripts/run_ci.sh": "64d7c92279dd442144c7e1f74c3e48f0ab5d5db105238a534dcf8ccd99e93138",
         "scripts/synthetic_acceptance_ci.sh": "087dac2c5371f2013fa0a8dd22ed4024409ab5015231fb8801c75cf3203e3a8a",
         "scripts/temporal_integration_ci.sh": "76a682cc1f5b15a0a3eb15a029d87206238dfe4a262eaf5fa2c79403f147d4d6",
@@ -679,8 +679,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "65da2f7dd6f501d2e35fd6aba5d46f2"
         ),
         ".github/workflows/production-reviewer-access.yml": (
-            "a9b2dc9e3a61716f2c4cc91c37c8a16a"
-            "cd0256e3d6e5636d4000f6a6b592f1c2"
+            "cf89fd4e413f27fbd1500dbd8c8c2c40"
+            "31c077fc7544042a2203a10b1810fe2f"
         ),
         ".github/workflows/python-quality-baseline.yml": (
             "cb89cb69636dc79a6a03e5df98abeb798"
@@ -688,8 +688,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
         ),
         ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
         ".github/workflows/production-route-contract.yml": (
-            "03748fb9af1ee501161bd8be5f772ab5"
-            "c4fcfe95dac5d6e3c1f06a7912af6d8b"
+            "054a89f8a7c0f6f2e1002563cedbfff3"
+            "a7695354d3124990f698ef9a517848a6"
         ),
         ".github/workflows/release-component-ci.yml": (
             "7489c1bcc2361af047cba2d51a0500"
@@ -9381,7 +9381,7 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # source after Middleware CI succeeded. Only these exact job bytes are
         # authorized; any edit to the job needs a new trust generation.
         ".github/workflows/release.yml:release": (
-            "c2e49d4e3a20ed58adbec9a5fd41b17950c5a1e62e497cbc1f12ec870a9ed979"
+            "85f7beea233f0c35112450ef621ba835f9aa9aa6858a12f76bbc2911671dba43"
         ),
     },
 }

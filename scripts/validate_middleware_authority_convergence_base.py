@@ -23,10 +23,10 @@ CANONICAL_REPOSITORY = "appolon1908/Middleware-"
 # image observed so far was published to the pre-transfer package and stays
 # referenced there by digest.
 CANONICAL_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
-OBSERVED_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
+OBSERVED_IMAGE_REPOSITORY = "ghcr.io/appolon1908-hue/codestra-middleware"
 LEGACY_REPOSITORY = "Codestra-SRL/codestra-middleware"
 LEGACY_BACKUP_REPOSITORY = (
-    "ghcr.io/appolon1908/codestra-middleware-legacy"
+    "ghcr.io/appolon1908-hue/codestra-middleware-legacy"
 )
 CURRENT_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
 PREDECESSOR_SCHEMA_HEAD = "0009_observability_incidents"
@@ -647,7 +647,7 @@ def validate_document(
         role = family.get("role")
         _expect(
             authority_name
-            in {"appolon1908", "Codestra-SRL", "unreconciled-historical"},
+            in {"appolon1908-hue", "Codestra-SRL", "unreconciled-historical"},
             f"{prefix}.authority invalid",
             errors,
         )
@@ -657,7 +657,7 @@ def validate_document(
                 f"{prefix} legacy family must be rollback-only",
                 errors,
             )
-        if authority_name == "appolon1908":
+        if authority_name == "appolon1908-hue":
             _expect(
                 role == "superseded-appolon-runtime",
                 f"{prefix} appolon runtime must be marked superseded",
@@ -772,7 +772,7 @@ def validate_document(
             )
         elif method == "retain-existing-appolon-ghcr-digest":
             _expect(
-                authority_name == "appolon1908",
+                authority_name == "appolon1908-hue",
                 f"{prefix} appolon retention assigned to wrong authority",
                 errors,
             )

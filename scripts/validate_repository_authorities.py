@@ -9,22 +9,23 @@ from pathlib import Path
 from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
-REFERENCE = "appolon1908/codestra-production-platform"
-MIDDLEWARE = "appolon1908/Middleware-"
+CANONICAL_OWNER = "appolon1908"
+REFERENCE = f"{CANONICAL_OWNER}/codestra-production-platform"
+MIDDLEWARE = f"{CANONICAL_OWNER}/Middleware-"
 REFERENCE_CANONICAL = REFERENCE.casefold()
 FORBIDDEN_ADAPTER_REPOSITORIES = {
     REFERENCE_CANONICAL,
     MIDDLEWARE.casefold(),
 }
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
-REPOSITORY_PATTERN = re.compile(r"(?:appolon1908|appolon1908)/[A-Za-z0-9_.-]+\Z")
+REPOSITORY_PATTERN = re.compile(r"appolon1908/[A-Za-z0-9_.-]+\Z")
 EXPECTED = {
     "ai": "appolon1908/Codestra-AI",
     "caddy": "appolon1908/Caddy",
     "codestra-connect": "appolon1908/Codestra-Connect",
     "djone": "appolon1908/DJONE",
     "evolution-whatsapp": "appolon1908/Evolution-API",
-    "keycloak": "appolon1908/Keycloak",
+    "keycloak": f"{CANONICAL_OWNER}/Keycloak",
     "klyrow-email": "appolon1908/klyrow.com",
     "klyrow-web": "appolon1908/klyrow-Website-",
     "kong": "appolon1908/Kong",

@@ -165,7 +165,7 @@ jobs:
             result=BLOCKED
             detail='At least one token, administration, invitation-acceptance, stable identity, exact-write, or permission readback gate is incomplete.'
           fi
-          gh issue comment 130 --repo "$GITHUB_REPOSITORY" --body "## Production reviewer access — $result
+          gh issue comment 130 --repo "$GITHUB_REPOSITORY" --body "## Production reviewer access - $result
 
           \`SOURCE_SHA=$GITHUB_SHA\`
 

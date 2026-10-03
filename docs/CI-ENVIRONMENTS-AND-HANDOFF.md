@@ -77,7 +77,7 @@ No live Caddy configuration has been changed. Runtime convergence requires read-
 ```text
 Caddy                   = appolon1908/Caddy
 Kong                    = appolon1908/Kong
-Keycloak                = appolon1908/Keycloak
+Repository appolon1908/Keycloak owns Keycloak
 N8N                     = appolon1908/N8N
 Odoo                    = appolon1908/Odoo
 Telnexa/Jasmin          = appolon1908/telnexa (SMS only)
