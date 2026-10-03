@@ -4,7 +4,7 @@
     {
       "id": "ai-provider",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/Codestra-AI",
+      "repository": "appolon1908/Codestra-AI",
       "command_prefixes": [
         "ai."
       ],
@@ -13,7 +13,7 @@
     {
       "id": "beyvra-nonfinancial",
       "cell": "beyvra-financial",
-      "repository": "appolon1908-hue/beyvra-backend",
+      "repository": "appolon1908/beyvra-backend",
       "command_prefixes": [
         "beyvra.operations."
       ],
@@ -37,7 +37,7 @@
     {
       "id": "djone-mixxx",
       "cell": "core-communications",
-      "repository": "ingtrader21-spec/DJONE",
+      "repository": "appolon1908/DJONE",
       "command_prefixes": [
         "djone."
       ],
@@ -46,7 +46,7 @@
     {
       "id": "klyrow-alert-email",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/klyrow.com",
+      "repository": "appolon1908/klyrow.com",
       "command_prefixes": [
         "observability.alert."
       ],
@@ -55,7 +55,7 @@
     {
       "id": "klyrow-email",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/klyrow.com",
+      "repository": "appolon1908/klyrow.com",
       "command_prefixes": [
         "email."
       ],
@@ -64,7 +64,7 @@
     {
       "id": "kyqra-crawler",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/kyqra-crawler",
+      "repository": "appolon1908/kyqra-crawler",
       "command_prefixes": [
         "crawler."
       ],
@@ -73,7 +73,7 @@
     {
       "id": "marketing-provider",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/Codestra-Marketing-",
+      "repository": "appolon1908/Codestra-Marketing-",
       "command_prefixes": [
         "marketing."
       ],
@@ -82,7 +82,7 @@
     {
       "id": "odoo-19",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/Odoo",
+      "repository": "appolon1908/Odoo",
       "command_prefixes": [
         "crm."
       ],
@@ -91,7 +91,7 @@
     {
       "id": "postly-social",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/social.codestra.co",
+      "repository": "appolon1908/social.codestra.co",
       "command_prefixes": [
         "social."
       ],
@@ -100,7 +100,7 @@
     {
       "id": "provisioning-service",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/codestra-provisioning-service",
+      "repository": "appolon1908/codestra-provisioning-service",
       "command_prefixes": [
         "provisioning."
       ],
@@ -109,7 +109,7 @@
     {
       "id": "telnexa-sms",
       "cell": "core-communications",
-      "repository": "appolon1908-hue/telnexa",
+      "repository": "appolon1908/telnexa",
       "command_prefixes": [
         "sms."
       ],
@@ -118,7 +118,7 @@
     {
       "id": "vicidial-restricted",
       "cell": "telephony-private",
-      "repository": "appolon1908-hue/Vicidialer-Codestra",
+      "repository": "appolon1908/Vicidialer-Codestra",
       "command_prefixes": [
         "telephony.",
         "telephony-internal."
@@ -128,7 +128,7 @@
     {
       "id": "connect-router",
       "cell": "core-communications",
-      "repository": "ingtrader21-spec/Codestra-Connect",
+      "repository": "appolon1908/Codestra-Connect",
       "command_prefixes": [
         "connect.crm.",
         "connect.social.",
@@ -142,7 +142,7 @@
     {
       "id": "evolution-whatsapp",
       "cell": "core-communications",
-      "repository": "ingtrader21-spec/Evolution-API",
+      "repository": "appolon1908/Evolution-API",
       "command_prefixes": [
         "whatsapp."
       ],

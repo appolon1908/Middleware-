@@ -6,7 +6,7 @@ Every new Middleware agent starts with `AGENTS.md` and `scripts/agent_preflight.
 
 ## Current publication lane
 
-- Repository: `ingtrader21-spec/Middleware-`
+- Repository: `appolon1908/Middleware-`
 - Current PR: #397 (Middleware V3 final repository convergence)
 - Branch: `mission/middleware-v3-final-repository-convergence-20260927`
 - Remote head when this handoff was written: `d7e7ed60ee39bb8dc2124b601f4187e582cc6e17`
