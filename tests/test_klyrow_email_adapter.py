@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from app.core.config import ConfigurationError
-from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError
+from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError, KlyrowEmailUnknownOutcomeError
 from app.temporal_workflows import CommandExecutionRequest
 
 BASE_URL = "https://klyrow-email-api:18000"
@@ -278,7 +278,7 @@ async def test_a_response_that_does_not_bind_the_command_identity_is_rejected() 
     set_handler(
         routing_handler(message=httpx.Response(202, json={"message_id": "someone-else"}))
     )
-    with pytest.raises(KlyrowEmailAdapterError, match="did not bind the command identity"):
+    with pytest.raises(KlyrowEmailUnknownOutcomeError, match="did not bind the command identity"):
         await adapter().execute(command)
 
 
@@ -320,7 +320,7 @@ async def test_interrupted_write_stays_failed_when_readback_does_not_match() -> 
         )
 
     set_handler(handler)
-    with pytest.raises(KlyrowEmailAdapterError, match="submission failed"):
+    with pytest.raises(KlyrowEmailUnknownOutcomeError, match="submission failed"):
         await adapter().execute(command)
 
 

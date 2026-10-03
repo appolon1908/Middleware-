@@ -32,7 +32,6 @@ HEADER = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]{1,100}$")
 FAMILY = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 SECRET_REF = re.compile(r"^[A-Z][A-Z0-9_]{2,127}$")
 AUDIENCE = re.compile(r"^[A-Za-z0-9._:/-]{1,200}$")
-SCOPE = re.compile(r"^[a-z0-9]+(?:[.:-][a-z0-9-]+)*$")
 SAFE_PATH = re.compile(r"^/[A-Za-z0-9._~!$&'()*+,;=:@/{}/-]*$")
 JWT_LIKE = re.compile(r"^eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$")
 REQUIRED_FORBIDDEN_PAYLOAD_KEYS = {
@@ -63,6 +62,35 @@ ALLOWED_TOP_LEVEL = {
     "workflow_families",
     "metadata",
 }
+
+
+def _valid_scope(value: str) -> bool:
+    # Preserve the existing OAuth scope grammar with a linear-time parser.
+    index = 0
+    length = len(value)
+
+    while index < length and (
+        "a" <= value[index] <= "z" or "0" <= value[index] <= "9"
+    ):
+        index += 1
+    if index == 0:
+        return False
+
+    while index < length:
+        if value[index] not in ".:-":
+            return False
+        index += 1
+        segment_start = index
+        while index < length and (
+            "a" <= value[index] <= "z"
+            or "0" <= value[index] <= "9"
+            or value[index] == "-"
+        ):
+            index += 1
+        if index == segment_start:
+            return False
+
+    return True
 
 
 def _object(value: Any, label: str, errors: list[str]) -> Mapping[str, Any]:
@@ -315,7 +343,7 @@ def parse_manifest(data: Mapping[str, Any]) -> ConnectorManifest:
     if not scopes:
         errors.append("authentication.scopes cannot be empty")
     for scope in scopes:
-        if SCOPE.fullmatch(scope) is None:
+        if not _valid_scope(scope):
             errors.append(f"invalid OAuth scope: {scope}")
 
     secret_references = _unique_strings(

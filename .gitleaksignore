@@ -13,8 +13,8 @@ tests/test_telephony_command_client.py:generic-api-key:175
 # Reviewed route labels and synthetic test idempotency keys imported with the
 # canonical middleware. These values cannot authenticate to any service.
 architecture/routes.py:generic-api-key:77
-tests/integration/test_temporal_workflows.py:generic-api-key:263
-tests/integration/test_temporal_workflows.py:generic-api-key:437
+tests/integration/test_temporal_workflows.py:generic-api-key:271
+tests/integration/test_temporal_workflows.py:generic-api-key:445
 tests/test_control_plane_product_auth.py:generic-api-key:193
 tests/test_commands.py:generic-api-key:38
 tests/test_lead_delivery.py:generic-api-key:22

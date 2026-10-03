@@ -210,7 +210,7 @@ def _sign(event: dict[str, Any]) -> dict[str, str]:
         "X-Codestra-Tenant-Id": event["tenant_id"],
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": "sha256=" + signature,
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
 
 

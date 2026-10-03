@@ -56,7 +56,7 @@ jobs:
             --env LIVE_PSTN_DIALING=false \
             --env PRODUCTION_DIALING=DISABLED \
             "$IMAGE"
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             test "$(docker inspect middleware-route-certification --format '{{.State.Health.Status}}')" = healthy && exit 0
             sleep 1
           done

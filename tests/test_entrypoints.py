@@ -311,3 +311,24 @@ def test_worker_has_internal_operational_endpoints():
         assert readiness.json()["queue"] == "test.queue.v1"
         assert health.headers["Cache-Control"] == "no-store"
         assert health.headers["X-Correlation-ID"]
+
+
+def test_deployed_profiles_fail_closed_on_legacy_monolith_routes():
+    import pytest
+
+    from app.application import AppProfile, create_app
+    from app.router_registry import LEGACY_MONOLITH_ONLY_ROUTERS, assert_no_legacy_monolith_routes, route_operations
+
+    legacy = {
+        (method, route.path)
+        for router in LEGACY_MONOLITH_ONLY_ROUTERS
+        for route in router.routes
+        for method in (getattr(route, "methods", None) or ())
+    }
+    assert legacy
+    # The guard's route identity matches how the monolith mounts them.
+    monolith = create_app(profile=AppProfile.MONOLITH)
+    assert legacy <= set(route_operations(monolith))
+    with pytest.raises(RuntimeError, match="leaked legacy monolith-only routes"):
+        assert_no_legacy_monolith_routes(monolith)
+    assert legacy.isdisjoint(route_operations(integration_api.app))

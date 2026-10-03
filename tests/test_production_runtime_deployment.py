@@ -42,7 +42,7 @@ def valid_response() -> dict[str, str]:
             "RELEASE_ID": RELEASE_ID,
             "VERSION_SOURCE_SHA": SOURCE_SHA,
             "VERSION_IMAGE_DIGEST": IMAGE_DIGEST,
-            "VERSION_SCHEMA_HEAD": "0067_service_catalog_monitoring_state",
+            "VERSION_SCHEMA_HEAD": "0071_defer_unbound_tenant_rls",
             "BACKUP_SHA256": "sha256:" + "c" * 64,
             "CONFIGURATION_CHECKSUM": "d" * 64,
             "ROLLBACK_RTO_SECONDS": "4",
@@ -171,3 +171,38 @@ def test_evidence_accepts_complete_pass_bundle(tmp_path: Path) -> None:
         release_run_id=RELEASE_RUN_ID,
         release_id=RELEASE_ID,
     )
+
+
+def test_canary_uses_fail_closed_startup_launcher() -> None:
+    compose = (ROOT / "deploy/production/compose.canary.yaml").read_text()
+    startup = (ROOT / "scripts/start_integration_api.py").read_text()
+    assert "/app/scripts/start_integration_api.py" in compose
+    assert "app.entrypoints.integration_api:app" not in compose
+    assert "validate_runtime(SERVICE_INTEGRATION_API)" in startup
+    assert '"--workers={workers}"' in startup
+
+
+def test_canary_api_service_inherits_the_complete_shared_environment() -> None:
+    import yaml
+
+    compose = yaml.safe_load((ROOT / "deploy/production/compose.canary.yaml").read_text())
+    services = compose["services"]
+    shared = services["middleware-migrate-canary"]["environment"]
+    api = services["middleware-api-canary"]["environment"]
+    # YAML merge keys are shallow: a service-level `environment:` replaces the
+    # anchor's mapping unless it re-merges it, silently dropping APP_ENV,
+    # release identity and every explicit effect-off switch.
+    assert set(shared) <= set(api), sorted(set(shared) - set(api))
+    assert {key: api[key] for key in shared} == shared
+    assert api["APP_ENV"] == "production"
+    assert set(api) - set(shared) == {"PORT", "UVICORN_WORKERS", "FORWARDED_ALLOW_IPS"}
+    assert api["PORT"] == "8095"
+    effect_switches = {key: value for key, value in api.items() if value in {"true", "false"}}
+    assert effect_switches and all(value == "false" for value in effect_switches.values()), effect_switches
+    assert api["PRODUCTION_DIALING"] == "DISABLED"
+
+
+def test_deploy_controller_expects_canonical_integration_health_identity() -> None:
+    controller = (ROOT / "deploy/production/server/codestra-middleware-deploy").read_text()
+    assert '"service": "middleware-integration-api"' in controller
+    assert 'health != {"status": "ok", "service": "middleware-api"' not in controller

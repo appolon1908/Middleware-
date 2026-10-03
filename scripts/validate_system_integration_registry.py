@@ -147,11 +147,13 @@ PROVIDER_CELLS = {
 EXPECTED_REPOSITORY_IDENTITIES = {
     "middleware": (1347559071, "ingtrader21-spec/Middleware-"),
     "caddy": (1350228103, "appolon1908-hue/Caddy"),
+    "codestra-connect": (1386450856, "ingtrader21-spec/Codestra-Connect"),
     "kong": (1347790742, "appolon1908-hue/Kong"),
     "keycloak": (1347523366, "appolon1908-hue/Keycloak"),
     "n8n": (1347560645, "appolon1908-hue/N8N"),
     "odoo": (1347522940, "appolon1908-hue/Odoo"),
     "telnexa-sms": (1334764612, "appolon1908-hue/telnexa"),
+    "evolution-whatsapp": (1384467115, "ingtrader21-spec/Evolution-API"),
     "telnexa-web": (1346958528, "appolon1908-hue/Telnexa-web"),
     "klyrow-email": (1334863061, "appolon1908-hue/klyrow.com"),
     "klyrow-web": (1346968526, "appolon1908-hue/klyrow-Website-"),
@@ -181,6 +183,7 @@ EXPECTED_REPOSITORY_IDENTITIES = {
     "social-control-plane": (1351353723, "appolon1908-hue/Codesrea-Social-"),
     "platform-documentation": (1350724356, "appolon1908-hue/documentaions"),
     "platform-infrastructure": (1350724865, "appolon1908-hue/Infustruction-repo"),
+    "djone": (1382566617, "ingtrader21-spec/DJONE"),
 }
 EXPECTED_SYSTEM_SECURITY_PROFILES = {
     "middleware": (
@@ -198,6 +201,14 @@ EXPECTED_SYSTEM_SECURITY_PROFILES = {
         "edge-compatibility",
         "compatibility",
         None,
+    ),
+    "codestra-connect": (
+        "connect-product-routing-source",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "connect-router",
     ),
     "kong": (
         "api-gateway-policy-routes-plugins",
@@ -238,6 +249,14 @@ EXPECTED_SYSTEM_SECURITY_PROFILES = {
         "provider-adapter",
         "target-and-event-source",
         "telnexa-sms",
+    ),
+    "evolution-whatsapp": (
+        "whatsapp-evolution-transport-runtime",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "evolution-whatsapp",
     ),
     "telnexa-web": (
         "telnexa-public-website-onboarding",
@@ -447,6 +466,14 @@ EXPECTED_SYSTEM_SECURITY_PROFILES = {
         "governance",
         None,
     ),
+    "djone": (
+        "djone-mixxx-native-control-source",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "djone-mixxx",
+    ),
 }
 EXPECTED_REPOSITORY_RENAMES = {
     1221155447: (
@@ -503,6 +530,9 @@ EXPECTED_MIDDLEWARE_OWNED = (
 EXPECTED_CANONICAL_ADAPTER_OWNERS = {
     "ai-provider": "appolon1908-hue/Codestra-AI",
     "beyvra-nonfinancial": "appolon1908-hue/beyvra-backend",
+    "connect-router": "ingtrader21-spec/Codestra-Connect",
+    "djone-mixxx": "ingtrader21-spec/DJONE",
+    "evolution-whatsapp": "ingtrader21-spec/Evolution-API",
     "klyrow-alert-email": "appolon1908-hue/klyrow.com",
     "klyrow-email": "appolon1908-hue/klyrow.com",
     "kyqra-crawler": "appolon1908-hue/kyqra-crawler",
@@ -534,6 +564,31 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
             "broker.",
             "provider.",
         ),
+    ),
+    "connect-router": (
+        "core-communications",
+        "ingtrader21-spec/Codestra-Connect",
+        (
+            "connect.crm.",
+            "connect.social.",
+            "connect.notification.",
+            "connect.provisioning.",
+            "connect.webhook.",
+            "connect.audit.",
+        ),
+        (),
+    ),
+    "djone-mixxx": (
+        "core-communications",
+        "ingtrader21-spec/DJONE",
+        ("djone.",),
+        (),
+    ),
+    "evolution-whatsapp": (
+        "core-communications",
+        "ingtrader21-spec/Evolution-API",
+        ("whatsapp.",),
+        (),
     ),
     "klyrow-alert-email": (
         "core-communications",
@@ -581,11 +636,29 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     ),
 }
 EXPECTED_ADAPTER_BOUND_SYSTEMS = {
+    "evolution-whatsapp": (
+        "evolution-whatsapp",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "beyvra-backend": (
         "beyvra-nonfinancial",
         "financial-isolated",
         "product-adapter-nonfinancial",
         "caller-and-target",
+    ),
+    "codestra-connect": (
+        "connect-router",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "djone": (
+        "djone-mixxx",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
     ),
     "klyrow-email": (
         "klyrow-email",
@@ -631,12 +704,30 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
     ),
 }
 EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
+    "evolution-whatsapp": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "ai": ("active", "product-clients", "product-client", "caller"),
     "beyvra-backend": (
         "active",
         "financial-isolated",
         "product-adapter-nonfinancial",
         "caller-and-target",
+    ),
+    "codestra-connect": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "djone": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
     ),
     "klyrow-email": (
         "active",

@@ -104,11 +104,11 @@ def test_admission_is_separate_from_staging_candidate_workflow() -> None:
     assert "security-owner-staging-candidate" not in value
 
 
-def test_admission_requires_exactly_one_alembic_head_0067() -> None:
+def test_admission_requires_exactly_one_alembic_head_0071() -> None:
     value = source()
     assert "mapfile -t HEADS < <(alembic heads | awk '{print $1}')" in value
     assert 'test "${#HEADS[@]}" -eq 1' in value
-    assert 'test "${HEADS[0]}" = "0067_service_catalog_monitoring_state"' in value
+    assert 'test "${HEADS[0]}" = "0071_defer_unbound_tenant_rls"' in value
     assert "0059_integrated_monitoring" not in value
     assert "alembic upgrade head" in value
 

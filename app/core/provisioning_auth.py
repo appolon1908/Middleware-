@@ -31,6 +31,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 from app.core.jwt_auth import JWTAuthError, KeycloakValidator, identity_validator_kwargs
+from app.db.tenant_context import resolve_tenant_id
 
 BEARER = HTTPBearer(auto_error=False)
 
@@ -99,6 +100,23 @@ def require_tenant_match(principal: ProvisioningPrincipal, tenant_id: str) -> No
     """
     if not principal.tenant_ids or tenant_id not in principal.tenant_ids:
         raise HTTPException(403, "tenant claim does not cover the requested tenant")
+
+
+def resolve_tenant_context(
+    principal: ProvisioningPrincipal,
+    requested_tenant: str | None = None,
+) -> str:
+    """Resolve exactly one verified tenant for PostgreSQL transaction binding.
+
+    Explicit tenant selection must be covered by the verified token. A
+    single-tenant token may omit the selector. Multi-tenant tokens must state
+    which authorized tenant is being addressed; no wildcard or implicit
+    first-tenant fallback is permitted.
+    """
+    try:
+        return resolve_tenant_id(principal.tenant_ids, requested_tenant)
+    except ValueError:
+        raise HTTPException(403, "explicit authorized tenant context required") from None
 
 
 def require_current_policy_revision(policy_revision: str) -> None:

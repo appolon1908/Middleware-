@@ -61,13 +61,13 @@ def test_real_fresh_and_predecessor_migrations(predecessor, monkeypatch):
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 11
+                    == 15
                 )
                 assert (
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_automation_schema_migrations"
                     )
-                    == 1
+                    == 3
                 )
                 assert (
                     await conn.fetchval("SELECT count(*) FROM public.platform_services")
@@ -196,7 +196,7 @@ def test_actual_sql_structure_cannot_be_certified_from_intact_receipts(
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 11
+                    == 15
                 )
                 assert (
                     await conn.fetch(
@@ -315,6 +315,149 @@ def test_real_campaign_approval_is_hash_bound_and_append_only(monkeypatch):
                     )
                     == "approved"
                 )
+                await runner.main(verify_only=True)
+            finally:
+                await conn.close()
+        finally:
+            if created:
+                await admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
+            await admin.close()
+
+    asyncio.run(scenario())
+
+
+def test_real_progressive_rls_keeps_workers_visible_and_safe_tables_isolated(monkeypatch):
+    import asyncpg
+
+    async def scenario():
+        base = os.environ["DATABASE_URL"]
+        parsed = urlsplit(base)
+        assert os.getenv("RUNTIME_INTEGRATION_ALLOW_DISPOSABLE") == "YES"
+        assert parsed.scheme in {"postgres", "postgresql"}
+        assert parsed.hostname in {"localhost", "127.0.0.1"}
+        assert not parsed.query and not parsed.fragment
+        assert re.fullmatch(
+            r"middleware_test_[A-Za-z0-9_]+", unquote(parsed.path.lstrip("/"))
+        )
+        name = "middleware_test_rls_" + uuid4().hex
+        url = urlunsplit((parsed.scheme, parsed.netloc, "/" + name, "", ""))
+        admin = await asyncpg.connect(base)
+        created = False
+        try:
+            await admin.execute(f'CREATE DATABASE "{name}"')
+            created = True
+            monkeypatch.setenv("DATABASE_URL", url)
+            head, _, _ = validate_authority(runner.ROOT)
+            monkeypatch.setenv("SCHEMA_HEAD", head)
+            await runner.main()
+
+            conn = await asyncpg.connect(url)
+            try:
+                assert head == "0071_defer_unbound_tenant_rls"
+                assert await conn.fetchval(
+                    "SELECT version_num FROM public.alembic_version"
+                ) == head
+                assert await conn.fetchval(
+                    "SELECT count(*) FROM public.middleware_schema_migrations"
+                ) == 15
+                assert await conn.fetchval(
+                    "SELECT count(*) FROM public.middleware_automation_schema_migrations"
+                ) == 3
+
+                assert not await conn.fetchval(
+                    "SELECT relrowsecurity FROM pg_class WHERE oid='public.middleware_outbox'::regclass"
+                )
+                assert await conn.fetchval(
+                    "SELECT relrowsecurity FROM pg_class WHERE oid='public.social_campaigns'::regclass"
+                )
+
+                role = "mw_rls_test_" + uuid4().hex[:16]
+                await conn.execute(
+                    f'CREATE ROLE "{role}" NOLOGIN NOSUPERUSER NOCREATEDB '
+                    "NOCREATEROLE NOINHERIT NOBYPASSRLS"
+                )
+                try:
+                    assert not await conn.fetchval(
+                        "SELECT rolbypassrls FROM pg_roles WHERE rolname=$1", role
+                    )
+                    await conn.execute(
+                        f'GRANT SELECT,UPDATE ON public.middleware_outbox TO "{role}"'
+                    )
+                    await conn.execute(
+                        f'GRANT SELECT,INSERT ON public.social_campaigns TO "{role}"'
+                    )
+
+                    tenant_a = "11111111-1111-4111-8111-111111111111"
+                    tenant_b = "22222222-2222-4222-8222-222222222222"
+                    await conn.execute(
+                        """INSERT INTO middleware_outbox
+                        (tenant_id,destination,event_type,payload,idempotency_key)
+                        VALUES ($1,'adapter-command','command.dispatch','{}','outbox-a')""",
+                        tenant_a,
+                    )
+                    await conn.execute(
+                        """INSERT INTO social_campaigns (id,tenant_id,name) VALUES
+                        ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',$1,'tenant-a'),
+                        ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',$2,'tenant-b')""",
+                        tenant_a, tenant_b,
+                    )
+
+                    # Cross-tenant worker claim must remain visible to the runtime role.
+                    async with conn.transaction():
+                        await conn.execute(f'SET LOCAL ROLE "{role}"')
+                        row = await conn.fetchrow(
+                            """WITH candidate AS (
+                                SELECT id FROM middleware_outbox
+                                WHERE completed_at IS NULL
+                                  AND cancelled_at IS NULL
+                                  AND dead_lettered_at IS NULL
+                                  AND reconciliation_required_at IS NULL
+                                  AND attempt_count < $3
+                                  AND next_attempt_at <= now()
+                                  AND (lease_until IS NULL OR lease_until < now())
+                                ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1
+                            )
+                            UPDATE middleware_outbox o
+                            SET lease_owner=$1,
+                                lease_until=now() + ($2 * interval '1 second'),
+                                attempt_count=o.attempt_count + 1,
+                                fencing_token=o.fencing_token + 1
+                            FROM candidate WHERE o.id=candidate.id
+                            RETURNING o.id,o.tenant_id""",
+                            "rls-test-worker", 30, 5,
+                        )
+                        assert row is not None
+                        assert row["tenant_id"] == tenant_a
+
+                    # A covered table remains tenant-isolated under the same role.
+                    async with conn.transaction():
+                        await conn.execute(f'SET LOCAL ROLE "{role}"')
+                        assert await conn.fetchval(
+                            "SELECT count(*) FROM social_campaigns"
+                        ) == 0
+                        await conn.fetchval(
+                            "SELECT set_config('app.tenant_id',$1,true)", tenant_a
+                        )
+                        assert await conn.fetchval(
+                            "SELECT count(*) FROM social_campaigns"
+                        ) == 1
+                        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+                            await conn.execute(
+                                "INSERT INTO social_campaigns (id,tenant_id,name) VALUES ($1,$2,'cross')",
+                                uuid4(), tenant_b,
+                            )
+
+                    async with conn.transaction():
+                        await conn.execute(f'SET LOCAL ROLE "{role}"')
+                        await conn.fetchval(
+                            "SELECT set_config('app.tenant_id',$1,true)", tenant_b
+                        )
+                        assert await conn.fetchval(
+                            "SELECT count(*) FROM social_campaigns"
+                        ) == 1
+                finally:
+                    await conn.execute(f'DROP OWNED BY "{role}"')
+                    await conn.execute(f'DROP ROLE IF EXISTS "{role}"')
                 await runner.main(verify_only=True)
             finally:
                 await conn.close()
