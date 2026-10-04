@@ -39,8 +39,8 @@ ALL_KINDS = (*EVIDENCE_KINDS, "seal")
 EVIDENCE_FILES = {kind: f"{kind}.json" for kind in ALL_KINDS}
 SCHEMA_IDS = {kind: f"codestra.middleware.release-{kind.replace('_', '-')}.v1" for kind in ALL_KINDS}
 
-REPOSITORY = "ingtrader21-spec/Middleware-"
-IMAGE_REPOSITORIES = frozenset({"ghcr.io/ingtrader21-spec/codestra-middleware"})
+REPOSITORY = "appolon1908/Middleware-"
+IMAGE_REPOSITORIES = frozenset({"ghcr.io/appolon1908/codestra-middleware"})
 BACKUP_STORAGE_CLASSES = frozenset({"offsite_encrypted", "onsite_encrypted"})
 DEFAULT_MAX_BACKUP_AGE = timedelta(hours=24)
 MAX_CLOCK_SKEW = timedelta(minutes=5)

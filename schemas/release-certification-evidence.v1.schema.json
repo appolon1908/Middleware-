@@ -54,7 +54,7 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"
         },
         "repository": {
-          "const": "ingtrader21-spec/Middleware-"
+          "const": "appolon1908/Middleware-"
         },
         "source_sha": {
           "type": "string",
@@ -62,7 +62,7 @@
         },
         "image_repository": {
           "enum": [
-            "ghcr.io/ingtrader21-spec/codestra-middleware"
+            "ghcr.io/appolon1908/codestra-middleware"
           ]
         },
         "image_digest": {

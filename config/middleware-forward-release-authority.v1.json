@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "kind": "middleware-forward-release-authority",
   "repositoryAuthority": {
-    "repository": "ingtrader21-spec/Middleware-",
+    "repository": "appolon1908/Middleware-",
     "protectedRef": "refs/heads/main",
     "sourceResolution": "resolve the exact protected-main GitHub event SHA at workflow execution",
     "staticSourceShaAllowed": false,
     "ruleset": "middleware-main-production-authority"
   },
   "artifactAuthority": {
-    "imageRepository": "ghcr.io/ingtrader21-spec/codestra-middleware",
+    "imageRepository": "ghcr.io/appolon1908/codestra-middleware",
     "releaseWorkflow": ".github/workflows/release.yml",
     "releaseManifestSchema": "contracts/release-manifest.v1.schema.json",
     "requiredSchemaHead": "0071_defer_unbound_tenant_rls",

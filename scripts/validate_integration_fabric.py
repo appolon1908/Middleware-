@@ -103,7 +103,7 @@ def validate() -> None:
         )
         adapter_prefixes[adapter_id] = set(command_prefixes)
         require(
-            adapter["repository"].startswith(("appolon1908-hue/", "ingtrader21-spec/")),
+            adapter["repository"].startswith(("appolon1908/", "appolon1908/")),
             'integration fabric invariant failed: adapter["repository"] must be a Codestra repository',
         )
 

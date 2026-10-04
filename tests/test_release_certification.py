@@ -25,9 +25,9 @@ def _bundle() -> dict:
         "release_candidate": {
             "schema": "codestra.middleware.release-release-candidate.v1",
             "candidate_id": "rc-2026-09-25.1",
-            "repository": "ingtrader21-spec/Middleware-",
+            "repository": "appolon1908/Middleware-",
             "source_sha": SOURCE,
-            "image_repository": "ghcr.io/ingtrader21-spec/codestra-middleware",
+            "image_repository": "ghcr.io/appolon1908/codestra-middleware",
             "image_digest": DIGEST,
             "schema_head": HEAD,
             "sbom_sha256": "1" * 64,
