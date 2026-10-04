@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from app import application, factory
@@ -120,15 +121,16 @@ def test_production_without_identity_configuration_fails_closed() -> None:
 
 def test_api_runtime_listens_on_8095_only() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    assert "EXPOSE 8095" in dockerfile
+    assert set(re.findall(r"^EXPOSE (\d+)$", dockerfile, re.MULTILINE)) == {"8095"}
     assert 'CMD ["/opt/venv/bin/python", "-m", "app.entrypoints.integration_api"]' in dockerfile
-    assert not re.search(r"(^|[^0-9])8080([^0-9]|$)", dockerfile)
-    compose = (ROOT / "deploy" / "compose.runtime.yaml").read_text(encoding="utf-8")
-    assert 'PORT: "8095"' in compose
-    # :8080 survives only in the identity provider's token/JWKS URLs.
-    for line in compose.splitlines():
-        if re.search(r"(^|[^0-9])8080([^0-9]|$)", line):
-            assert "keycloak" in line, line
+    compose = yaml.safe_load((ROOT / "deploy" / "compose.runtime.yaml").read_text(encoding="utf-8"))
+    declared: set[str] = set()
+    for service in compose["services"].values():
+        declared.update(str(port) for port in service.get("expose", ()))
+        environment = service.get("environment") or {}
+        if isinstance(environment, dict) and "PORT" in environment:
+            declared.add(str(environment["PORT"]))
+    assert declared == {"8095"}
 
 
 def test_errors_negotiate_rfc9457_problem_details(client: TestClient) -> None:

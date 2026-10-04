@@ -61,4 +61,3 @@ def _status_code_name(status: int) -> str:
         return HTTPStatus(status).name.lower()
     except ValueError:
         return "error"
-
