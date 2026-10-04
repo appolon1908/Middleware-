@@ -679,8 +679,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "65da2f7dd6f501d2e35fd6aba5d46f2"
         ),
         ".github/workflows/production-reviewer-access.yml": (
-            "875b015c37ae7bf486f454e38e174cc5"
-            "b904922d2c472a6edbbb2da4621c4be9"
+            "cf89fd4e413f27fbd1500dbd8c8c2c40"
+            "31c077fc7544042a2203a10b1810fe2f"
         ),
         ".github/workflows/python-quality-baseline.yml": (
             "cb89cb69636dc79a6a03e5df98abeb798"
@@ -688,8 +688,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
         ),
         ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
         ".github/workflows/production-route-contract.yml": (
-            "1c6f903907549ff12660d2380260b1d9"
-            "51e0cc5a16766bf985e8f22c7dca4d85"
+            "054a89f8a7c0f6f2e1002563cedbfff3"
+            "a7695354d3124990f698ef9a517848a6"
         ),
         ".github/workflows/release-component-ci.yml": (
             "7489c1bcc2361af047cba2d51a0500"
