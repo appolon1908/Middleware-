@@ -44,7 +44,7 @@ def test_connect_registry():
     assert set(c["allowed_command_prefixes"]) == P
     assert c["allowed_targets"] == ["connect-router"]
     assert set(r["command_prefixes"]) == P
-    assert manifest["repository"] == "ingtrader21-spec/Codestra-Connect"
+    assert manifest["repository"] == "appolon1908/Codestra-Connect"
     assert manifest["enabled_by_default"] is False
     assert manifest["direct_n8n_access"] is False
     assert {x["prefix"] for x in rows} == P
