@@ -947,7 +947,8 @@ def verify_factory(sources: Sources) -> None:
         and statement.targets[0].id == "app"
         and isinstance(statement.value, ast.Call)
         and isinstance(statement.value.func, ast.Name)
-        and statement.value.func.id == "FastAPI"
+        # app.factory.build_application is the repository's one FastAPI constructor.
+        and statement.value.func.id == "build_application"
     ]
     require(len(app_assignments) == 1, "FastAPI app binding is missing or ambiguous")
     constructor = app_assignments[0].value
