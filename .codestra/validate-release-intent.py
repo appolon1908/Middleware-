@@ -381,8 +381,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "fcdd0d5c3832479b10deda8c6a6afca6"
     ),
     "appolon1908/Middleware-": (
-        "9cb539be01c902a05f1347708de8771321"
-        "58fac98c274140f8e48bdbc4b252f5"
+        "85266b92f457a2263528d58004aad3c37c"
+        "8064aa0a05271753af58eaed3631bc"
     ),
     "appolon1908/codestra": (
         "4e3ea69c3ec2a4bd6e4b50395672f44d"
