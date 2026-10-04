@@ -63,3 +63,6 @@ tests/test_temporal_transport.py:generic-api-key:246
 tests/test_observability_alerts.py:generic-api-key:508
 tests/test_observability_alerts.py:generic-api-key:548
 tests/test_observability_alerts.py:generic-api-key:952
+docs/STAGE0_GROUND_TRUTH_20260829.md:generic-api-key:177
+docs/CI-ENVIRONMENTS-AND-HANDOFF.md:generic-api-key:80
+scripts/validate_repository_authorities.py:generic-api-key:27

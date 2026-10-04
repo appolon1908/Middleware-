@@ -21,46 +21,69 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "not_in_git_worktree
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
 
-branch="$(git branch --show-current)"
-[[ -n "$branch" ]] || fail "detached_head"
-[[ "$branch" != "main" && "$branch" != "master" ]] || fail "protected_main_development"
-if [[ -n "$expected_branch" && "$branch" != "$expected_branch" ]]; then
-  fail "wrong_branch expected=$expected_branch actual=$branch"
-fi
-
-upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
-[[ -n "$upstream" ]] || fail "missing_upstream branch=$branch"
-[[ "$upstream" == "origin/$branch" ]] || fail "wrong_upstream expected=origin/$branch actual=$upstream"
-
-if [[ "$mode" == "start" || "$mode" == "certify" ]]; then
-  [[ -z "$(git status --porcelain)" ]] || fail "dirty_worktree"
-fi
-
 local_head="$(git rev-parse HEAD)"
-upstream_head="$(git rev-parse '@{u}')"
 
 if [[ "$mode" == "ci" ]]; then
+  # CI checks out the exact source SHA detached. Validate those immutable bytes
+  # directly; never create, rewrite, or force local refs just to satisfy CI.
+  branch="${expected_branch:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
+  [[ -n "$branch" ]] || fail "ci_branch_missing"
+  [[ "$branch" != "main" && "$branch" != "master" ]] || fail "protected_main_development"
+
   remote_head="${CODESTRA_CI_REMOTE_HEAD:-}"
-  [[ -n "$remote_head" ]] || fail "ci_remote_head_missing branch=$branch"
+  [[ "$remote_head" =~ ^[0-9a-f]{40}$ ]] || fail "ci_remote_head_invalid branch=$branch"
+  [[ "$local_head" == "$remote_head" ]] \
+    || fail "ci_exact_sha_mismatch local=$local_head remote=$remote_head"
+
+  base_sha="${CODESTRA_CI_BASE_SHA:-}"
+  if [[ -z "$base_sha" ]]; then
+    base_ref="${GITHUB_BASE_REF:-main}"
+    base_sha="$(git rev-parse "refs/remotes/origin/$base_ref" 2>/dev/null || true)"
+  fi
+  [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]] || fail "ci_base_sha_invalid branch=$branch base=${base_sha:-missing}"
+  git cat-file -e "${base_sha}^{commit}" 2>/dev/null \
+    || fail "ci_base_sha_missing base=$base_sha"
+  git merge-base --is-ancestor "$base_sha" "$local_head" \
+    || fail "ci_base_not_ancestor base=$base_sha head=$local_head"
+
+  upstream=""
+  upstream_head=""
+  diff_range="$base_sha...HEAD"
 else
+  branch="$(git branch --show-current)"
+  [[ -n "$branch" ]] || fail "detached_head"
+  [[ "$branch" != "main" && "$branch" != "master" ]] || fail "protected_main_development"
+  if [[ -n "$expected_branch" && "$branch" != "$expected_branch" ]]; then
+    fail "wrong_branch expected=$expected_branch actual=$branch"
+  fi
+
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+  [[ -n "$upstream" ]] || fail "missing_upstream branch=$branch"
+  [[ "$upstream" == "origin/$branch" ]] || fail "wrong_upstream expected=origin/$branch actual=$upstream"
+
+  if [[ "$mode" == "start" || "$mode" == "certify" ]]; then
+    [[ -z "$(git status --porcelain)" ]] || fail "dirty_worktree"
+  fi
+
+  upstream_head="$(git rev-parse '@{u}')"
   remote_head="$(git ls-remote origin "refs/heads/$branch" | awk 'NR==1{print $1}')"
-fi
-[[ -n "$remote_head" ]] || fail "remote_branch_missing branch=$branch"
-[[ "$remote_head" == "$upstream_head" ]] || fail "stale_remote upstream=$upstream_head remote=$remote_head"
+  [[ -n "$remote_head" ]] || fail "remote_branch_missing branch=$branch"
+  [[ "$remote_head" == "$upstream_head" ]] || fail "stale_remote upstream=$upstream_head remote=$remote_head"
 
-if [[ "$mode" == "certify" ]]; then
-  git merge-base --is-ancestor "$upstream_head" "$local_head" \
-    || fail "local_upstream_diverged local=$local_head upstream=$upstream_head"
-else
-  [[ "$local_head" == "$upstream_head" ]] \
-    || fail "local_upstream_mismatch local=$local_head upstream=$upstream_head"
-fi
+  if [[ "$mode" == "certify" ]]; then
+    git merge-base --is-ancestor "$upstream_head" "$local_head" \
+      || fail "local_upstream_diverged local=$local_head upstream=$upstream_head"
+  else
+    [[ "$local_head" == "$upstream_head" ]] \
+      || fail "local_upstream_mismatch local=$local_head upstream=$upstream_head"
+  fi
 
-base_ref="${GITHUB_BASE_REF:-main}"
-if git show-ref --verify --quiet "refs/remotes/origin/$base_ref"; then
-  diff_range="origin/$base_ref...HEAD"
-else
-  diff_range="@{u}...HEAD"
+  base_ref="${GITHUB_BASE_REF:-main}"
+  if git show-ref --verify --quiet "refs/remotes/origin/$base_ref"; then
+    diff_range="origin/$base_ref...HEAD"
+  else
+    diff_range="@{u}...HEAD"
+  fi
 fi
 
 added="$(git diff --unified=0 "$diff_range" -- '*.py' '*.ts' '*.tsx' '*.js' '*.mjs' '*.sh' '*.yml' '*.yaml' '*.json' '*.toml' '*.conf' ':(exclude)scripts/agent_preflight.sh' 2>/dev/null | sed -n 's/^+//p' | grep -v '^+++' || true)"
@@ -91,4 +114,8 @@ if [[ "$mode" == "certify" || "$mode" == "ci" ]]; then
   grep -q 'X-Tenant-ID\|tenant' AGENTS.md || fail "missing_tenant_authority"
 fi
 
-pass "mode=$mode branch=$branch head=$local_head upstream=$upstream_head remote=$remote_head"
+if [[ "$mode" == "ci" ]]; then
+  pass "mode=$mode branch=$branch head=$local_head remote=$remote_head base=$base_sha"
+else
+  pass "mode=$mode branch=$branch head=$local_head upstream=$upstream_head remote=$remote_head"
+fi

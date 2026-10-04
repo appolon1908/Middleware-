@@ -28,7 +28,7 @@ GOVERNED_LABELS = ["self-hosted", "Linux", "X64", "middleware-ci"]
 HOSTED_RUNNER = "ubuntu-24.04"
 # Jobs pinned to the governed host by exact labels, each for a stated reason:
 # pull_request_target gates are byte-pinned base-branch code; required-ci owns
-# the host-only egress guard; the single-lane gate materializes branch refs.
+# the host-only egress guard; the single-lane gate validates a detached exact SHA.
 EXACT_LABEL_JOBS = {
     ("production-orchestrator-contract.yml", "validate"): GOVERNED_LABELS,
     ("trusted-production-orchestrator-gate.yml", "validate-candidate"): GOVERNED_LABELS,
@@ -153,3 +153,30 @@ def test_runtime_integration_keeps_its_temp_root_job_local() -> None:
     assert step["env"]["TMPDIR"] == "${{ runner.temp }}/middleware-runtime-integration"
     assert 'mkdir -p "$TMPDIR"' in step["run"]
     assert step["run"].rstrip().endswith("bash scripts/integration_ci.sh")
+
+def test_single_lane_governance_validates_detached_exact_sha_without_ref_mutation() -> None:
+    path = WORKFLOWS / "single-lane-agent-governance.yml"
+    workflow = load(path)
+    job = workflow["jobs"]["governance"]
+    source = path.read_text(encoding="utf-8")
+
+    for forbidden in (
+        "git update-ref",
+        "git branch -f",
+        "git checkout",
+        "git branch --set-upstream-to",
+    ):
+        assert forbidden not in source
+
+    validation = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "Validate single-lane authority"
+    )
+    assert validation["env"]["CODESTRA_CI_REMOTE_HEAD"] == (
+        "${{ github.event.pull_request.head.sha || github.sha }}"
+    )
+    assert validation["env"]["CODESTRA_CI_BASE_SHA"] == (
+        "${{ github.event.pull_request.base.sha }}"
+    )
+    assert "./scripts/agent_preflight.sh --ci --branch" in validation["run"]

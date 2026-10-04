@@ -29,13 +29,13 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 CANONICAL_REPOSITORY = "appolon1908/Middleware-"
-PRE_TRANSFER_REPOSITORY = "appolon1908/Middleware-"
+PRE_TRANSFER_REPOSITORY = "appolon1908-hue/Middleware-"
 # The package lives in the repository owner's GHCR namespace: an Actions
 # installation token can only publish to its own owner. The pre-transfer package
 # keeps the historical digests and may only be named by digest-pinned historical
 # verification, never by a live publisher.
 CANONICAL_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
-PRE_TRANSFER_IMAGE_REPOSITORY = "ghcr.io/appolon1908/codestra-middleware"
+PRE_TRANSFER_IMAGE_REPOSITORY = "ghcr.io/appolon1908-hue/codestra-middleware"
 CANONICAL_RELEASE_WORKFLOW = ".github/workflows/release.yml"
 CANONICAL_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
 RETIRED_SCHEMA_HEADS = ("0059_integrated_monitoring",)

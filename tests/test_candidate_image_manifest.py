@@ -123,7 +123,7 @@ def test_mutable_tag_only_identity_fails(tmp_path: Path) -> None:
 def test_pre_transfer_package_is_not_a_candidate_repository(tmp_path: Path) -> None:
     """Candidate images can only be published to the repository owner's package."""
     manifest = valid_manifest()
-    manifest["image_repository"] = "ghcr.io/appolon1908/codestra-middleware"
+    manifest["image_repository"] = "ghcr.io/appolon1908-hue/codestra-middleware"
     assert validate(tmp_path, manifest).returncode != 0
 
 

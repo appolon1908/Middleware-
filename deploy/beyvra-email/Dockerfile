@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.revision=$VCS_REF \
 # Debian security update for libpcre2-8-0 (CVE-2026-86145, CVE-2026-89157,
 # CVE-2026-89161); the same pin Dockerfile.runtime applies in patched-final-base.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libpcre2-8-0=10.42-1+deb12u1 \
+ && apt-get install -y --no-install-recommends libpcre2-8-0=10.42-1+deb12u2 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/codestra
 COPY requirements.lock /tmp/requirements.lock
