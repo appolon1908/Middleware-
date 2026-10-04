@@ -60,7 +60,7 @@ authority therefore follows the repository owner:
 | Package | Role |
 | --- | --- |
 | `ghcr.io/appolon1908/codestra-middleware` | canonical: the single forward publisher, every verifier, the orchestrator contract's artifact policy, the forward release authority and the manifest verifier bind this package and nothing else |
-| `ghcr.io/appolon1908/codestra-middleware` | historical: holds the pre-transfer digests (public pull); may be named only by digest-pinned historical verification (`HISTORICAL_ARTIFACT_VERIFIER`) and by the pinned pre-transfer manifests; a live job naming it is a release-authority problem |
+| `ghcr.io/appolon1908-hue/codestra-middleware` | historical: holds the pre-transfer digests (public pull); may be named only by digest-pinned historical verification (`HISTORICAL_ARTIFACT_VERIFIER`) and by the pinned pre-transfer manifests; a live job naming it is a release-authority problem |
 
 No personal access token, secret-based registry login, local `docker push` or
 unreviewed namespace is an acceptable substitute: publishing must stay bound to

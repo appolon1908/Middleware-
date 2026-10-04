@@ -12,7 +12,7 @@ This repository is part of the **appolon1908** GitHub portfolio.
 
 All active clone URLs, workflow references, badges, CODEOWNERS entries, cross-repository links, package/source metadata, deployment configuration, and runtime repository authorities must use `appolon1908`.
 
-The former owners `appolon1908` and `appolon1908` are retired for active repository configuration. They may remain only inside immutable historical evidence, signed provenance, old audit snapshots, or records whose historical accuracy depends on the original owner string.
+The former owners `ingtrader21-spec` and `appolon1908-hue` are retired for active repository configuration. They may remain only inside immutable historical evidence, signed provenance, old audit snapshots, or records whose historical accuracy depends on the original owner string.
 
 ## Canonical portfolio
 
