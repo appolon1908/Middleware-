@@ -129,3 +129,30 @@ def test_api_runtime_listens_on_8095_only() -> None:
     for line in compose.splitlines():
         if re.search(r"(^|[^0-9])8080([^0-9]|$)", line):
             assert "keycloak" in line, line
+
+
+def test_errors_negotiate_rfc9457_problem_details(client: TestClient) -> None:
+    response = client.get(
+        UNKNOWN_OPERATION,
+        headers={"X-Correlation-ID": "corr-section1-d", "Accept": "application/problem+json"},
+    )
+    assert response.status_code == 401
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.headers["X-Correlation-ID"] == "corr-section1-d"
+    assert response.json() == {
+        "type": "https://middleware.codestra.co/problems/authentication_failed",
+        "title": "Unauthorized",
+        "status": 401,
+        "detail": "Authorization must be a Bearer token",
+        "instance": UNKNOWN_OPERATION,
+        "error_code": "authentication_failed",
+        "correlation_id": "corr-section1-d",
+    }
+
+
+def test_unmatched_route_negotiates_problem_details(client: TestClient) -> None:
+    response = client.get("/no/such/route", headers={"Accept": "application/problem+json"})
+    document = response.json()
+    assert response.status_code == 404 and document["status"] == 404
+    assert document["error_code"] == "not_found" and document["title"] == "Not Found"
+    assert document["correlation_id"] == response.headers["X-Correlation-ID"]
