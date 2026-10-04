@@ -9376,6 +9376,14 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
             "82afd5c0eb2a45cbd15c45312f37036b"
             "ab123b68d2790497c6cb53be64eb8bc6"
         ),
+        # Single-lane governance mutates only runner-local Git refs/worktree
+        # state to materialize the exact PR head before executing the
+        # repository preflight. The workflow has contents:read only; its exact
+        # job body is hash-pinned so any edit requires a new trust generation.
+        ".github/workflows/single-lane-agent-governance.yml:governance": (
+            "15dc367406cd9150daf5286e78274513"
+            "8571e89e2a865c0481ec5d2effdbe953"
+        ),
         # The single forward Middleware production publisher: builds, scans,
         # signs and verifies one immutable image from the exact protected-main
         # source after Middleware CI succeeded. Only these exact job bytes are
