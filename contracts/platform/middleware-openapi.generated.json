@@ -27647,7 +27647,7 @@
                   "evolution": {
                     "business_authority": "Codestra WhatsApp",
                     "channel": "whatsapp",
-                    "dependency": "https://github.com/ingtrader21-spec/Middleware-/pull/316",
+                    "dependency": "https://github.com/appolon1908/Middleware-/pull/316",
                     "normalized_event_types": [
                       "accepted",
                       "queued",

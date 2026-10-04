@@ -14972,7 +14972,7 @@ paths:
                     status only through the existing communications canonical status.
                 evolution:
                   runtime_status: blocked_pending_dependency
-                  dependency: https://github.com/ingtrader21-spec/Middleware-/pull/316
+                  dependency: https://github.com/appolon1908/Middleware-/pull/316
                   provider_authority: Codestra Evolution API
                   business_authority: Codestra WhatsApp
                   channel: whatsapp
