@@ -148,7 +148,7 @@ def main() -> int:
         errors,
     )
     for package_pin, label in (
-        ("libpcre2-8-0=10.42-1+deb12u1", "fixed PCRE2 runtime package"),
+        ("libpcre2-8-0=10.42-1+deb12u2", "fixed PCRE2 runtime package"),
         ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
         ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
     ):
