@@ -20,6 +20,7 @@ def _test_settings() -> Settings:
 def test_m1_f01_design_names_canonical_authorities() -> None:
     text = DESIGN.read_text(encoding="utf-8")
     for authority in (
+        "app/factory.py",
         "app/application.py::create_app",
         "app/router_registry.py",
         "app/core/runtime.py",
@@ -67,3 +68,15 @@ def test_primary_entrypoints_delegate_instead_of_constructing_fastapi() -> None:
         ]
         assert not fastapi_calls, relative
         assert "create_app" in source, relative
+
+
+def test_only_the_factory_constructs_fastapi() -> None:
+    constructors = []
+    for path in sorted((ROOT / "app").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                name = node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", None)
+                if name == "FastAPI":
+                    constructors.append(path.relative_to(ROOT).as_posix())
+    assert set(constructors) == {"app/factory.py"}, constructors

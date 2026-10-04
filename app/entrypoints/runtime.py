@@ -21,6 +21,7 @@ from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI, Request
+from app.factory import create_service_app
 from prometheus_client import Counter, Gauge, make_asgi_app
 
 from app.core.bootstrap import FEATURE_FLAG_STATE, StartupError, validate_startup
@@ -169,7 +170,7 @@ def worker_app(service: str, queue: str, cycle: Cycle) -> FastAPI:
             await asyncio.gather(task, return_exceptions=True)
             await engine.dispose()
 
-    app = FastAPI(title=service, lifespan=lifespan)
+    app = create_service_app(service, lifespan=lifespan)
 
     @app.middleware("http")
     async def operational_headers(request: Request, call_next):

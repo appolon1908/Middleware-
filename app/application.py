@@ -29,6 +29,8 @@ from enum import Enum
 
 from fastapi import Depends, FastAPI
 
+from app.factory import build_application
+
 from app import appolon_routes
 from app.api_inputs import restrict_sms_identity
 from app.core.bootstrap import (
@@ -114,7 +116,7 @@ def create_app(
             await state.close()
             app.state.runtime = None
 
-    app = FastAPI(
+    app = build_application(
         title=APPLICATION_TITLE,
         version=resolved.app_version,
         dependencies=[Depends(restrict_sms_identity)],

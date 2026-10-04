@@ -15,10 +15,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, FastAPI, Query, Request
-from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError as FastApiValidationError
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, Field, ValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api_inputs import (
     authenticated_tenant,
@@ -244,6 +245,20 @@ def install_error_handlers(app: FastAPI) -> None:
             message=str(exc),
             retryable=exc.retryable,
         )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def unmatched_route(request: Request, exc: StarletteHTTPException) -> JSONResponse | Response:
+        # A request no route matched gets the canonical envelope; handler-raised
+        # HTTPExceptions keep the documented FastAPI body of their contracts.
+        if exc.status_code == 404 and request.scope.get("endpoint") is None:
+            return error_response(
+                request,
+                status_code=404,
+                code="not_found",
+                message="no route matches the request",
+                retryable=False,
+            )
+        return await http_exception_handler(request, exc)
 
     @app.exception_handler(FastApiValidationError)
     async def validation_error(

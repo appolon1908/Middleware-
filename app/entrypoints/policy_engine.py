@@ -1,6 +1,6 @@
 """Codestra canonical policy API runtime."""
 
-from fastapi import FastAPI
+from app.factory import create_service_app
 
 from app.api.v1.policy_engine import router
 from app.api.internal.authorization import router as internal_authorization_router
@@ -8,7 +8,7 @@ from app.entrypoints.runtime import add_api_runtime, run_api
 
 
 SERVICE = "middleware-policy-engine"
-app = FastAPI(title="Codestra Policy Engine", version="1.0.0")
+app = create_service_app("Codestra Policy Engine", version="1.0.0")
 app.include_router(router)
 app.include_router(internal_authorization_router)
 add_api_runtime(app, SERVICE)

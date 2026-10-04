@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from app.factory import create_service_app
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -26,7 +27,7 @@ STATUS_MAP = {
 
 
 def build_app(sessions: sessionmaker[Session], validator: TokenValidator) -> FastAPI:
-    app = FastAPI(title="Codestra Beyvra Email API", version="1.0.0")
+    app = create_service_app("Codestra Beyvra Email API", version="1.0.0")
 
     def principal(required: str):
         def dependency(authorization: str = Header(default="")) -> Principal:
