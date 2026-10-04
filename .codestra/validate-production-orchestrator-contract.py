@@ -489,7 +489,7 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
         ),
         "scripts/nats_integration_ci.sh": "88d843c665cece68e0fb56a931c295ee10490446cad7b64d9f5356c1cbf7263d",
         "scripts/project_ci.sh": "12a529ea96f39baec5f1eeb287209dc9db355e5dca000cbbfd7494303501b2ae",
-        "scripts/release_manifest.py": "e6655e28aaf1d3152a692fdf8fe6115c67254c986920501bbf13ef5c8d568d32",
+        "scripts/release_manifest.py": "b306ecaa24d74675fb18aac6a3287fbe09b78571c48a32d1eb80bea82c14df1c",
         "scripts/run_ci.sh": "64d7c92279dd442144c7e1f74c3e48f0ab5d5db105238a534dcf8ccd99e93138",
         "scripts/synthetic_acceptance_ci.sh": "087dac2c5371f2013fa0a8dd22ed4024409ab5015231fb8801c75cf3203e3a8a",
         "scripts/temporal_integration_ci.sh": "76a682cc1f5b15a0a3eb15a029d87206238dfe4a262eaf5fa2c79403f147d4d6",
@@ -688,8 +688,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
         ),
         ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
         ".github/workflows/production-route-contract.yml": (
-            "03748fb9af1ee501161bd8be5f772ab5"
-            "c4fcfe95dac5d6e3c1f06a7912af6d8b"
+            "89414a1aa1ed373a72f8e12c93156a2e"
+            "739e6594e0cd644f501875983720d879"
         ),
         ".github/workflows/release-component-ci.yml": (
             "7489c1bcc2361af047cba2d51a0500"

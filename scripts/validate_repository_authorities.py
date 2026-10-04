@@ -17,14 +17,15 @@ FORBIDDEN_ADAPTER_REPOSITORIES = {
     MIDDLEWARE.casefold(),
 }
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
-REPOSITORY_PATTERN = re.compile(r"(?:appolon1908|appolon1908)/[A-Za-z0-9_.-]+\Z")
+REPOSITORY_PATTERN = re.compile(r"appolon1908/[A-Za-z0-9_.-]+\Z")
+CANONICAL_OWNER = "appolon1908"
 EXPECTED = {
     "ai": "appolon1908/Codestra-AI",
     "caddy": "appolon1908/Caddy",
     "codestra-connect": "appolon1908/Codestra-Connect",
     "djone": "appolon1908/DJONE",
     "evolution-whatsapp": "appolon1908/Evolution-API",
-    "keycloak": "appolon1908/Keycloak",
+    "keycloak": f"{CANONICAL_OWNER}/Keycloak",
     "klyrow-email": "appolon1908/klyrow.com",
     "klyrow-web": "appolon1908/klyrow-Website-",
     "kong": "appolon1908/Kong",

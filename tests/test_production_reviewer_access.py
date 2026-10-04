@@ -55,7 +55,7 @@ class ProductionReviewerAccessTests(unittest.TestCase):
         broken = copy.deepcopy(self.config)
         for row in broken["repositories"]:
             if row["repository"] == "appolon1908/Middleware-":
-                row["repository"] = "appolon1908/Middleware-"
+                row["repository"] = "appolon1908-hue/Middleware-"
         with self.assertRaises(MODULE.AccessError):
             MODULE.validate_config(broken)
 
