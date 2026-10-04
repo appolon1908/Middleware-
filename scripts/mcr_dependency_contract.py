@@ -29,7 +29,7 @@ def load_dependency_contract(path: Path = CONTRACT_PATH) -> dict[str, dict[str, 
             isinstance(record, dict)
             and set(record) == {"repository", "sha"}
             and isinstance(record["repository"], str)
-            and record["repository"].startswith("ingtrader21-spec/")
+            and record["repository"].startswith("appolon1908/")
             and isinstance(record["sha"], str)
             and SHA.fullmatch(record["sha"])
         ):

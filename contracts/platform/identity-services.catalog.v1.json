@@ -8,7 +8,7 @@
       "owner": "face-id",
       "tenant_mode": "multi-tenant",
       "type": "api",
-      "repository": "ingtrader21-spec/FACE-ID",
+      "repository": "appolon1908/FACE-ID",
       "environments": [
         "test",
         "staging"
@@ -26,7 +26,7 @@
       "owner": "face-liveness",
       "tenant_mode": "multi-tenant",
       "type": "api",
-      "repository": "ingtrader21-spec/Codestra-Face-Liveness",
+      "repository": "appolon1908/Codestra-Face-Liveness",
       "environments": [
         "test",
         "staging"
@@ -44,7 +44,7 @@
       "owner": "camera-gateway",
       "tenant_mode": "multi-tenant",
       "type": "api",
-      "repository": "ingtrader21-spec/Codestra-Camera-Gateway",
+      "repository": "appolon1908/Codestra-Camera-Gateway",
       "environments": [
         "test",
         "staging"
@@ -62,7 +62,7 @@
       "owner": "postgresql",
       "tenant_mode": "multi-tenant",
       "type": "api",
-      "repository": "ingtrader21-spec/Codestra-PostgreSQL",
+      "repository": "appolon1908/Codestra-PostgreSQL",
       "environments": [
         "test",
         "staging"
@@ -1027,7 +1027,7 @@
   },
   "source_reconciliation": {
     "face-id": {
-      "repository": "ingtrader21-spec/FACE-ID",
+      "repository": "appolon1908/FACE-ID",
       "revision": "da213fdbdc301f6892bb276e9b715b4875d17d5a",
       "branch": "mission/face-id-middleware-integration-20260924",
       "readiness_path": "/health/ready",
@@ -1154,7 +1154,7 @@
       ]
     },
     "face-liveness": {
-      "repository": "ingtrader21-spec/Codestra-Face-Liveness",
+      "repository": "appolon1908/Codestra-Face-Liveness",
       "revision": "e664aa4fe1153d59dd7a468b768e7bd0d10b92f8",
       "branch": "mission/face-id-middleware-integration-20260924",
       "readiness_path": "/health/ready",
@@ -1167,7 +1167,7 @@
       ]
     },
     "camera-gateway": {
-      "repository": "ingtrader21-spec/Codestra-Camera-Gateway",
+      "repository": "appolon1908/Codestra-Camera-Gateway",
       "revision": "0dfa3c0c31c213a5d9518d0cbdc24eb11513455d",
       "branch": "mission/face-id-middleware-integration-20260924",
       "readiness_path": "/health/ready",
@@ -1202,7 +1202,7 @@
       }
     },
     "postgresql": {
-      "repository": "ingtrader21-spec/Codestra-PostgreSQL",
+      "repository": "appolon1908/Codestra-PostgreSQL",
       "revision": "172b65f47820d5623e327bc35c3aa4a75098e624",
       "branch": "mission/face-id-middleware-integration-20260924",
       "readiness_path": "/health/ready",

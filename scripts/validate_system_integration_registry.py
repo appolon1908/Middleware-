@@ -16,10 +16,10 @@ AUTHORITY_PATH = ROOT / "config/repository-authorities.v1.json"
 ALIAS_PATH = ROOT / "config/repository-name-aliases.v1.json"
 ADAPTER_PATH = ROOT / "config/adapter-registry.v2.json"
 
-# The canonical Middleware repository lives under ingtrader21-spec; the portfolio
-# repositories it references are still recorded under the appolon1908-hue owner
+# The canonical Middleware repository lives under appolon1908; the portfolio
+# repositories it references are still recorded under the appolon1908 owner
 # (GitHub redirects them) until each one is converged on its own.
-REPOSITORY_RE = re.compile(r"^(?:ingtrader21-spec|appolon1908-hue)/[A-Za-z0-9._-]+$")
+REPOSITORY_RE = re.compile(r"^(?:appolon1908|appolon1908)/[A-Za-z0-9._-]+$")
 REGISTRY_KEYS = {
     "schema_version",
     "identity_key",
@@ -145,49 +145,49 @@ PROVIDER_CELLS = {
 # are still mutable attributes, but an authority cannot invent or reassign the
 # numeric identity of a component.
 EXPECTED_REPOSITORY_IDENTITIES = {
-    "face-id": (1384373026, "ingtrader21-spec/FACE-ID"),
-    "face-liveness": (1386426580, "ingtrader21-spec/Codestra-Face-Liveness"),
-    "camera-gateway": (1386427236, "ingtrader21-spec/Codestra-Camera-Gateway"),
-    "postgresql": (1386427368, "ingtrader21-spec/Codestra-PostgreSQL"),
-    "middleware": (1347559071, "ingtrader21-spec/Middleware-"),
-    "caddy": (1350228103, "appolon1908-hue/Caddy"),
-    "codestra-connect": (1386450856, "ingtrader21-spec/Codestra-Connect"),
-    "kong": (1347790742, "appolon1908-hue/Kong"),
-    "keycloak": (1347523366, "appolon1908-hue/Keycloak"),
-    "n8n": (1347560645, "appolon1908-hue/N8N"),
-    "odoo": (1347522940, "appolon1908-hue/Odoo"),
-    "telnexa-sms": (1334764612, "appolon1908-hue/telnexa"),
-    "evolution-whatsapp": (1384467115, "ingtrader21-spec/Evolution-API"),
-    "telnexa-web": (1346958528, "appolon1908-hue/Telnexa-web"),
-    "klyrow-email": (1334863061, "appolon1908-hue/klyrow.com"),
-    "klyrow-web": (1346968526, "appolon1908-hue/klyrow-Website-"),
-    "kyqra-crawler": (1334792686, "appolon1908-hue/kyqra-crawler"),
-    "kyqra-legacy": (1334764212, "appolon1908-hue/kyqra"),
-    "vicidial-asterisk": (1347744324, "appolon1908-hue/Vicidialer-Codestra"),
-    "provisioning": (1339900477, "appolon1908-hue/codestra-provisioning-service"),
-    "sdk": (1349042079, "appolon1908-hue/SDK-repository"),
-    "social": (1348783113, "appolon1908-hue/social.codestra.co"),
-    "ai": (1351354401, "appolon1908-hue/Codestra-AI"),
-    "marketing": (1351352422, "appolon1908-hue/Codestra-Marketing-"),
-    "scrapper": (1329513537, "appolon1908-hue/scrapper"),
-    "beyvra-backend": (1319831182, "appolon1908-hue/beyvra-backend"),
-    "beyvra-frontend": (1320246591, "appolon1908-hue/beyvra-frontend"),
-    "moneybee-backend": (1343760409, "appolon1908-hue/Moneybee-Backend"),
-    "moneybee-frontend": (1343759743, "appolon1908-hue/Moneybee-frontend-"),
-    "breero": (1331354808, "appolon1908-hue/Breero.com"),
-    "larim-a-backend": (1343962951, "appolon1908-hue/LARIM-A-Backend"),
-    "larim-a-frontend": (1343962199, "appolon1908-hue/LARIM-A-Fornt-end"),
-    "booked4seasons": (1332044491, "appolon1908-hue/booked4seasons"),
-    "codestra-public-site": (1319808791, "appolon1908-hue/codestra"),
-    "restaurant-frontend": (1221155447, "appolon1908-hue/Frontend-Resturant-"),
+    "face-id": (1384373026, "appolon1908/FACE-ID"),
+    "face-liveness": (1386426580, "appolon1908/Codestra-Face-Liveness"),
+    "camera-gateway": (1386427236, "appolon1908/Codestra-Camera-Gateway"),
+    "postgresql": (1386427368, "appolon1908/Codestra-PostgreSQL"),
+    "middleware": (1347559071, "appolon1908/Middleware-"),
+    "caddy": (1350228103, "appolon1908/Caddy"),
+    "codestra-connect": (1386450856, "appolon1908/Codestra-Connect"),
+    "kong": (1347790742, "appolon1908/Kong"),
+    "keycloak": (1347523366, "appolon1908/Keycloak"),
+    "n8n": (1347560645, "appolon1908/N8N"),
+    "odoo": (1347522940, "appolon1908/Odoo"),
+    "telnexa-sms": (1334764612, "appolon1908/telnexa"),
+    "evolution-whatsapp": (1384467115, "appolon1908/Evolution-API"),
+    "telnexa-web": (1346958528, "appolon1908/Telnexa-web"),
+    "klyrow-email": (1334863061, "appolon1908/klyrow.com"),
+    "klyrow-web": (1346968526, "appolon1908/klyrow-Website-"),
+    "kyqra-crawler": (1334792686, "appolon1908/kyqra-crawler"),
+    "kyqra-legacy": (1334764212, "appolon1908/kyqra"),
+    "vicidial-asterisk": (1347744324, "appolon1908/Vicidialer-Codestra"),
+    "provisioning": (1339900477, "appolon1908/codestra-provisioning-service"),
+    "sdk": (1349042079, "appolon1908/SDK-repository"),
+    "social": (1348783113, "appolon1908/social.codestra.co"),
+    "ai": (1351354401, "appolon1908/Codestra-AI"),
+    "marketing": (1351352422, "appolon1908/Codestra-Marketing-"),
+    "scrapper": (1329513537, "appolon1908/scrapper"),
+    "beyvra-backend": (1319831182, "appolon1908/beyvra-backend"),
+    "beyvra-frontend": (1320246591, "appolon1908/beyvra-frontend"),
+    "moneybee-backend": (1343760409, "appolon1908/Moneybee-Backend"),
+    "moneybee-frontend": (1343759743, "appolon1908/Moneybee-frontend-"),
+    "breero": (1331354808, "appolon1908/Breero.com"),
+    "larim-a-backend": (1343962951, "appolon1908/LARIM-A-Backend"),
+    "larim-a-frontend": (1343962199, "appolon1908/LARIM-A-Fornt-end"),
+    "booked4seasons": (1332044491, "appolon1908/booked4seasons"),
+    "codestra-public-site": (1319808791, "appolon1908/codestra"),
+    "restaurant-frontend": (1221155447, "appolon1908/Frontend-Resturant-"),
     "freight-platform-frontend": (
         1343761049,
-        "appolon1908-hue/transportaion-Frontend",
+        "appolon1908/transportaion-Frontend",
     ),
-    "social-control-plane": (1351353723, "appolon1908-hue/Codesrea-Social-"),
-    "platform-documentation": (1350724356, "appolon1908-hue/documentaions"),
-    "platform-infrastructure": (1350724865, "appolon1908-hue/Infustruction-repo"),
-    "djone": (1382566617, "ingtrader21-spec/DJONE"),
+    "social-control-plane": (1351353723, "appolon1908/Codesrea-Social-"),
+    "platform-documentation": (1350724356, "appolon1908/documentaions"),
+    "platform-infrastructure": (1350724865, "appolon1908/Infustruction-repo"),
+    "djone": (1382566617, "appolon1908/DJONE"),
 }
 EXPECTED_SYSTEM_SECURITY_PROFILES = {
     "face-id": (
@@ -513,39 +513,39 @@ EXPECTED_SYSTEM_SECURITY_PROFILES = {
 }
 EXPECTED_REPOSITORY_RENAMES = {
     1221155447: (
-        "appolon1908-hue/Frontend-Resturant-",
-        "appolon1908-hue/restaurant-frontend",
+        "appolon1908/Frontend-Resturant-",
+        "appolon1908/restaurant-frontend",
         "PREPARED_NOT_RENAMED",
     ),
     1343761049: (
-        "appolon1908-hue/transportaion-Frontend",
-        "appolon1908-hue/freight-platform-frontend",
+        "appolon1908/transportaion-Frontend",
+        "appolon1908/freight-platform-frontend",
         "PREPARED_NOT_RENAMED",
     ),
     1343962199: (
-        "appolon1908-hue/LARIM-A-Fornt-end",
-        "appolon1908-hue/LARIM-A-Frontend",
+        "appolon1908/LARIM-A-Fornt-end",
+        "appolon1908/LARIM-A-Frontend",
         "PREPARED_NOT_RENAMED",
     ),
     1351353723: (
-        "appolon1908-hue/Codesrea-Social-",
-        "appolon1908-hue/Codestra-Social-Control-Plane",
+        "appolon1908/Codesrea-Social-",
+        "appolon1908/Codestra-Social-Control-Plane",
         "PREPARED_NOT_RENAMED",
     ),
     1350724356: (
-        "appolon1908-hue/documentaions",
-        "appolon1908-hue/Codestra-Documentation",
+        "appolon1908/documentaions",
+        "appolon1908/Codestra-Documentation",
         "PREPARED_NOT_RENAMED",
     ),
     1350724865: (
-        "appolon1908-hue/Infustruction-repo",
-        "appolon1908-hue/Codestra-Infrastructure",
+        "appolon1908/Infustruction-repo",
+        "appolon1908/Codestra-Infrastructure",
         "PREPARED_NOT_RENAMED",
     ),
 }
 EXPECTED_AUTHORITY_POLICY = {
-    "middleware_repository": "ingtrader21-spec/Middleware-",
-    "reference_repository": "appolon1908-hue/codestra-production-platform",
+    "middleware_repository": "appolon1908/Middleware-",
+    "reference_repository": "appolon1908/codestra-production-platform",
     "reference_repository_role": "historical-runtime-deployment-reconciliation-evidence-only",
     "owning_repository_is_principal": True,
     "central_release_authority": False,
@@ -564,29 +564,29 @@ EXPECTED_MIDDLEWARE_OWNED = (
     "combined cross-repository release evidence",
 )
 EXPECTED_CANONICAL_ADAPTER_OWNERS = {
-    "face-id": "ingtrader21-spec/FACE-ID",
-    "face-liveness": "ingtrader21-spec/Codestra-Face-Liveness",
-    "camera-gateway": "ingtrader21-spec/Codestra-Camera-Gateway",
-    "postgresql": "ingtrader21-spec/Codestra-PostgreSQL",
-    "ai-provider": "appolon1908-hue/Codestra-AI",
-    "beyvra-nonfinancial": "appolon1908-hue/beyvra-backend",
-    "connect-router": "ingtrader21-spec/Codestra-Connect",
-    "djone-mixxx": "ingtrader21-spec/DJONE",
-    "evolution-whatsapp": "ingtrader21-spec/Evolution-API",
-    "klyrow-alert-email": "appolon1908-hue/klyrow.com",
-    "klyrow-email": "appolon1908-hue/klyrow.com",
-    "kyqra-crawler": "appolon1908-hue/kyqra-crawler",
-    "marketing-provider": "appolon1908-hue/Codestra-Marketing-",
-    "odoo-19": "appolon1908-hue/Odoo",
-    "postly-social": "appolon1908-hue/social.codestra.co",
-    "provisioning-service": "appolon1908-hue/codestra-provisioning-service",
-    "telnexa-sms": "appolon1908-hue/telnexa",
-    "vicidial-restricted": "appolon1908-hue/Vicidialer-Codestra",
+    "face-id": "appolon1908/FACE-ID",
+    "face-liveness": "appolon1908/Codestra-Face-Liveness",
+    "camera-gateway": "appolon1908/Codestra-Camera-Gateway",
+    "postgresql": "appolon1908/Codestra-PostgreSQL",
+    "ai-provider": "appolon1908/Codestra-AI",
+    "beyvra-nonfinancial": "appolon1908/beyvra-backend",
+    "connect-router": "appolon1908/Codestra-Connect",
+    "djone-mixxx": "appolon1908/DJONE",
+    "evolution-whatsapp": "appolon1908/Evolution-API",
+    "klyrow-alert-email": "appolon1908/klyrow.com",
+    "klyrow-email": "appolon1908/klyrow.com",
+    "kyqra-crawler": "appolon1908/kyqra-crawler",
+    "marketing-provider": "appolon1908/Codestra-Marketing-",
+    "odoo-19": "appolon1908/Odoo",
+    "postly-social": "appolon1908/social.codestra.co",
+    "provisioning-service": "appolon1908/codestra-provisioning-service",
+    "telnexa-sms": "appolon1908/telnexa",
+    "vicidial-restricted": "appolon1908/Vicidialer-Codestra",
 }
 EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     "face-id": (
         "core-communications",
-        "ingtrader21-spec/FACE-ID",
+        "appolon1908/FACE-ID",
         (
             "face-id.verify.",
             "face-id.access.",
@@ -599,13 +599,13 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     ),
     "face-liveness": (
         "core-communications",
-        "ingtrader21-spec/Codestra-Face-Liveness",
+        "appolon1908/Codestra-Face-Liveness",
         ("face-liveness.",),
         (),
     ),
     "camera-gateway": (
         "core-communications",
-        "ingtrader21-spec/Codestra-Camera-Gateway",
+        "appolon1908/Codestra-Camera-Gateway",
         (
             "camera-gateway.capture.",
             "camera-gateway.ptz.",
@@ -616,14 +616,14 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     ),
     "postgresql": (
         "core-communications",
-        "ingtrader21-spec/Codestra-PostgreSQL",
+        "appolon1908/Codestra-PostgreSQL",
         ("postgresql.",),
         (),
     ),
-    "ai-provider": ("core-communications", "appolon1908-hue/Codestra-AI", ("ai.",), ()),
+    "ai-provider": ("core-communications", "appolon1908/Codestra-AI", ("ai.",), ()),
     "beyvra-nonfinancial": (
         "beyvra-financial",
-        "appolon1908-hue/beyvra-backend",
+        "appolon1908/beyvra-backend",
         ("beyvra.operations.",),
         (
             "trade.",
@@ -643,7 +643,7 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     ),
     "connect-router": (
         "core-communications",
-        "ingtrader21-spec/Codestra-Connect",
+        "appolon1908/Codestra-Connect",
         (
             "connect.crm.",
             "connect.social.",
@@ -656,57 +656,57 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     ),
     "djone-mixxx": (
         "core-communications",
-        "ingtrader21-spec/DJONE",
+        "appolon1908/DJONE",
         ("djone.",),
         (),
     ),
     "evolution-whatsapp": (
         "core-communications",
-        "ingtrader21-spec/Evolution-API",
+        "appolon1908/Evolution-API",
         ("whatsapp.",),
         (),
     ),
     "klyrow-alert-email": (
         "core-communications",
-        "appolon1908-hue/klyrow.com",
+        "appolon1908/klyrow.com",
         ("observability.alert.",),
         (),
     ),
     "klyrow-email": (
         "core-communications",
-        "appolon1908-hue/klyrow.com",
+        "appolon1908/klyrow.com",
         ("email.",),
         (),
     ),
     "kyqra-crawler": (
         "core-communications",
-        "appolon1908-hue/kyqra-crawler",
+        "appolon1908/kyqra-crawler",
         ("crawler.",),
         (),
     ),
     "marketing-provider": (
         "core-communications",
-        "appolon1908-hue/Codestra-Marketing-",
+        "appolon1908/Codestra-Marketing-",
         ("marketing.",),
         (),
     ),
-    "odoo-19": ("core-communications", "appolon1908-hue/Odoo", ("crm.",), ()),
+    "odoo-19": ("core-communications", "appolon1908/Odoo", ("crm.",), ()),
     "postly-social": (
         "core-communications",
-        "appolon1908-hue/social.codestra.co",
+        "appolon1908/social.codestra.co",
         ("social.",),
         (),
     ),
     "provisioning-service": (
         "core-communications",
-        "appolon1908-hue/codestra-provisioning-service",
+        "appolon1908/codestra-provisioning-service",
         ("provisioning.",),
         (),
     ),
-    "telnexa-sms": ("core-communications", "appolon1908-hue/telnexa", ("sms.",), ()),
+    "telnexa-sms": ("core-communications", "appolon1908/telnexa", ("sms.",), ()),
     "vicidial-restricted": (
         "telephony-private",
-        "appolon1908-hue/Vicidialer-Codestra",
+        "appolon1908/Vicidialer-Codestra",
         ("telephony.", "telephony-internal."),
         (),
     ),
@@ -898,7 +898,7 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
     ),
 }
 EXPECTED_REFERENCE_ONLY_REPOSITORIES = {
-    "appolon1908-hue/codestra-production-platform": {
+    "appolon1908/codestra-production-platform": {
         "allowed_uses": (
             "historical runtime inventory",
             "deployment provenance",
@@ -1427,7 +1427,7 @@ def validate(
     )
     require(
         aliases.get("documentation_authority")
-        == "appolon1908-hue/documentaions:repository-name-migration.v1.json",
+        == "appolon1908/documentaions:repository-name-migration.v1.json",
         "alias documentation authority mismatch",
     )
     alias_rows = as_list(aliases.get("mappings"), "repository alias mappings")

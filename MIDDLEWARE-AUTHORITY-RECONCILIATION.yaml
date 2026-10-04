@@ -6,7 +6,7 @@ supersedes_snapshot:
   legacy_anchor: 2f1c7af41f87c27e2881c3695621ece787b97445
 
 decision:
-  single_forward_source_repository: ingtrader21-spec/Middleware-
+  single_forward_source_repository: appolon1908/Middleware-
   source_ref: refs/heads/main
   source_resolution: exact_protected_main_event_sha_at_release_execution
   static_sha_is_authority: false

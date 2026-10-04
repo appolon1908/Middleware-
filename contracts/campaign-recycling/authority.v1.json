@@ -532,7 +532,7 @@
   "external_dependencies": [
     {
       "id": "middleware-whatsapp-v3",
-      "url": "https://github.com/ingtrader21-spec/Middleware-/pull/316",
+      "url": "https://github.com/appolon1908/Middleware-/pull/316",
       "observed_head": "a59818e032bc63a4562785f5dfdfcc3b6c84c989",
       "required_for": "whatsapp provider execution",
       "gate": "merged exact-head green with WHATSAPP_DELIVERY default false"

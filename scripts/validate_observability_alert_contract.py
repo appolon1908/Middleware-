@@ -97,7 +97,7 @@ COMMAND_CONTRACT: dict[str, object] = {
 ADAPTER_CONTRACT: dict[str, object] = {
     "id": "klyrow-alert-email",
     "cell": "core-communications",
-    "repository": "appolon1908-hue/klyrow.com",
+    "repository": "appolon1908/klyrow.com",
     "command_prefixes": ["observability.alert."],
     "direct_n8n": False,
 }

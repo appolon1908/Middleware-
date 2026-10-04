@@ -31,7 +31,7 @@ from app.secret_reference import SecretReferenceError, parse_references, referen
 
 router = APIRouter(prefix="/platform/v1", tags=["platform-service-catalog"])
 SERVICE_ID = re.compile(r"^[a-z][a-z0-9-]{1,62}$")
-REPOSITORY = re.compile(r"^appolon1908-hue/[A-Za-z0-9._-]+$")
+REPOSITORY = re.compile(r"^appolon1908/[A-Za-z0-9._-]+$")
 ENVIRONMENTS = {"development", "test", "staging", "production"}
 ADMIN_ROLES = {"platform_admin", "platform_reviewer"}
 
@@ -61,10 +61,8 @@ class ServiceCreate(MonitoringDescriptor):
     @field_validator("repository")
     @classmethod
     def repository_is_governed(cls, value: str) -> str:
-        from app.identity_service_contract import SERVICE_REPOSITORIES
-
-        if not REPOSITORY.fullmatch(value) and value not in SERVICE_REPOSITORIES.values():
-            raise ValueError("repository must belong to a governed service owner")
+        if not REPOSITORY.fullmatch(value):
+            raise ValueError("repository must belong to appolon1908")
         return value
 
     @field_validator("environments")

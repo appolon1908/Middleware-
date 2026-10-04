@@ -9,6 +9,6 @@ Mandatory first command:
 ```
 
 Continuation protocol (cross-repository checkpoints and handoff):
-https://github.com/ingtrader21-spec/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
+https://github.com/appolon1908/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
 
 Then read `.codestra-mission/*` when present. Use the active Linear issue as task authority, preserve dirty local work, do not self-assign successor work, and end with the protocol's structured checkpoint.

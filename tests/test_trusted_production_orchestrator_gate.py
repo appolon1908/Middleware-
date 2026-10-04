@@ -154,7 +154,7 @@ def test_governance_requires_independent_ownership_of_every_trust_path() -> None
     governance = load_governance_validator()
     text = "\n".join(
         [
-            "* @appolon1908-hue @kazan555",
+            "* @appolon1908 @kazan555",
             *(
                 f"{path} @kazan555"
                 for path in sorted(governance.EXPECTED_SECURITY_CODEOWNER_PATHS)
@@ -170,7 +170,7 @@ def test_governance_requires_independent_ownership_of_every_trust_path() -> None
         governance.validate_codeowners(
             text.replace(
                 "/.codestra/validate-release-intent.py @kazan555",
-                "/.codestra/validate-release-intent.py @appolon1908-hue",
+                "/.codestra/validate-release-intent.py @appolon1908",
             )
         )
 
@@ -192,7 +192,7 @@ def test_orchestrator_classifies_the_evidence_gate_as_read_only(
 def test_repaired_candidate_requires_independent_protected_trust_transition(monkeypatch) -> None:
     import hashlib
     launcher = load_launcher()
-    repaired = "f9e99b4bab36cf846c296b91d797a14884b11e15e6b42140ce2254182ef78249"
+    repaired = "153331d833de10716330adf58c0c6f7b5bf8262b79fa1bc107643f220f299e93"
     assert hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest() == repaired
     # Until a separately reviewed launcher-only trust transition reaches
     # protected main, the unchanged launcher must reject this generation.

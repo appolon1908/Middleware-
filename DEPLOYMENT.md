@@ -1,4 +1,4 @@
-# Deployment design — ingtrader21-spec/Middleware-
+# Deployment design — appolon1908/Middleware-
 
 This repository is classified as **integration-control-plane** and remains independently deployable.
 

@@ -54,6 +54,6 @@ The mission handoff must record host, worktree, branch, local HEAD, upstream SHA
 ## Continuation protocol
 
 Cross-repository continuation rules live in the canonical Codestra protocol:
-https://github.com/ingtrader21-spec/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
+https://github.com/appolon1908/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
 
 Read `.codestra-mission/*` when present, the active Linear issue and its linked Notion architecture before changing code, and end with the protocol's structured checkpoint. Where the protocol and this file differ, this file's single-lane, publication and production-safety rules govern this repository.

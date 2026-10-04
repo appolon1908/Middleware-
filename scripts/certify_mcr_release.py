@@ -21,7 +21,7 @@ from xml.etree import ElementTree as ET
 from scripts.mcr_dependency_contract import DEPENDENCIES, load_dependency_contract
 
 ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY = "ingtrader21-spec/Middleware-"
+REPOSITORY = "appolon1908/Middleware-"
 BRANCH = "mission/mcr-m-qa-release-20260924"
 WORKFLOW = ".github/workflows/middleware-ci.yml"
 SCENARIOS = (

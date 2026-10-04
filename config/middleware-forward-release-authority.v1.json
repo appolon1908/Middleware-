@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "kind": "middleware-forward-release-authority",
   "repositoryAuthority": {
-    "repository": "ingtrader21-spec/Middleware-",
+    "repository": "appolon1908/Middleware-",
     "protectedRef": "refs/heads/main",
     "sourceResolution": "resolve the exact protected-main GitHub event SHA at workflow execution",
     "staticSourceShaAllowed": false,
     "ruleset": "middleware-main-production-authority"
   },
   "artifactAuthority": {
-    "imageRepository": "ghcr.io/ingtrader21-spec/codestra-middleware",
+    "imageRepository": "ghcr.io/appolon1908/codestra-middleware",
     "releaseWorkflow": ".github/workflows/release.yml",
     "releaseManifestSchema": "contracts/release-manifest.v1.schema.json",
     "requiredSchemaHead": "0074_mcr_odoo_handoff",
@@ -84,7 +84,7 @@
       "vulnerabilityGate": "PASS",
       "verification": "PASS"
     },
-    "requiredMigrationHistorySha256": "sha256:a9d5784897369090c4063d71974573acc0d431c0cd181ccd67e05fbf9dced083"
+    "requiredMigrationHistorySha256": "sha256:ee0bc0372098441af8316d11e4eb4e44426b894ab774f108e1f8ca27b107f693"
   },
   "runtimeAuthority": {
     "runtimeState": "must_be_proven_at_execution",

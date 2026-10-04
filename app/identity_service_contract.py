@@ -61,8 +61,8 @@ def validate_service_command(
 
 # Verified GitHub repository identities on 2026-09-24; no broad owner exception.
 SERVICE_REPOSITORIES = {
-    "face-id": "ingtrader21-spec/FACE-ID",
-    "face-liveness": "ingtrader21-spec/Codestra-Face-Liveness",
-    "camera-gateway": "ingtrader21-spec/Codestra-Camera-Gateway",
-    "postgresql": "ingtrader21-spec/Codestra-PostgreSQL",
+    "face-id": "appolon1908/FACE-ID",
+    "face-liveness": "appolon1908/Codestra-Face-Liveness",
+    "camera-gateway": "appolon1908/Codestra-Camera-Gateway",
+    "postgresql": "appolon1908/Codestra-PostgreSQL",
 }

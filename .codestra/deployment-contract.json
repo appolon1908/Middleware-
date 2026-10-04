@@ -1,6 +1,6 @@
 {
   "schema": "codestra.deployment-contract.v1",
-  "repository": "ingtrader21-spec/Middleware-",
+  "repository": "appolon1908/Middleware-",
   "role": "integration-control-plane",
   "standalone_required": true,
   "canonical_integration": {

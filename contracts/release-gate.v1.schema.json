@@ -12,7 +12,7 @@
   },
   "properties": {
     "schema_version": {"const": "codestra.middleware.release-gate.v1"},
-    "repository": {"const": "ingtrader21-spec/Middleware-"},
+    "repository": {"const": "appolon1908/Middleware-"},
     "decision": {"enum": ["READY_FOR_SIGNING", "BLOCKED", "FAIL"]},
     "source": {
       "type": "object",
@@ -38,7 +38,7 @@
       "additionalProperties": false,
       "required": ["repository", "digest"],
       "properties": {
-        "repository": {"const": "ghcr.io/ingtrader21-spec/codestra-middleware"},
+        "repository": {"const": "ghcr.io/appolon1908/codestra-middleware"},
         "digest": {"type": "string"}
       }
     },
