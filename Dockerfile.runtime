@@ -9,7 +9,7 @@ FROM ${FINAL_BASE} AS patched-final-base
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      libpcre2-8-0=10.42-1+deb12u1 \
+      libpcre2-8-0=10.42-1+deb12u2 \
       libssl3=3.0.22-1~deb12u1 \
       openssl=3.0.22-1~deb12u1 \
  && rm -rf /var/lib/apt/lists/*

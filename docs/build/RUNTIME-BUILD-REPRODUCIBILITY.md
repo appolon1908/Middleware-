@@ -6,7 +6,7 @@ release digests and not a claim of byte-for-byte deterministic construction.
 CI rebuilds the final PR SHA and publishes SBOM artifacts.
 
 The production runtime is rebuilt from the immutable Python slim Bookworm base with
-exact Debian security revisions `libpcre2-8-0=10.42-1+deb12u1`,
+exact Debian security revisions `libpcre2-8-0=10.42-1+deb12u2`,
 `libssl3=3.0.22-1~deb12u1`, and `openssl=3.0.22-1~deb12u1`.
 This keeps remediation bounded to reviewed package pins rather than an uncontrolled
 distribution upgrade. The supply-chain validator rejects removal or loosening of
