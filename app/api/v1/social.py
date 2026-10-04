@@ -56,6 +56,15 @@ class UpdateSocialPost(StrictModel):
     metadata: dict[str, Any] | None = None
 
 
+class RegisterMediaAsset(StrictModel):
+    tenant_id: UUID
+    media_type: str = Field(pattern=r"^(video|image|audio|document|other)$")
+    content_type: str = Field(min_length=3, max_length=255)
+    storage_reference: str = Field(min_length=1, max_length=2048)
+    checksum_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class CreateCampaign(StrictModel):
     tenant_id: UUID
     name: str = Field(min_length=1, max_length=255)
@@ -100,6 +109,19 @@ def _post(post: Any) -> dict[str, Any]:
         "status": post.status,
         "created_at": post.created_at,
         "updated_at": post.updated_at,
+    }
+
+
+def _media_asset(asset: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": asset["id"],
+        "tenant_id": asset["tenant_id"],
+        "media_type": asset["media_type"],
+        "content_type": asset["content_type"],
+        "storage_reference": asset["storage_reference"],
+        "checksum_sha256": asset["checksum_sha256"],
+        "metadata": dict(asset["metadata"]),
+        "created_at": asset["created_at"],
     }
 
 
@@ -325,16 +347,69 @@ async def update_post(
     return _post(post)
 
 
-@router.post("/media", status_code=202)
-async def media(principal: SocialPrincipal = Depends(require_social_principal)) -> dict[str, Any]:
+@router.post("/media", status_code=201)
+async def register_media(
+    body: RegisterMediaAsset,
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=16, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    """Register media under Middleware authority without provider delivery."""
     _require("social.write", principal)
-    raise HTTPException(
-        503,
-        {
-            "code": "SOCIAL_PROVIDER_DISABLED",
-            "message": "Social media upload is disabled",
-        },
-    )
+    if not settings.social_sql_repository_enabled:
+        raise HTTPException(
+            503,
+            {
+                "code": "SOCIAL_DURABLE_STORE_REQUIRED",
+                "message": "Durable social media registration is not enabled",
+            },
+        )
+    await bind_transaction_tenant(session, principal.tenant_ids, str(body.tenant_id))
+    correlation_id, request_id = _ids(request)
+    try:
+        asset, created = await SqlSocialRepository(session).create_media_asset(
+            tenant_id=body.tenant_id,
+            media_type=body.media_type,
+            content_type=body.content_type,
+            storage_reference=body.storage_reference,
+            checksum_sha256=body.checksum_sha256.lower(),
+            metadata=body.metadata,
+            idempotency_key=idempotency_key,
+            correlation_id=correlation_id,
+            request_id=request_id,
+        )
+    except SocialError as exc:
+        raise _error(exc) from exc
+    response.headers["X-Correlation-ID"] = correlation_id
+    return {
+        "asset": _media_asset(asset),
+        "idempotent_replay": not created,
+        "provider_delivery": "disabled",
+    }
+
+
+@router.get("/media/{asset_id}")
+async def get_media(
+    asset_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.read", principal)
+    if not settings.social_sql_repository_enabled:
+        raise HTTPException(
+            503,
+            {
+                "code": "SOCIAL_DURABLE_STORE_REQUIRED",
+                "message": "Durable social media registration is not enabled",
+            },
+        )
+    await bind_transaction_tenant(session, principal.tenant_ids)
+    try:
+        return _media_asset(await SqlSocialRepository(session).get_media_asset(asset_id))
+    except SocialError as exc:
+        raise _error(exc) from exc
 
 
 @router.post("/campaigns", status_code=201)
