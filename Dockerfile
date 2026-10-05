@@ -16,7 +16,7 @@ RUN apk add --no-cache \
       build-base=0.5-r4 \
       bzip2-dev=1.0.8-r6 \
       curl=8.22.0-r0 \
-      expat-dev=2.8.4-r0 \
+      expat-dev=2.8.5-r0 \
       gdbm-dev=1.26-r0 \
       libffi-dev=3.5.2-r1 \
       linux-headers=7.0.0-r1 \
@@ -50,7 +50,7 @@ RUN curl --fail --location --proto '=https' --tlsv1.2 \
       --with-system-expat \
  && make -j"$(nproc)" \
  && make install
-RUN python -c 'import html.parser,http.cookies,inspect,pyexpat,sys,tarfile; assert sys.version_info[:3] == (3,12,14); assert "unfiltered.replace" in inspect.getsource(tarfile.TarFile.makelink_with_filter); assert "_pending_len" in inspect.getsource(html.parser.HTMLParser.feed); assert "_has_control_character" in inspect.getsource(http.cookies.Morsel.update); assert pyexpat.EXPAT_VERSION == "expat_2.8.4"'
+RUN python -c 'import html.parser,http.cookies,inspect,pyexpat,sys,tarfile; assert sys.version_info[:3] == (3,12,14); assert "unfiltered.replace" in inspect.getsource(tarfile.TarFile.makelink_with_filter); assert "_pending_len" in inspect.getsource(html.parser.HTMLParser.feed); assert "_has_control_character" in inspect.getsource(http.cookies.Morsel.update); assert pyexpat.EXPAT_VERSION == "expat_2.8.5"'
 
 FROM ${PYTHON_BASE} AS verified-python
 USER root
@@ -62,7 +62,7 @@ FROM verified-python AS builder
 ARG VCS_REF
 ARG BUILD_REVISION
 ARG BUILD_CREATED
-LABEL org.opencontainers.image.source="https://github.com/ingtrader21-spec/Middleware-" \
+LABEL org.opencontainers.image.source="https://github.com/appolon1908/Middleware-" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_CREATED}" \
       io.codestra.build.revision="${BUILD_REVISION}" \
@@ -78,7 +78,7 @@ RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements.lock
 
 FROM builder AS test
-RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 openssl=3.5.8-r0
+RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 openssl=3.5.9-r0
 RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements-test.lock
 WORKDIR /app
@@ -102,7 +102,7 @@ ARG BUILD_REVISION
 ARG BUILD_CREATED
 ARG IMAGE_VERSION
 ARG SOURCE_TREE_SHA256
-LABEL org.opencontainers.image.source="https://github.com/ingtrader21-spec/Middleware-" \
+LABEL org.opencontainers.image.source="https://github.com/appolon1908/Middleware-" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.created="${BUILD_CREATED}" \
@@ -139,7 +139,7 @@ ARG VCS_REF
 ARG BUILD_REVISION
 LABEL org.opencontainers.image.title="Codestra Qwen Authentication Verifier" \
       org.opencontainers.image.description="Read-only private mTLS and HMAC authentication verifier" \
-      org.opencontainers.image.source="https://github.com/ingtrader21-spec/Middleware-" \
+      org.opencontainers.image.source="https://github.com/appolon1908/Middleware-" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.version="1.0.0-rc1" \
       io.codestra.build.revision="${BUILD_REVISION}" \
