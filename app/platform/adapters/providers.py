@@ -543,4 +543,11 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
             ),
         ),
     )
-    return tuple(adapter for name, build in candidates if (adapter := _try(name, build)) is not None)
+    configured = tuple(
+        adapter
+        for name, build in candidates
+        if (adapter := _try(name, build)) is not None
+    )
+    from app.platform.adapters.media import media_saas_adapters
+
+    return configured + media_saas_adapters(settings, http=http)

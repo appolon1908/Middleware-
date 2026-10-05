@@ -526,6 +526,42 @@
       "middleware_relationship": "target-and-event-source",
       "adapter_id": "postgresql",
       "name_aliases": []
+    },
+    {
+      "component": "blender",
+      "github_repository_id": 1401048621,
+      "current_repository": "appolon1908/Blender",
+      "authority_role": "standalone-3d-render-saas",
+      "lifecycle": "active",
+      "cell": "communications",
+      "integration_mode": "provider-adapter",
+      "middleware_relationship": "target-and-event-source",
+      "adapter_id": "blender-render",
+      "name_aliases": []
+    },
+    {
+      "component": "natron",
+      "github_repository_id": 1401049709,
+      "current_repository": "appolon1908/Natron",
+      "authority_role": "standalone-vfx-compositor-saas",
+      "lifecycle": "active",
+      "cell": "communications",
+      "integration_mode": "provider-adapter",
+      "middleware_relationship": "target-and-event-source",
+      "adapter_id": "natron-compositor",
+      "name_aliases": []
+    },
+    {
+      "component": "kdenlive",
+      "github_repository_id": 1401049019,
+      "current_repository": "appolon1908/Kdenlive",
+      "authority_role": "standalone-video-edit-render-saas",
+      "lifecycle": "active",
+      "cell": "communications",
+      "integration_mode": "provider-adapter",
+      "middleware_relationship": "target-and-event-source",
+      "adapter_id": "kdenlive-render",
+      "name_aliases": []
     }
   ]
 }
