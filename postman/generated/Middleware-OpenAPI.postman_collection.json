@@ -3527,6 +3527,122 @@
               }
             }
           ],
+          "name": "Read Automation Execution",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v2",
+                "automation",
+                "executions",
+                "{{job_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/v2/automation/executions/{{job_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Cancel Automation Execution",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v2",
+                "automation",
+                "executions",
+                "{{job_id}}",
+                "cancel"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/v2/automation/executions/{{job_id}}/cancel"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Read Automation Execution Result",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v2",
+                "automation",
+                "executions",
+                "{{job_id}}",
+                "result"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/v2/automation/executions/{{job_id}}/result"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "name": "Claim Automation Job",
           "request": {
             "body": {
@@ -5129,6 +5245,268 @@
         }
       ],
       "name": "campaign-design"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200, 202];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Execute a previously planned set of decisions",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"lead_ids\": [\n    \"\"\n  ],\n  \"plan_hash\": \"\",\n  \"plan_id\": \"\",\n  \"schema_version\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "X-Causation-ID",
+                "type": "text",
+                "value": "{{x_causation_id}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "campaign-engine",
+                "execute"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/campaign-engine/execute"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Dry-run next-action planning for one or more leads",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"campaign_scope\": \"\",\n  \"channels\": [\n    \"\"\n  ],\n  \"lead_ids\": [\n    \"\"\n  ],\n  \"policy_version\": \"\",\n  \"schema_version\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "X-Causation-ID",
+                "type": "text",
+                "value": "{{x_causation_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "campaign-engine",
+                "plan"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/campaign-engine/plan"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Non-secret engine and policy status",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "campaign-engine",
+                "status"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/campaign-engine/status"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Leads currently eligible for a campaign version (read model, dry run)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "campaigns",
+                "{{campaign_id}}",
+                "eligible-leads"
+              ],
+              "query": [
+                {
+                  "disabled": false,
+                  "key": "campaign_version",
+                  "value": "{{campaign_version}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "channel",
+                  "value": "{{channel}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "cursor",
+                  "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/campaigns/{{campaign_id}}/eligible-leads"
+            }
+          }
+        }
+      ],
+      "name": "campaign-engine"
     },
     {
       "item": [
@@ -6873,6 +7251,97 @@
         }
       ],
       "name": "contacts"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200, 202];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Ingest one normalized delivery or engagement event",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "X-Causation-ID",
+                "type": "text",
+                "value": "{{x_causation_id}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Event-ID",
+                "type": "text",
+                "value": "{{x_codestra_event_id}}"
+              },
+              {
+                "key": "X-Codestra-Timestamp",
+                "type": "text",
+                "value": "{{x_codestra_timestamp}}"
+              },
+              {
+                "key": "X-Codestra-Signature",
+                "type": "text",
+                "value": "{{x_codestra_signature}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "delivery-events"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/delivery-events"
+            }
+          }
+        }
+      ],
+      "name": "delivery-events"
     },
     {
       "item": [
@@ -16094,6 +16563,126 @@
               }
             }
           ],
+          "name": "Lifecycle, channel health, and exposure history for one lead",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "journey"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "cursor",
+                  "value": "{{cursor}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/journey"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Current next-action decision for one lead (read mode, dry run)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "next-action"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "channel",
+                  "value": "{{channel}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/next-action"
+            }
+          }
+        }
+      ],
+      "name": "leads"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "name": "Odoo Event",
           "request": {
             "header": [
@@ -17135,6 +17724,81 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List Adapters",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "adapters"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/adapters"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get Adapter",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "adapters",
+                "{{adapter_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/adapters/{{adapter_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "const allowedSuccessStatuses = [200, 202];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
@@ -17801,6 +18465,59 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "const allowedSuccessStatuses = [202];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Replay Dead Letter",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 0,\n  \"mode\": \"\",\n  \"new_idempotency_key\": \"\",\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "dead-letters",
+                "{{operation_id}}",
+                "replay"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/dead-letters/{{operation_id}}/replay"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
@@ -18052,6 +18769,193 @@
               ],
               "query": [],
               "raw": "{{base_url}}/platform/v1/operations/{{operation_id}}/timeline"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List Reconciliation",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/reconciliation"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get Reconciliation",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation",
+                "{{operation_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/reconciliation/{{operation_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [202];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Request Reconciliation Readback",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 0,\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation",
+                "{{operation_id}}",
+                "readback"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/reconciliation/{{operation_id}}/readback"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Resolve Reconciliation",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"evidence\": {},\n  \"expected_version\": 0,\n  \"matched\": false,\n  \"provider_operation_id\": \"\",\n  \"reason\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "reconciliation",
+                "{{operation_id}}",
+                "resolve"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/reconciliation/{{operation_id}}/resolve"
             }
           }
         },
@@ -18824,6 +19728,82 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "const allowedSuccessStatuses = [200, 201];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Record an additive, scoped suppression",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "type": "text",
+                "value": "{{x_tenant_id}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "type": "text",
+                "value": "{{x_correlation_id}}"
+              },
+              {
+                "key": "X-Causation-ID",
+                "type": "text",
+                "value": "{{x_causation_id}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "suppressions"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/suppressions"
+            }
+          }
+        }
+      ],
+      "name": "suppressions"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "const allowedSuccessStatuses = [200, 202];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
@@ -19452,6 +20432,10 @@
       "value": ""
     },
     {
+      "key": "adapter_id",
+      "value": ""
+    },
+    {
       "key": "approval_id",
       "value": ""
     },
@@ -19492,7 +20476,15 @@
       "value": ""
     },
     {
+      "key": "campaign_version",
+      "value": ""
+    },
+    {
       "key": "capability",
+      "value": ""
+    },
+    {
+      "key": "channel",
       "value": ""
     },
     {
@@ -19573,6 +20565,10 @@
     },
     {
       "key": "last_event_id",
+      "value": ""
+    },
+    {
+      "key": "lead_id",
       "value": ""
     },
     {
@@ -19685,6 +20681,10 @@
     },
     {
       "key": "x_business_unit",
+      "value": ""
+    },
+    {
+      "key": "x_causation_id",
       "value": ""
     },
     {

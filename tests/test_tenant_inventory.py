@@ -168,3 +168,22 @@ def test_snapshot_schema_rejects_duplicate_entries(tmp_path):
         assert "duplicate table" in str(exc)
     else:
         raise AssertionError("duplicate reviewed inventory row must fail")
+
+
+def test_mcr_tables_are_tenant_owned() -> None:
+    records = inventory_by_table(ROOT)
+    mcr = {name: record for name, record in records.items() if name.startswith("mcr_")}
+    assert set(mcr) == {
+        "mcr_channel_health",
+        "mcr_delivery_events",
+        "mcr_exposures",
+        "mcr_lead_lifecycle_current",
+        "mcr_lead_lifecycle_events",
+        "mcr_odoo_handoff_reconciliations",
+        "mcr_odoo_handoffs",
+        "mcr_suppressions",
+    }
+    for record in mcr.values():
+        assert record.family == "mcr"
+        assert record.ownership == "tenant_owned"
+        assert record.tenant_representation == "tenant_id_not_null"

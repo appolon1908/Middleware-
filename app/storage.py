@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal, Protocol
 
@@ -11,7 +11,7 @@ import asyncpg
 from .models import EventEnvelope, IngressResult
 
 
-RUNTIME_SCHEMA_VERSION = 15
+RUNTIME_SCHEMA_VERSION = 17
 DEFAULT_MAX_OUTBOX_ATTEMPTS = 8
 NATS_JETSTREAM_DESTINATION = "nats-jetstream"
 KLYROW_ODOO_PROJECTION_DESTINATION = "odoo-klyrow-projection-v1"
@@ -1004,6 +1004,29 @@ class PostgresInboxStore:
             await self.pool.close()
 
 
+class LeaseLostError(StorageError):
+    """The worker's outbox lease was lost before the provider effect.
+
+    Raised by a handler that proved, immediately before the external call,
+    that it no longer owns the row. Nothing was sent; the row stays
+    quarantined for its new owner or the reconciler.
+    """
+
+
+@dataclass
+class ActiveLease:
+    """The live view of one claimed outbox lease, shared between the worker's
+    heartbeat and the handler executing under it."""
+
+    owner: str
+    fencing_token: int
+    lost: bool = False
+
+    @property
+    def live(self) -> bool:
+        return not self.lost
+
+
 @dataclass(frozen=True)
 class OutboxRecord:
     id: int
@@ -1014,6 +1037,11 @@ class OutboxRecord:
     payload: dict[str, Any]
     attempt_count: int
     fencing_token: int = 0
+    lease_owner: str | None = None
+    lease_until: datetime | None = None
+    # Runtime-only: the heartbeat's view of the lease this record executes
+    # under; never persisted, never compared.
+    lease: ActiveLease | None = field(default=None, compare=False, repr=False)
 
 
 class PostgresOutboxStore:
@@ -1079,7 +1107,7 @@ class PostgresOutboxStore:
                     WHERE o.id=candidate.id
                     RETURNING o.id, o.tenant_id, o.destination, o.event_type,
                               o.idempotency_key, o.payload, o.attempt_count,
-                              o.fencing_token
+                              o.fencing_token, o.lease_owner, o.lease_until
                     """,
                     worker_id,
                     lease_seconds,
@@ -1111,7 +1139,37 @@ class PostgresOutboxStore:
             payload=payload,
             attempt_count=row["attempt_count"],
             fencing_token=row["fencing_token"],
+            lease_owner=row["lease_owner"],
+            lease_until=row["lease_until"],
         )
+
+    async def assert_active_dispatch(
+        self, record_id: int, *, worker_id: str, fencing_token: int | None = None
+    ) -> None:
+        """Prove, from database time, that this worker still owns the
+        quarantined dispatch with a live lease and the current fencing token.
+        Raises :class:`LeaseLostError` otherwise; the caller must not execute."""
+        async with self.pool.acquire() as conn:
+            live = await conn.fetchval(
+                """
+                SELECT EXISTS(
+                    SELECT 1 FROM middleware_outbox
+                    WHERE id=$1
+                      AND lease_owner=$2
+                      AND ($3::bigint IS NULL OR fencing_token=$3)
+                      AND lease_until IS NOT NULL AND lease_until > now()
+                      AND reconciliation_required_at IS NOT NULL
+                      AND completed_at IS NULL
+                      AND dead_lettered_at IS NULL
+                      AND cancelled_at IS NULL
+                )
+                """,
+                record_id,
+                worker_id,
+                fencing_token,
+            )
+        if not live:
+            raise LeaseLostError("outbox dispatch lease is not live for this worker")
 
     async def complete(
         self, record_id: int, *, worker_id: str, fencing_token: int | None = None
@@ -1294,7 +1352,10 @@ class PostgresOutboxStore:
                         )
                     if fencing_token is not None and row["fencing_token"] != fencing_token:
                         raise ReconciliationError("active dispatch fencing token is stale")
-                    if action == "dead_letter":
+                    if action == "dead_letter" and row["attempt_count"] < max_attempts:
+                        # An ambiguous outcome is never dead-lettered by the
+                        # worker that produced it; only a proven no-effect
+                        # failure on the last permitted attempt is terminal here.
                         raise ReconciliationError(
                             "active worker may resolve only complete or known-safe retry"
                         )

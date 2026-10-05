@@ -249,6 +249,48 @@
       "principal_repository": "appolon1908/DJONE",
       "role": "djone-mixxx-native-control-source",
       "github_repository_id": 1382566617
+    },
+    {
+      "component": "face-id",
+      "principal_repository": "appolon1908/FACE-ID",
+      "role": "face-identity-service",
+      "github_repository_id": 1384373026
+    },
+    {
+      "component": "face-liveness",
+      "principal_repository": "appolon1908/Codestra-Face-Liveness",
+      "role": "face-liveness-service",
+      "github_repository_id": 1386426580
+    },
+    {
+      "component": "camera-gateway",
+      "principal_repository": "appolon1908/Codestra-Camera-Gateway",
+      "role": "camera-capture-service",
+      "github_repository_id": 1386427236
+    },
+    {
+      "component": "postgresql",
+      "principal_repository": "appolon1908/Codestra-PostgreSQL",
+      "role": "database-control-service",
+      "github_repository_id": 1386427368
+    },
+    {
+      "component": "blender",
+      "principal_repository": "appolon1908/Blender",
+      "role": "standalone-3d-render-saas",
+      "github_repository_id": 1401048621
+    },
+    {
+      "component": "natron",
+      "principal_repository": "appolon1908/Natron",
+      "role": "standalone-vfx-compositor-saas",
+      "github_repository_id": 1401049709
+    },
+    {
+      "component": "kdenlive",
+      "principal_repository": "appolon1908/Kdenlive",
+      "role": "standalone-video-edit-render-saas",
+      "github_repository_id": 1401049019
     }
   ],
   "reference_only": [

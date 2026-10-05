@@ -9,7 +9,7 @@
     "image_repository": "ghcr.io/appolon1908/codestra-middleware",
     "mode": "READ_ONLY_CANARY",
     "restricted_user": "middleware-deploy",
-    "schema_head": "0071_defer_unbound_tenant_rls",
+    "schema_head": "0074_mcr_odoo_handoff",
     "server_role": "CODESTRA_APPLICATION_SERVER_A",
     "source_ref": "refs/heads/main"
   },
@@ -55,7 +55,7 @@
       "EXTERNAL_EFFECTS_ENABLED": "NONE",
       "GATEWAY_EXPOSURE": "NONE",
       "HEALTH_STATUS": "PASS",
-      "MIGRATION_HEAD": "0071_defer_unbound_tenant_rls",
+      "MIGRATION_HEAD": "0074_mcr_odoo_handoff",
       "MIGRATION_STATUS": "PASS",
       "READINESS_STATUS": "PASS",
       "RESTORE_STATUS": "PASS",

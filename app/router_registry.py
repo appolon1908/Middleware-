@@ -67,6 +67,7 @@ from app.api.v1.callbacks import router as callbacks_router
 from app.api.v1.calls import router as calls_router
 from app.api.v1.campaign_search import router as campaign_search_router
 from app.api.v1.campaigns import router as campaigns_router
+from app.api.v1.campaign_recycling import router as campaign_recycling_router
 from app.api.v1.commands import router as commands_router
 from app.api.v1.contacts import router as contacts_router
 from app.api.v1.control import legacy_events_router as control_legacy_events_router
@@ -160,6 +161,7 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     tickets_router,
     tenants_router,
     campaigns_router,
+    campaign_recycling_router,
     monitoring_router,
     observability_sync_router,
     integrations_router,
@@ -232,9 +234,9 @@ MONOLITH_ROUTERS: tuple[APIRouter, ...] = (
 # Deprecated routers that exist only on the in-process monolith. The canonical
 # edge contract classifies their paths as ``denied``: Kong and Caddy answer 404,
 # and the deployed application never mounts them (the release endpoint audit
-# fails if a denied path is mounted there). They stay on the monolith until
-# their published sunset so existing in-process callers keep receiving
-# Deprecation/Sunset/Link metadata; new use is prohibited.
+# fails if a denied path is mounted there). Their mutations are permanently
+# denied by config/legacy-effect-registry.v1.json (410 before any effect); only
+# the registered read-only compatibility reads still execute until the sunset.
 LEGACY_MONOLITH_ONLY_ROUTERS: tuple[APIRouter, ...] = (
     n8n_control_plane_router,
     domain_legacy_n8n_router,

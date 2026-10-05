@@ -8,6 +8,8 @@ from temporalio.worker import Worker
 
 from app.core.config import ConfigurationError, Settings
 from app.commands import PostgresCommandStore
+from app.platform.runtime import command_policies
+from app.platform.safety import SafetyGate
 from app.klyrow_alert_adapter import KlyrowAlertAdapter
 from app.klyrow_email_adapter import KlyrowEmailAdapter
 from app.odoo_provider_adapter import OdooProviderAdapter
@@ -30,7 +32,8 @@ def build_command_activities(
 
     Adapter construction does not authorize delivery. Each adapter re-checks
     its individual effect gate at execution time and resolves provider secrets
-    only after that gate permits the operation.
+    only after that gate permits the operation; the canonical SafetyGate is
+    re-evaluated immediately before every provider call as well.
     """
 
     return CommandLedgerWorkflowActivities(
@@ -41,6 +44,7 @@ def build_command_activities(
         klyrow_email=KlyrowEmailAdapter(settings),
         postly_social=PostlySocialAdapter(settings),
         vicidial_internal=VicidialInternalCallAdapter(settings),
+        safety=SafetyGate(settings, command_policies(settings)),
     )
 
 

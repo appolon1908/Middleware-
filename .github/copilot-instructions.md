@@ -17,3 +17,7 @@ Before any commit/push handoff, run the repository's mission tests plus:
 ```
 
 A failed gate is a STOP condition, not permission to weaken or bypass the gate.
+
+Continuation protocol (cross-repository checkpoints and handoff):
+https://github.com/appolon1908/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
+`/AGENTS.md` governs wherever the two differ.

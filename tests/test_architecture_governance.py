@@ -130,20 +130,9 @@ def test_environment_is_read_only_by_configuration_authority() -> None:
 # Application factory and route registry
 # ----------------------------------------------------------------------
 APPROVED_FASTAPI_CONSTRUCTIONS = {
-    "app/application.py",  # the single factory
-    "app/entrypoints/runtime.py",  # worker_app operational surface
-    # Narrow deployed processes that serve a subset of routers on their own port.
-    "app/entrypoints/controller_api.py",
-    "app/entrypoints/event_gateway.py",
-    "app/entrypoints/extension_allocator.py",
-    "app/entrypoints/policy_engine.py",
-    "app/entrypoints/server_a_agent.py",
-    "app/entrypoints/telephony_provisioning.py",
-    "app/entrypoints/webphone_session_issuer.py",
-    # Isolated services with their own runtime contract.
-    "app/email/api.py",
-    "app/observability_alerts.py",
-    "app/qwen_auth_verifier.py",
+    # The one construction authority: the Middleware API (composed by
+    # app/application.py) and every separately deployed service under app/.
+    "app/factory.py",
     "scripts/generate_integrated_monitoring_openapi.py",
     # In-process no-effect harness: mounts only the Telnexa router with a
     # database sentinel override; never served on a port.

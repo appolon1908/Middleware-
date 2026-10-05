@@ -21,8 +21,10 @@ from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI, Request
+from app.factory import create_service_app
 from prometheus_client import Counter, Gauge, make_asgi_app
 
+from app.core import header_authority
 from app.core.bootstrap import FEATURE_FLAG_STATE, StartupError, validate_startup
 from app.core.config import Settings, settings
 from app.core.health import (
@@ -64,7 +66,18 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "service": os.getenv("SERVICE_NAME", "codestra-middleware"),
         }
-        for name in ("correlation_id", "gateway_request_id", "queue", "result"):
+        # Execution lineage travels as structured fields, never as free text:
+        # request/correlation/causation identity, tenant and command identity.
+        for name in (
+            "correlation_id",
+            "request_id",
+            "causation_id",
+            "gateway_request_id",
+            "tenant_id",
+            "command_id",
+            "queue",
+            "result",
+        ):
             field = getattr(record, name, None)
             if field is not None:
                 value[name] = str(field)
@@ -95,11 +108,16 @@ async def integration_dependency_states() -> dict[str, str]:
 
 
 def add_api_runtime(app: FastAPI, service: str, config: Settings | None = None) -> None:
-    """Install the single guard and the service health surface on a narrow service app."""
+    """Install the canonical guard, health, errors and route uniqueness."""
+    from app import appolon_routes
+    from app.router_registry import assert_unique_routes
+
     resolved = config or settings
     install_request_guard(app, RequestGuard(resolved))
     register_service_health_routes(app, service=service, settings=resolved)
     app.mount("/metrics", make_asgi_app())
+    appolon_routes.install_error_handlers(app)
+    assert_unique_routes(app)
 
 
 def run_api(app: FastAPI, service: str) -> None:
@@ -169,12 +187,25 @@ def worker_app(service: str, queue: str, cycle: Cycle) -> FastAPI:
             await asyncio.gather(task, return_exceptions=True)
             await engine.dispose()
 
-    app = FastAPI(title=service, lifespan=lifespan)
+    app = create_service_app(service, lifespan=lifespan)
 
     @app.middleware("http")
     async def operational_headers(request: Request, call_next):
+        correlation_id = (
+            header_authority.safe_identifier(
+                request.headers.get(header_authority.CORRELATION_ID)
+            )
+            or str(uuid4())
+        )
+        request_id = (
+            header_authority.safe_identifier(
+                request.headers.get(header_authority.REQUEST_ID)
+            )
+            or str(uuid4())
+        )
         response = await call_next(request)
-        response.headers["X-Correlation-ID"] = str(uuid4())
+        response.headers[header_authority.CORRELATION_ID] = correlation_id
+        response.headers[header_authority.REQUEST_ID] = request_id
         response.headers["Cache-Control"] = "no-store"
         return response
 

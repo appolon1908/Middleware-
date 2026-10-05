@@ -18,7 +18,12 @@
     "test-syn": false,
     "vicidial-restricted": false,
     "connect-router": false,
-    "evolution-whatsapp": false
+    "evolution-whatsapp": false,
+    "djone-mixxx": false,
+    "face-id": true,
+    "face-liveness": true,
+    "camera-gateway": true,
+    "postgresql": true
   },
   "synthetic_tenants": [
     "TEST_SYN"
@@ -263,6 +268,139 @@
         "production"
       ],
       "campaign_scoped": true
+    },
+    "DJONE_CONTROL": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging",
+        "production"
+      ],
+      "campaign_scoped": false
+    },
+    "FACE_ID_VERIFY": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "FACE_LIVENESS_VERIFY": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "CAMERA_CAPTURE": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "POSTGRESQL_BACKUP": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "FACE_ID_ACCESS_EVALUATE": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "CAMERA_PTZ": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "FACE_ID_PRESENCE_EVENT": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "FACE_ID_WATCHLIST_REFERENCE": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "FACE_ID_ENROLLMENT_REVIEW": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "CAMERA_EVENT_NORMALIZATION": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "CAMERA_MAINTENANCE_METADATA": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging"
+      ],
+      "campaign_scoped": false
     }
   },
   "limits": {
