@@ -18,7 +18,7 @@ Klyrow has no Odoo credential or client. Accepting an event cannot enable email 
 
 ## Authentication and acceptance
 
-The route uses the Telnexa ingress security pattern: a dedicated `klyrow-gateway` Bearer identity plus HMAC-SHA256 over the exact bytes `timestamp + "\n" + event_id + "\n" + "klyrow" + "\n" + raw_json`. `X-Event-Id`, `X-Timestamp`, `X-Signature`, `Idempotency-Key`, and `X-Correlation-Id` are mandatory and bound to the body. The timestamp is fresh for at most 300 seconds by default and the body is read incrementally under a configured size limit.
+The route uses the Telnexa ingress security pattern: a dedicated `klyrow-gateway` Bearer identity plus HMAC-SHA256 over the exact bytes `timestamp + "\n" + event_id + "\n" + "klyrow" + "\n" + raw_json`. `X-Event-Id`, `X-Timestamp`, `X-Signature`, `Idempotency-Key`, and `X-Correlation-ID` are mandatory and bound to the body. The timestamp is fresh for at most 300 seconds by default and the body is read incrementally under a configured size limit.
 
 Middleware returns the exact `202` body `{"operation_id":"op_<digest>","status":"ACCEPTED"}` only after the inbox row, immutable tenant ledger entry, and `odoo-klyrow-projection-v1` outbox row commit together. The operation ID is deterministic for the Klyrow event ID.
 

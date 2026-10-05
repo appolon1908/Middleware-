@@ -6,10 +6,11 @@ release digests and not a claim of byte-for-byte deterministic construction.
 CI rebuilds the final PR SHA and publishes SBOM artifacts.
 
 The production runtime is rebuilt from the immutable Python slim Bookworm base with
-exactly `libpcre2-8-0=10.42-1+deb12u1` installed from Debian security repositories.
-This replaces the vulnerable distroless runtime and fixes CVE-2026-86145 and
-CVE-2026-89161 without an uncontrolled distribution upgrade. The supply-chain
-validator rejects removal or loosening of this exact package pin.
+exact Debian security revisions `libpcre2-8-0=10.42-1+deb12u2`,
+`libssl3=3.0.22-1~deb12u1`, and `openssl=3.0.22-1~deb12u1`.
+This keeps remediation bounded to reviewed package pins rather than an uncontrolled
+distribution upgrade. The supply-chain validator rejects removal or loosening of
+these exact runtime pins.
 
 ```text
 SOURCE_SHA=844d13c7ba808653a7d982c63353bc67cdc9adef (frozen main used for local candidate labels)

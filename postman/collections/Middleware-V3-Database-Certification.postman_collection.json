@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Middleware V3 Database Certification Control",
-    "description": "PostgreSQL/private DB operational certification overlay for ingtrader21-spec/Middleware-. No raw SQL. Production-safe is read-only. Linear PAS-98; DB Program PAS-77.",
+    "description": "PostgreSQL/private DB operational certification overlay for appolon1908/Middleware-. No raw SQL. Production-safe is read-only. Linear PAS-98; DB Program PAS-77.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -10,14 +10,22 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "const env = pm.environment.get('environment') || 'local';",
-          "const allow = String(pm.environment.get('allow_database_mutations') || 'false').toLowerCase() === 'true';",
-          "const url = pm.request.url.toString();",
-          "if (env === 'production' && url.includes('{{db_private_base_url}}')) {",
-          "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+          "const env = String(pm.variables.replaceIn('{{environment}}') || 'local').trim().toLowerCase();",
+          "const allow = String(pm.variables.replaceIn('{{allow_database_mutations}}') || 'false').trim().toLowerCase() === 'true';",
+          "const mutating = ['POST','PUT','PATCH','DELETE'].includes(String(pm.request.method || '').toUpperCase());",
+          "const privateTarget = pm.request.headers.get('X-Codestra-Certification-Target') === 'private';",
+          "pm.request.headers.remove('X-Codestra-Certification-Target');",
+          "if (privateTarget) {",
+          "  const privateBase = String(pm.variables.replaceIn('{{db_private_base_url}}') || '').trim();",
+          "  if (!privateBase || privateBase.includes('{{')) {",
+          "    throw new Error('DB_PRIVATE_BASE_URL_REQUIRED');",
+          "  }",
           "}",
-          "if (env === 'production' && ['POST','PUT','PATCH','DELETE'].includes(pm.request.method) && !allow) {",
+          "if (['production','prod'].includes(env) && mutating) {",
           "  throw new Error('PRODUCTION_DATABASE_MUTATION_GATED');",
+          "}",
+          "if (!['production','prod'].includes(env) && mutating && !allow) {",
+          "  throw new Error('DATABASE_MUTATION_OPT_IN_REQUIRED');",
           "}"
         ]
       }
@@ -32,6 +40,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -58,6 +71,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -92,6 +110,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -121,6 +144,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -147,6 +175,11 @@
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_verify_token}}"
@@ -179,6 +212,11 @@
             "method": "POST",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -208,6 +246,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -231,6 +274,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -261,6 +309,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -288,6 +341,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -305,6 +363,39 @@
               }
             }
           ]
+        },
+        {
+          "name": "Runtime Role Isolation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{db_read_token}}"
+              },
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              }
+            ],
+            "url": "{{db_private_base_url}}/internal/v1/database/security/roles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Role isolation 200',()=>pm.response.to.have.status(200));",
+                  "const r=pm.response.json();",
+                  "pm.test('Runtime role is not superuser/BYPASSRLS',()=>{pm.expect(r.superuser).to.eql(false);pm.expect(r.bypassrls).to.eql(false);pm.expect(r.elevated_role_memberships).to.eql(0);});",
+                  "pm.test('Runtime role cannot bypass tenant RLS',()=>pm.expect(r.rls_bypass_possible).to.eql(false));",
+                  "pm.test('Runtime role is isolated from migration ownership',()=>pm.expect(r.runtime_role_isolated).to.eql(true));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -316,6 +407,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -341,6 +437,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -365,6 +466,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -388,6 +494,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -418,6 +529,11 @@
             "method": "GET",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -441,6 +557,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -469,6 +590,11 @@
           "request": {
             "method": "GET",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
@@ -559,6 +685,11 @@
             "method": "POST",
             "header": [
               {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
+              {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
               }
@@ -586,6 +717,11 @@
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "X-Codestra-Certification-Target",
+                "value": "private",
+                "type": "text"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{db_read_token}}"
