@@ -10,8 +10,10 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.controller import controller, router
 from app.core.config import settings
+from app.core.request_guard import RequestGuard, install_request_guard
 
 app = create_service_app("Codestra Private Controller", version="1.0.0")
+install_request_guard(app, RequestGuard(settings))
 app.include_router(router)
 
 

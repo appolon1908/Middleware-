@@ -304,7 +304,7 @@ EXPECTED_FACTORY_APP_CALLS: dict[str, str | None] = {
 }
 # Statuses the guard may answer with before routing (fail-closed refusals).
 GUARD_REFUSAL_STATUSES = {400, 401, 413, 415, 429, 503}
-GUARD_RESPONSE_HEADERS = {"X-Correlation-ID", "Cache-Control", "traceparent"}
+GUARD_RESPONSE_HEADERS = {"X-Correlation-ID", "X-Request-ID", "Cache-Control", "traceparent"}
 GUARD_REQUEST_READS = {
     ("request", "headers", "get"),
     ("request", "headers", "getlist"),
