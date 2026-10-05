@@ -139,6 +139,7 @@ def test_portable_ci_lanes_use_ephemeral_github_hosted_runners():
         "python-quality-baseline.yml",
         "codeql.yml",
         "staging-intake-observability-contract.yml",
+        "single-lane-agent-governance.yml",
     )
     for name in workflows:
         source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")

@@ -9381,8 +9381,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # repository preflight. The workflow has contents:read only; its exact
         # job body is hash-pinned so any edit requires a new trust generation.
         ".github/workflows/single-lane-agent-governance.yml:governance": (
-            "15dc367406cd9150daf5286e78274513"
-            "8571e89e2a865c0481ec5d2effdbe953"
+            "1ca2035442391427cf90a16cfc43c8d9"
+            "5d180fae409d80e5f375ca993bfb2286"
         ),
         # The single forward Middleware production publisher: builds, scans,
         # signs and verifies one immutable image from the exact protected-main
