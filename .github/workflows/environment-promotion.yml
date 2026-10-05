@@ -28,7 +28,9 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           HEAD_BRANCH: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_BRANCH: ${{ github.base_ref }}
+          CURRENT_REPOSITORY: ${{ github.repository }}
           EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -Eeuo pipefail
