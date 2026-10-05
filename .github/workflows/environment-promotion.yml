@@ -2,7 +2,7 @@ name: Environment promotion contract
 
 on:
   pull_request:
-    branches: [development, testing, staging, production]
+    branches: [development, testing/environment, staging, production/environment]
   workflow_dispatch:
 
 permissions:
@@ -43,13 +43,13 @@ jobs:
           case "$BASE_BRANCH" in
             development)
               case "$HEAD_BRANCH" in
-                testing|staging|production) echo "reverse environment promotion denied"; exit 1 ;;
+                testing/environment|staging|production/environment) echo "reverse environment promotion denied"; exit 1 ;;
                 *) echo "feature/integration admission to development accepted" ;;
               esac
               ;;
-            testing)    test "$HEAD_BRANCH" = "development" ;;
-            staging)    test "$HEAD_BRANCH" = "testing" ;;
-            production) test "$HEAD_BRANCH" = "staging" ;;
+            testing/environment) test "$HEAD_BRANCH" = "development" ;;
+            staging)    test "$HEAD_BRANCH" = "testing/environment" ;;
+            production/environment) test "$HEAD_BRANCH" = "staging" ;;
             *) echo "unsupported promotion base: $BASE_BRANCH"; exit 1 ;;
           esac
           git diff --check
@@ -57,7 +57,7 @@ jobs:
           echo "PROMOTION_TARGET=$BASE_BRANCH"
           echo "EXACT_SHA=$EXACT_SHA"
       - name: Preserve production default-deny
-        if: github.base_ref == 'production'
+        if: github.base_ref == 'production/environment'
         shell: bash
         run: |
           echo "This gate validates lineage only."
