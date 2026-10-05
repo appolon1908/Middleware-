@@ -13,6 +13,9 @@ TELEPHONY_COMMAND_WORKER = (
 RUNTIME_DOCKERFILE = (
     Path(__file__).resolve().parents[1] / "Dockerfile.runtime"
 ).read_text(encoding="utf-8")
+START_INTEGRATION_API = (
+    Path(__file__).resolve().parents[1] / "scripts" / "start_integration_api.py"
+).read_text(encoding="utf-8")
 
 
 def _service_block(service_name: str) -> str:
@@ -81,8 +84,9 @@ def test_default_runtime_is_the_canonical_integration_api_on_8095() -> None:
     )[0]
     assert "EXPOSE 8095" in runtime_stage
     assert "127.0.0.1:8095/health" in runtime_stage
-    assert "app.entrypoints.integration_api:app" in runtime_stage
-    assert '"--port", "8095"' in runtime_stage
+    assert 'CMD ["/app/scripts/start_integration_api.py"]' in runtime_stage
+    assert "app.entrypoints.integration_api:app" in START_INTEGRATION_API
+    assert 'os.getenv("PORT", "8095")' in START_INTEGRATION_API
     assert "8080" not in runtime_stage
 
 

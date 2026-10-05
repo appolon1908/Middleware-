@@ -105,7 +105,7 @@ KLYROW_REQUIRED_HEADERS = (
         },
     },
     {
-        "name": "X-Correlation-Id",
+        "name": "X-Correlation-ID",
         "in": "header",
         "required": True,
         "schema": {"type": "string", "minLength": 1, "maxLength": 200},
@@ -640,7 +640,7 @@ async def receive_klyrow_event(
     if not _signature_is_fresh(request, timestamp):
         raise HTTPException(401, "expired_klyrow_signature")
     event = _parse_event(body)
-    correlation_id = _one_header(request, "X-Correlation-Id")
+    correlation_id = _one_header(request, "X-Correlation-ID")
     if (
         event.id != event_id
         or event.id != idempotency_key

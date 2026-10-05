@@ -16,7 +16,7 @@ from app.social.domain import (
     ProviderResult,
     SocialPostStatus,
 )
-from app.social.providers import SocialProviderAdapter, SocialProviderRegistry
+from app.social.providers import SocialError, SocialProviderAdapter, SocialProviderRegistry
 from app.social.production import ProductionCanaryPolicy
 from app.social.sql_repository import SqlSocialRepository
 from app.social.queue import RedisSocialQueue
@@ -165,6 +165,72 @@ def test_durable_idempotency_worker_and_event_outbox(monkeypatch):
                 {"correlation": correlation_id},
             )
             assert delivery_status == "pending"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_media_artifact_registration_is_durable_and_idempotent():
+    async def scenario() -> None:
+        engine = create_async_engine(DATABASE_URL)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        tenant_id = uuid4()
+        key = f"video-media-{uuid4()}"
+        checksum = "a" * 64
+        async with factory() as session:
+            repository = SqlSocialRepository(session)
+            first, first_created = await repository.create_media_asset(
+                tenant_id=tenant_id,
+                media_type="video",
+                content_type="video/mp4",
+                storage_reference="codestra-video://exports/example.mp4",
+                checksum_sha256=checksum,
+                metadata={"source": "codestra-video-controller"},
+                idempotency_key=key,
+                correlation_id="video-media-correlation",
+                request_id="video-media-request",
+            )
+            second, second_created = await repository.create_media_asset(
+                tenant_id=tenant_id,
+                media_type="video",
+                content_type="video/mp4",
+                storage_reference="codestra-video://exports/example.mp4",
+                checksum_sha256=checksum,
+                metadata={"source": "codestra-video-controller"},
+                idempotency_key=key,
+                correlation_id="video-media-correlation",
+                request_id="video-media-request",
+            )
+            assert first["id"] == second["id"]
+            assert first_created is True and second_created is False
+            assert (
+                await session.scalar(
+                    text("SELECT count(*) FROM social_media_assets WHERE tenant_id=:tenant"),
+                    {"tenant": tenant_id},
+                )
+                == 1
+            )
+            assert (
+                await session.scalar(
+                    text("""SELECT count(*) FROM social_audit_events
+                    WHERE tenant_id=:tenant AND action='MEDIA_REGISTERED'"""),
+                    {"tenant": tenant_id},
+                )
+                == 1
+            )
+            with pytest.raises(SocialError) as error:
+                await repository.create_media_asset(
+                    tenant_id=tenant_id,
+                    media_type="video",
+                    content_type="video/mp4",
+                    storage_reference="codestra-video://exports/different.mp4",
+                    checksum_sha256="b" * 64,
+                    metadata={"source": "codestra-video-controller"},
+                    idempotency_key=key,
+                    correlation_id="video-media-correlation",
+                    request_id="video-media-request",
+                )
+            assert error.value.code == "SOCIAL_IDEMPOTENCY_CONFLICT"
         await engine.dispose()
 
     asyncio.run(scenario())

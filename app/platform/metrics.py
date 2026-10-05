@@ -40,6 +40,8 @@ class KernelMetrics:
         self.circuit_breaker_state = Gauge("middleware_circuit_breaker_state", "0 closed, 1 half-open, 2 open", ["adapter"], registry=r)
         self.bulkhead_rejections = Counter("middleware_bulkhead_rejections_total", "Bulkhead rejections", ["adapter"], registry=r)
         self.dead_letters = Gauge("middleware_dead_letters", "Dead-lettered outbox rows", registry=r)
+        self.retry_exhaustions = Counter("middleware_retry_exhaustions_total", "Commands that exhausted bounded recovery", registry=r)
+        self.replay_outcomes = Counter("middleware_replay_outcomes_total", "Recovery replay outcomes", ["result"], registry=r)
         self.reconciliation_backlog = Gauge("middleware_reconciliation_backlog", "Operations awaiting reconciliation", registry=r)
         self.reconciliation_decisions = Counter("middleware_reconciliation_decisions_total", "Reconciler decisions", ["adapter", "result"], registry=r)
         self.provider_effect_attempts = Counter("middleware_provider_effect_attempts_total", "Adapter execute calls that could create an external effect", ["adapter"], registry=r)
