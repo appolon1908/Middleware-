@@ -249,6 +249,24 @@
       "principal_repository": "appolon1908/DJONE",
       "role": "djone-mixxx-native-control-source",
       "github_repository_id": 1382566617
+    },
+    {
+      "component": "blender",
+      "principal_repository": "appolon1908/Blender",
+      "role": "standalone-3d-render-saas",
+      "github_repository_id": 1401048621
+    },
+    {
+      "component": "natron",
+      "principal_repository": "appolon1908/Natron",
+      "role": "standalone-vfx-compositor-saas",
+      "github_repository_id": 1401049709
+    },
+    {
+      "component": "kdenlive",
+      "principal_repository": "appolon1908/Kdenlive",
+      "role": "standalone-video-edit-render-saas",
+      "github_repository_id": 1401049019
     }
   ],
   "reference_only": [

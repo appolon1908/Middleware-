@@ -147,10 +147,13 @@ PROVIDER_CELLS = {
 EXPECTED_REPOSITORY_IDENTITIES = {
     "middleware": (1347559071, "appolon1908/Middleware-"),
     "caddy": (1350228103, "appolon1908/Caddy"),
+    "blender": (1401048621, "appolon1908/Blender"),
     "codestra-connect": (1386450856, "appolon1908/Codestra-Connect"),
     "kong": (1347790742, "appolon1908/Kong"),
     "keycloak": (1347523366, "appolon1908/Keycloak"),
+    "kdenlive": (1401049019, "appolon1908/Kdenlive"),
     "n8n": (1347560645, "appolon1908/N8N"),
+    "natron": (1401049709, "appolon1908/Natron"),
     "odoo": (1347522940, "appolon1908/Odoo"),
     "telnexa-sms": (1334764612, "appolon1908/telnexa"),
     "evolution-whatsapp": (1384467115, "appolon1908/Evolution-API"),
@@ -201,6 +204,30 @@ EXPECTED_SYSTEM_SECURITY_PROFILES = {
         "edge-compatibility",
         "compatibility",
         None,
+    ),
+    "blender": (
+        "standalone-3d-render-saas",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "blender-render",
+    ),
+    "kdenlive": (
+        "standalone-video-edit-render-saas",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "kdenlive-render",
+    ),
+    "natron": (
+        "standalone-vfx-compositor-saas",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "natron-compositor",
     ),
     "codestra-connect": (
         "connect-product-routing-source",
@@ -530,13 +557,16 @@ EXPECTED_MIDDLEWARE_OWNED = (
 EXPECTED_CANONICAL_ADAPTER_OWNERS = {
     "ai-provider": "appolon1908/Codestra-AI",
     "beyvra-nonfinancial": "appolon1908/beyvra-backend",
+    "blender-render": "appolon1908/Blender",
     "connect-router": "appolon1908/Codestra-Connect",
     "djone-mixxx": "appolon1908/DJONE",
     "evolution-whatsapp": "appolon1908/Evolution-API",
     "klyrow-alert-email": "appolon1908/klyrow.com",
     "klyrow-email": "appolon1908/klyrow.com",
+    "kdenlive-render": "appolon1908/Kdenlive",
     "kyqra-crawler": "appolon1908/kyqra-crawler",
     "marketing-provider": "appolon1908/Codestra-Marketing-",
+    "natron-compositor": "appolon1908/Natron",
     "odoo-19": "appolon1908/Odoo",
     "postly-social": "appolon1908/social.codestra.co",
     "provisioning-service": "appolon1908/codestra-provisioning-service",
@@ -545,6 +575,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNERS = {
 }
 EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     "ai-provider": ("core-communications", "appolon1908/Codestra-AI", ("ai.",), ()),
+    "blender-render": (
+        "core-communications",
+        "appolon1908/Blender",
+        ("media.blender.",),
+        (),
+    ),
     "beyvra-nonfinancial": (
         "beyvra-financial",
         "appolon1908/beyvra-backend",
@@ -602,6 +638,12 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
         ("email.",),
         (),
     ),
+    "kdenlive-render": (
+        "core-communications",
+        "appolon1908/Kdenlive",
+        ("media.kdenlive.",),
+        (),
+    ),
     "kyqra-crawler": (
         "core-communications",
         "appolon1908/kyqra-crawler",
@@ -612,6 +654,12 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
         "core-communications",
         "appolon1908/Codestra-Marketing-",
         ("marketing.",),
+        (),
+    ),
+    "natron-compositor": (
+        "core-communications",
+        "appolon1908/Natron",
+        ("media.natron.",),
         (),
     ),
     "odoo-19": ("core-communications", "appolon1908/Odoo", ("crm.",), ()),
@@ -648,6 +696,12 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
         "product-adapter-nonfinancial",
         "caller-and-target",
     ),
+    "blender": (
+        "blender-render",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "codestra-connect": (
         "connect-router",
         "communications",
@@ -666,6 +720,12 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
         "provider-adapter",
         "target-and-event-source",
     ),
+    "kdenlive": (
+        "kdenlive-render",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "kyqra-crawler": (
         "kyqra-crawler",
         "crawler",
@@ -676,6 +736,12 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
         "odoo-19",
         "communications",
         "business-system-adapter",
+        "target-and-event-source",
+    ),
+    "natron": (
+        "natron-compositor",
+        "communications",
+        "provider-adapter",
         "target-and-event-source",
     ),
     "provisioning": (
@@ -717,6 +783,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
         "product-adapter-nonfinancial",
         "caller-and-target",
     ),
+    "blender": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "codestra-connect": (
         "active",
         "communications",
@@ -735,6 +807,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
         "provider-adapter",
         "target-and-event-source",
     ),
+    "kdenlive": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "kyqra-crawler": (
         "active",
         "crawler",
@@ -746,6 +824,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
         "active",
         "communications",
         "business-system-adapter",
+        "target-and-event-source",
+    ),
+    "natron": (
+        "active",
+        "communications",
+        "provider-adapter",
         "target-and-event-source",
     ),
     "provisioning": (

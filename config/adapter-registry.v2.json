@@ -147,6 +147,33 @@
         "whatsapp."
       ],
       "direct_n8n": false
+    },
+    {
+      "id": "blender-render",
+      "cell": "core-communications",
+      "repository": "appolon1908/Blender",
+      "command_prefixes": [
+        "media.blender."
+      ],
+      "direct_n8n": false
+    },
+    {
+      "id": "kdenlive-render",
+      "cell": "core-communications",
+      "repository": "appolon1908/Kdenlive",
+      "command_prefixes": [
+        "media.kdenlive."
+      ],
+      "direct_n8n": false
+    },
+    {
+      "id": "natron-compositor",
+      "cell": "core-communications",
+      "repository": "appolon1908/Natron",
+      "command_prefixes": [
+        "media.natron."
+      ],
+      "direct_n8n": false
     }
   ]
 }

@@ -21,11 +21,13 @@ IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 REPOSITORY_PATTERN = re.compile(r"appolon1908/[A-Za-z0-9_.-]+\Z")
 EXPECTED = {
     "ai": "appolon1908/Codestra-AI",
+    "blender": "appolon1908/Blender",
     "caddy": "appolon1908/Caddy",
     "codestra-connect": "appolon1908/Codestra-Connect",
     "djone": "appolon1908/DJONE",
     "evolution-whatsapp": "appolon1908/Evolution-API",
     "keycloak": f"{CANONICAL_OWNER}/Keycloak",
+    "kdenlive": "appolon1908/Kdenlive",
     "klyrow-email": "appolon1908/klyrow.com",
     "klyrow-web": "appolon1908/klyrow-Website-",
     "kong": "appolon1908/Kong",
@@ -33,6 +35,7 @@ EXPECTED = {
     "marketing": "appolon1908/Codestra-Marketing-",
     "middleware": "appolon1908/Middleware-",
     "n8n": "appolon1908/N8N",
+    "natron": "appolon1908/Natron",
     "odoo": "appolon1908/Odoo",
     "provisioning": "appolon1908/codestra-provisioning-service",
     "sdk": "appolon1908/SDK-repository",
