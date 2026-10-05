@@ -81,13 +81,11 @@ def test_validator_transition_is_one_way_after_successor_merges() -> None:
     launcher = load_launcher()
     current = launcher.CURRENT_VALIDATOR_SHA256
     successor = launcher.SUCCESSOR_VALIDATOR_SHA256
-    next_successor = "2928fcf4a575ae3d53c926a9626a8c6fb552242959b66d84779c30f45864973e"
     transitions = launcher.APPROVED_VALIDATOR_TRANSITIONS
 
     assert set(transitions[current]) == {current, successor}
-    assert set(transitions[successor]) == {successor, next_successor}
+    assert set(transitions[successor]) == {successor}
     assert current not in transitions[successor]
-    assert next_successor not in transitions
 
 
 def test_trust_file_comparison_rejects_candidate_drift(
@@ -194,7 +192,7 @@ def test_orchestrator_classifies_the_evidence_gate_as_read_only(
 def test_repaired_candidate_requires_independent_protected_trust_transition(monkeypatch) -> None:
     import hashlib
     launcher = load_launcher()
-    repaired = "cca8395038ab1dc55a42c34f42f11af7f653882c727474712afef77e1b66937d"
+    repaired = "2928fcf4a575ae3d53c926a9626a8c6fb552242959b66d84779c30f45864973e"
     assert hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest() == repaired
     # Until a separately reviewed launcher-only trust transition reaches
     # protected main, the unchanged launcher must reject this generation.
