@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 import runpy
@@ -81,11 +81,15 @@ def test_validator_transition_is_one_way_after_successor_merges() -> None:
     launcher = load_launcher()
     current = launcher.CURRENT_VALIDATOR_SHA256
     successor = launcher.SUCCESSOR_VALIDATOR_SHA256
+    next_successor = "2928fcf4a575ae3d53c926a9626a8c6fb552242959b66d84779c30f45864973e"
     transitions = launcher.APPROVED_VALIDATOR_TRANSITIONS
 
     assert set(transitions[current]) == {current, successor}
-    assert set(transitions[successor]) == {successor}
+    assert set(transitions[successor]) == {successor, next_successor}
     assert current not in transitions[successor]
+    assert next_successor in transitions
+    assert current not in transitions[next_successor]
+    assert successor not in transitions[next_successor]
 
 
 def test_trust_file_comparison_rejects_candidate_drift(
@@ -223,3 +227,4 @@ def test_repaired_candidate_requires_independent_protected_trust_transition(monk
         {repaired: {repaired: policy}},
     )
     assert launcher.validate_candidate(ROOT) == ORCHESTRATOR
+
