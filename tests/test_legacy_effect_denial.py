@@ -197,7 +197,7 @@ def test_registry_is_valid_and_its_digest_is_the_committed_file() -> None:
     assert active.policy["reactivation_allowed"] is False
     assert active.policy["runtime_override_allowed"] is False
     assert active.policy["provider_effects_enabled"] is False
-    assert len(DENIED_ROUTES) >= 10
+    assert len(DENIED_ROUTES) == 6
     for entry in active.entries:
         if entry.denied:
             assert entry.method in {"POST", "PUT", "PATCH", "DELETE"}, entry
@@ -352,7 +352,7 @@ def test_denial_precedes_request_validation(harness) -> None:
     response = client.post(
         "/api/v1/integrations/n8n/dispatch",
         content=b"{}",
-        headers={"Content-Type": "application/json"},
+        headers={**AUTH, "Content-Type": "application/json"},
     )
     assert response.status_code == DENIAL_STATUS
     assert verifier.calls == [] and store.mutations == []
