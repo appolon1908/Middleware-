@@ -242,3 +242,32 @@ def test_cancel_and_replay_authorization_and_state_negatives(stack) -> None:
         reprocess = client.post(f"/platform/v1/operations/{uncertain['command_id']}/replay", json={"mode": "REPROCESS", "expected_version": 1, "reason": "x"}, headers={**uncertain_mutation, "Idempotency-Key": "mutation-000004", "Authorization": f"Bearer {operator}"})
         assert reprocess.status_code == 202
         assert stack.runtime.platform.registry.adapter("test-syn").provider_effects == 1
+
+
+def test_reconciliation_readback_is_no_effect_and_returns_operation_location(stack) -> None:
+    with TestClient(stack.app) as client:
+        request_body = body(payload={"fixture": "unknown"})
+        assert submit(client, stack.settings, request_body).status_code == 202
+        asyncio.run(stack.bus.run_once())
+
+        operation_id = request_body["command_id"]
+        adapter = stack.runtime.platform.registry.adapter("test-syn")
+        effects_before = adapter.provider_effects
+        operator = token(
+            stack.settings,
+            scope="platform.command platform.command.read platform.command.replay",
+            realm_access={"roles": ["platform-operator"]},
+        )
+        response = client.post(
+            f"/platform/v1/reconciliation/{operation_id}/readback",
+            json={"expected_version": 1, "reason": "confirm provider outcome"},
+            headers={
+                "Authorization": f"Bearer {operator}",
+                "X-Correlation-ID": "readback-correlation",
+                "Idempotency-Key": "readback-000001",
+            },
+        )
+
+        assert response.status_code == 202
+        assert response.headers["Location"] == f"/platform/v1/operations/{operation_id}"
+        assert adapter.provider_effects == effects_before
