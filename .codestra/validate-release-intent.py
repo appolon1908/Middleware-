@@ -59,8 +59,8 @@ CATALOG_REPOSITORIES = {
     "appolon1908/Infustruction-repo",
     "appolon1908/Keycloak",
     "appolon1908/Middleware-",
-    "appolon1908/codestra",
-    "appolon1908/beyvra-backend",
+        "1b80044b4f3caf358b38cc904ade653048"
+        "4dc7c6c9f1b1bb0a24f8455e150c14"
     "appolon1908/backend2",
     "appolon1908/beyvra-frontend",
     "appolon1908/scrapper",
