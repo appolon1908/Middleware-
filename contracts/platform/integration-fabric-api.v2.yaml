@@ -18508,56 +18508,14 @@ paths:
       - integrations
       summary: Odoo Command
       operationId: odoo_command_api_v1_integrations_odoo_commands_post
-      parameters:
-      - name: X-Timestamp
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Timestamp
-      - name: X-Nonce
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Nonce
-      - name: X-Signature
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Signature
-      - *id002
-      - *id003
-      - *id004
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommandRequest'
       responses:
-        '202':
+        '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-                title: Response Odoo Command Api V1 Integrations Odoo Commands Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: {}
+        '410':
+          description: Permanently denied legacy effect path
         '400':
           description: Invalid canonical request
         '401':
@@ -18574,6 +18532,10 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      parameters:
+      - *id002
+      - *id003
+      - *id004
   /api/v1/integrations/odoo/commands/{command_id}:
     get:
       tags:
@@ -18795,56 +18757,14 @@ paths:
       - integrations
       summary: N8N Dispatch
       operationId: n8n_dispatch_api_v1_integrations_n8n_dispatch_post
-      parameters:
-      - name: X-Timestamp
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Timestamp
-      - name: X-Nonce
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Nonce
-      - name: X-Signature
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: X-Signature
-      - *id002
-      - *id003
-      - *id004
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommandRequest'
       responses:
-        '202':
+        '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-                title: Response N8N Dispatch Api V1 Integrations N8N Dispatch Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: {}
+        '410':
+          description: Permanently denied legacy effect path
         '400':
           description: Invalid canonical request
         '401':
@@ -18861,6 +18781,10 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      parameters:
+      - *id002
+      - *id003
+      - *id004
   /api/v1/integrations/n8n/results:
     post:
       tags:
@@ -18988,28 +18912,14 @@ paths:
       - integrations
       summary: N8N Progress
       operationId: n8n_progress_api_v1_integrations_n8n_progress_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CallbackResult'
-        required: true
       responses:
-        '202':
+        '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response N8N Progress Api V1 Integrations N8N Progress Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: {}
+        '410':
+          description: Permanently denied legacy effect path
         '400':
           description: Invalid canonical request
         '401':
@@ -19036,29 +18946,14 @@ paths:
       - integrations
       summary: N8N Dead Letter
       operationId: n8n_dead_letter_api_v1_integrations_n8n_dead_letter_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CallbackResult'
-        required: true
       responses:
-        '202':
+        '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response N8N Dead Letter Api V1 Integrations N8N Dead Letter
-                  Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: {}
+        '410':
+          description: Permanently denied legacy effect path
         '400':
           description: Invalid canonical request
         '401':
@@ -19085,28 +18980,14 @@ paths:
       - integrations
       summary: N8N Error
       operationId: n8n_error_api_v1_integrations_n8n_errors_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CallbackResult'
-        required: true
       responses:
-        '202':
+        '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response N8N Error Api V1 Integrations N8N Errors Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: {}
+        '410':
+          description: Permanently denied legacy effect path
         '400':
           description: Invalid canonical request
         '401':
@@ -19133,29 +19014,14 @@ paths:
       - integrations
       summary: N8N Reconciliation
       operationId: n8n_reconciliation_api_v1_integrations_n8n_reconciliation_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommandRequest'
-        required: true
       responses:
-        '202':
+        '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response N8N Reconciliation Api V1 Integrations N8N Reconciliation
-                  Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: {}
+        '410':
+          description: Permanently denied legacy effect path
         '400':
           description: Invalid canonical request
         '401':
@@ -26807,39 +26673,6 @@ components:
       - value
       - occurred_at
       title: BrowserEvent
-    CallbackResult:
-      properties:
-        command_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Command Id
-        status:
-          type: string
-          maxLength: 64
-          minLength: 1
-          title: Status
-        payload:
-          type: object
-          title: Payload
-        correlation_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Correlation Id
-        trace_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Trace Id
-      additionalProperties: false
-      type: object
-      required:
-      - command_id
-      - status
-      - correlation_id
-      - trace_id
-      title: CallbackResult
     CallingResponse:
       properties:
         dialing:
@@ -27433,45 +27266,6 @@ components:
       - capability
       - payload
       title: CommandEnvelope
-    CommandRequest:
-      properties:
-        command_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Command Id
-        command_type:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Command Type
-        payload:
-          type: object
-          title: Payload
-        correlation_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Correlation Id
-        trace_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Trace Id
-        idempotency_key:
-          type: string
-          maxLength: 256
-          minLength: 1
-          title: Idempotency Key
-      additionalProperties: false
-      type: object
-      required:
-      - command_id
-      - command_type
-      - correlation_id
-      - trace_id
-      - idempotency_key
-      title: CommandRequest
     CommunicationEventPage:
       properties:
         items:
@@ -29495,6 +29289,16 @@ components:
             format: date-time
           - type: 'null'
           title: Finished At
+        worker_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Worker Id
+        fencing_token:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Fencing Token
       type: object
       required:
       - attempt_id

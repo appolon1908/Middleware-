@@ -910,47 +910,6 @@
         "title": "BrowserEvent",
         "type": "object"
       },
-      "CallbackResult": {
-        "additionalProperties": false,
-        "properties": {
-          "command_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Command Id",
-            "type": "string"
-          },
-          "correlation_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Correlation Id",
-            "type": "string"
-          },
-          "payload": {
-            "title": "Payload",
-            "type": "object"
-          },
-          "status": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Status",
-            "type": "string"
-          },
-          "trace_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Trace Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "command_id",
-          "status",
-          "correlation_id",
-          "trace_id"
-        ],
-        "title": "CallbackResult",
-        "type": "object"
-      },
       "CallingResponse": {
         "properties": {
           "call_id": {
@@ -1853,54 +1812,6 @@
           "payload"
         ],
         "title": "CommandEnvelope",
-        "type": "object"
-      },
-      "CommandRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "command_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Command Id",
-            "type": "string"
-          },
-          "command_type": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Command Type",
-            "type": "string"
-          },
-          "correlation_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Correlation Id",
-            "type": "string"
-          },
-          "idempotency_key": {
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Idempotency Key",
-            "type": "string"
-          },
-          "payload": {
-            "title": "Payload",
-            "type": "object"
-          },
-          "trace_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Trace Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "command_id",
-          "command_type",
-          "correlation_id",
-          "trace_id",
-          "idempotency_key"
-        ],
-        "title": "CommandRequest",
         "type": "object"
       },
       "CommunicationEventPage": {
@@ -4696,6 +4607,17 @@
             "title": "Attempt Number",
             "type": "integer"
           },
+          "fencing_token": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fencing Token"
+          },
           "finished_at": {
             "anyOf": [
               {
@@ -4755,6 +4677,17 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
           }
         },
         "required": [
@@ -12425,27 +12358,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CallbackResult"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response N8N Dead Letter Api V1 Integrations N8N Dead Letter Post",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -12465,15 +12382,8 @@
           "409": {
             "description": "Version, state, or idempotency conflict"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+          "410": {
+            "description": "Permanently denied legacy effect path"
           },
           "429": {
             "description": "Rate limited"
@@ -12497,54 +12407,6 @@
       "post": {
         "operationId": "n8n_dispatch_api_v1_integrations_n8n_dispatch_post",
         "parameters": [
-          {
-            "in": "header",
-            "name": "X-Timestamp",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Timestamp"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Nonce",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Nonce"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Signature",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Signature"
-            }
-          },
           {
             "in": "header",
             "name": "X-Tenant-ID",
@@ -12576,27 +12438,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CommandRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response N8N Dispatch Api V1 Integrations N8N Dispatch Post",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -12616,15 +12462,8 @@
           "409": {
             "description": "Version, state, or idempotency conflict"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+          "410": {
+            "description": "Permanently denied legacy effect path"
           },
           "429": {
             "description": "Rate limited"
@@ -12679,27 +12518,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CallbackResult"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response N8N Error Api V1 Integrations N8N Errors Post",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -12719,15 +12542,8 @@
           "409": {
             "description": "Version, state, or idempotency conflict"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+          "410": {
+            "description": "Permanently denied legacy effect path"
           },
           "429": {
             "description": "Rate limited"
@@ -12782,27 +12598,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CallbackResult"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response N8N Progress Api V1 Integrations N8N Progress Post",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -12822,15 +12622,8 @@
           "409": {
             "description": "Version, state, or idempotency conflict"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+          "410": {
+            "description": "Permanently denied legacy effect path"
           },
           "429": {
             "description": "Rate limited"
@@ -12885,27 +12678,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CommandRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response N8N Reconciliation Api V1 Integrations N8N Reconciliation Post",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -12925,15 +12702,8 @@
           "409": {
             "description": "Version, state, or idempotency conflict"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+          "410": {
+            "description": "Permanently denied legacy effect path"
           },
           "429": {
             "description": "Rate limited"
@@ -13381,54 +13151,6 @@
         "parameters": [
           {
             "in": "header",
-            "name": "X-Timestamp",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Timestamp"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Nonce",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Nonce"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Signature",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Signature"
-            }
-          },
-          {
-            "in": "header",
             "name": "X-Tenant-ID",
             "required": true,
             "schema": {
@@ -13458,27 +13180,11 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CommandRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Odoo Command Api V1 Integrations Odoo Commands Post",
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
@@ -13498,15 +13204,8 @@
           "409": {
             "description": "Version, state, or idempotency conflict"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+          "410": {
+            "description": "Permanently denied legacy effect path"
           },
           "429": {
             "description": "Rate limited"

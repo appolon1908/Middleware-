@@ -23,7 +23,7 @@
     "middleware_automation_reconciliation_runs": "sha256:36ca609801123fcaa14c780ee7d02997d45e59aeb4f5a061aef6d2e4c0694c95",
     "middleware_automation_replay_requests": "sha256:fcd7eab6f3be44814793c3b1c487dfdc1edf12d84f05d8320a441e34c6079ef2",
     "middleware_automation_schema_migrations": "sha256:b977a24fd2a6c1e7490a6b6145c6930d04e1ac153b02ef49f490a8134ad6676a",
-    "middleware_command_attempts": "sha256:0a599fd2edba5c4bf2cb25b56013cf77e803b77af97f31c3baba0501f033bc97",
+    "middleware_command_attempts": "sha256:519e553a593028039eda3f457a5940784944122a06145018185eb8f8efb74b90",
     "middleware_command_audit": "sha256:200576e16fd2f1a4919d78bfba0c691af4d1d4208475527667e7fa95253d423e",
     "middleware_command_dead_letters": "sha256:617fbc780fa0cdd72043bbade81ac25f70e39613a5a6266621b65642f551da54",
     "middleware_command_replays": "sha256:ac8e8f49924099ac22e84be2dd1c393edb4b7372f4af0955576c535d5985cf46",
