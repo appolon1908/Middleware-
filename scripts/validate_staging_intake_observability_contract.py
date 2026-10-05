@@ -296,6 +296,9 @@ EXPECTED_FACTORY_APP_CALLS: dict[str, str | None] = {
     "install_request_guard": None,
     "register_health_routes": None,
     "assert_unique_routes": None,
+    # Legacy effect denial authority (config/legacy-effect-registry.v1.json).
+    "install_legacy_effect_handler": None,
+    "enforce_legacy_effect_registry": None,
     "install_error_handlers": "appolon_routes",
     "install_canonical_openapi": "appolon_routes",
 }

@@ -14,7 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
@@ -210,10 +210,6 @@ def test_registry_is_valid_and_its_digest_is_the_committed_file() -> None:
 def test_every_obsolete_mutation_path_is_registered_as_denied() -> None:
     denied = {(entry.method, entry.path) for entry in registry().entries if entry.denied}
     assert {
-        ("POST", "/v1/integrations/n8n/commands"),
-        ("POST", "/v1/integrations/n8n/operations/{operation_id}/cancel"),
-        ("POST", "/v1/integrations/n8n/operations/{operation_id}/reconcile"),
-        ("POST", "/api/v1/events/odoo"),
         ("POST", "/api/v1/integrations/odoo/commands"),
         ("POST", "/api/v1/integrations/n8n/dispatch"),
         ("POST", "/api/v1/integrations/n8n/progress"),
@@ -278,29 +274,23 @@ def test_every_profile_enforces_every_mounted_denied_path(settings, profile: App
         assert all(state[entry.id]["mounted"] for entry in DENIED_ROUTES)
 
 
-def test_integration_profile_mounts_no_legacy_n8n_alias(settings) -> None:
-    state = create_app(settings=settings, profile=AppProfile.INTEGRATION).state.legacy_effects
-    for effect_id in ("LE-N8N-V1-COMMAND-SUBMIT", "LE-N8N-V1-OPERATION-CANCEL", "LE-N8N-V1-OPERATION-RECONCILE"):
-        assert state[effect_id]["mounted"] is False
-
-
 def test_an_application_mounting_a_denied_path_without_denial_refuses_to_build() -> None:
     router = APIRouter()
 
-    @router.post("/v1/integrations/n8n/commands")
+    @router.post("/api/v1/integrations/n8n/dispatch")
     async def resurrected() -> dict[str, str]:  # pragma: no cover - never served
         return {"status": "accepted"}
 
     app = FastAPI()
     app.include_router(router)
-    with pytest.raises(LegacyEffectRegistryError, match="LE-N8N-V1-COMMAND-SUBMIT"):
+    with pytest.raises(LegacyEffectRegistryError, match="LE-INTEGRATIONS-N8N-DISPATCH"):
         enforce_legacy_effect_registry(app)
 
 
 def test_a_denial_dependency_mounted_on_the_wrong_operation_refuses_to_build() -> None:
     router = APIRouter()
 
-    @router.post("/v1/some/other/path", dependencies=[Depends(denial_dependency("LE-N8N-V1-COMMAND-SUBMIT"))])
+    @router.post("/v1/some/other/path", dependencies=[Depends(denial_dependency("LE-INTEGRATIONS-N8N-DISPATCH"))])
     async def misplaced() -> None:  # pragma: no cover - never served
         return None
 
@@ -360,54 +350,12 @@ def test_denied_path_answers_410_before_any_auth_ledger_or_provider_effect(harne
 def test_denial_precedes_request_validation(harness) -> None:
     client, verifier, store, _ = harness
     response = client.post(
-        "/v1/integrations/n8n/commands",
+        "/api/v1/integrations/n8n/dispatch",
         content=b"{}",
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == DENIAL_STATUS
     assert verifier.calls == [] and store.mutations == []
-
-
-def test_legacy_n8n_submission_cannot_reach_the_ledger_even_with_valid_authority(harness) -> None:
-    client, verifier, store, app = harness
-    body = _command_body()
-    response = client.post(
-        "/v1/integrations/n8n/commands",
-        json=body,
-        headers={
-            "Authorization": "Bearer middleware.request.forward",
-            "X-Tenant-ID": TENANT,
-            "X-Correlation-ID": body["correlation_id"],
-            "Idempotency-Key": body["idempotency_key"],
-        },
-    )
-    assert response.status_code == DENIAL_STATUS
-    assert "location" not in response.headers
-    assert store.mutations == []
-    assert verifier.calls == []
-
-
-def test_legacy_cancel_and_reconcile_cannot_mutate_an_existing_operation(harness) -> None:
-    client, verifier, store, app = harness
-    command = _command()
-    import asyncio
-
-    service = app.state.runtime.commands
-    asyncio.run(
-        service.submit(command, authenticated_subject=SUBJECT, authenticated_client_id="n8n-automation")
-    )
-    store.mutations.clear()
-    before = asyncio.run(service.get(TENANT, UUID(str(command.command_id))))
-    for action in ("cancel", "reconcile"):
-        response = client.post(
-            f"/v1/integrations/n8n/operations/{command.command_id}/{action}",
-            json={"expected_version": 1, "reason": "legacy caller"},
-            headers={"Authorization": "Bearer middleware.command.write", "X-Tenant-ID": TENANT, "Idempotency-Key": "idem-legacy-mutation"},
-        )
-        assert response.status_code == DENIAL_STATUS, response.text
-    after = asyncio.run(service.get(TENANT, UUID(str(command.command_id))))
-    assert after.model_dump() == before.model_dump()
-    assert store.mutations == [] and verifier.calls == []
 
 
 def test_legacy_callback_payload_shape_is_denied_on_the_live_results_path(harness) -> None:
@@ -428,33 +376,6 @@ def test_legacy_callback_payload_shape_is_denied_on_the_live_results_path(harnes
 
 
 # --- justified read-only compatibility ------------------------------------------------
-
-
-def test_read_only_compatibility_status_still_reads_tenant_scoped(harness) -> None:
-    client, verifier, _, app = harness
-    command = _command()
-    import asyncio
-
-    asyncio.run(
-        app.state.runtime.commands.submit(
-            command, authenticated_subject=SUBJECT, authenticated_client_id="n8n-automation"
-        )
-    )
-    status = client.get(
-        f"/v1/integrations/n8n/operations/{command.command_id}",
-        headers={"Authorization": "Bearer middleware.status.read", "X-Tenant-ID": TENANT},
-    )
-    assert status.status_code == 200, status.text
-    assert status.json()["command_id"] == str(command.command_id)
-    assert status.headers["deprecation"] == "true"
-    assert f"/v2/automation/commands/{command.command_id}" in status.headers["link"]
-
-    verifier.tenant_id = "tenant-2"
-    denied = client.get(
-        f"/v1/integrations/n8n/operations/{command.command_id}",
-        headers={"Authorization": "Bearer middleware.status.read", "X-Tenant-ID": TENANT},
-    )
-    assert denied.status_code == 403, denied.text
 
 
 def test_read_only_compatibility_entries_are_mounted_as_reads_only(settings) -> None:
