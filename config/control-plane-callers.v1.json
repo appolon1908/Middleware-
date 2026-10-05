@@ -392,6 +392,45 @@
       ],
       "compatibility_only": false,
       "staging_auth_matrix": false
+    },
+    "face-liveness-operator": {
+      "command_scope": "platform.command",
+      "status_scope": "platform.command.read",
+      "connector_commands_allowed": true,
+      "allowed_command_prefixes": [
+        "face-liveness.verify."
+      ],
+      "allowed_targets": [
+        "face-liveness"
+      ],
+      "compatibility_only": false,
+      "staging_auth_matrix": false
+    },
+    "camera-gateway-capture-operator": {
+      "command_scope": "platform.command",
+      "status_scope": "platform.command.read",
+      "connector_commands_allowed": true,
+      "allowed_command_prefixes": [
+        "camera-gateway.capture."
+      ],
+      "allowed_targets": [
+        "camera-gateway"
+      ],
+      "compatibility_only": false,
+      "staging_auth_matrix": false
+    },
+    "postgresql-backup-operator": {
+      "command_scope": "platform.command",
+      "status_scope": "platform.command.read",
+      "connector_commands_allowed": true,
+      "allowed_command_prefixes": [
+        "postgresql.backup."
+      ],
+      "allowed_targets": [
+        "postgresql"
+      ],
+      "compatibility_only": false,
+      "staging_auth_matrix": false
     }
   }
 }

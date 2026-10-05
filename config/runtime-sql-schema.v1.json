@@ -1,5 +1,5 @@
 {
-  "migration_history_sha256": "sha256:a9d5784897369090c4063d71974573acc0d431c0cd181ccd67e05fbf9dced083",
+  "migration_history_sha256": "sha256:b23eade10a69a4fa7b24c00a43b584b99075f3f0142993cd81c4f90f649e6b78",
   "schema_version": 1,
   "tables": {
     "campaign_design_approval": "sha256:658b1ff152fd2b5b696ab37d44d5d7b447970674784b43c59c6db6ca742ead71",

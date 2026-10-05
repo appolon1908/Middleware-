@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from app.api.v1.platform import ServiceCreate
 from app.commands import CommandEnvelope, CommandOperation, CommandPolicyRegistry
+from app.control_plane_auth import caller_for_client_id
 from app.identity_service_contract import SERVICE_COMMANDS
 from app.platform.adapter import (
     AdapterConfigurationError,
@@ -30,6 +31,36 @@ from app.platform.runtime import default_adapters
 from app.platform.safety import SafetySwitches
 
 ROOT = Path(__file__).resolve().parents[1]
+
+SERVICE_SUBMIT_CALLERS = {
+    "face-id": "face-id-operator",
+    "face-liveness": "face-liveness-operator",
+    "camera-gateway": "camera-gateway-capture-operator",
+    "postgresql": "postgresql-backup-operator",
+}
+
+
+def submission_identity(cmd):
+    base = SERVICE_COMMANDS.get(cmd.target)
+    if base is not None and cmd.command_type == base[1]:
+        client_id = SERVICE_SUBMIT_CALLERS[cmd.target]
+        return client_id, ("platform.command",)
+
+    matrix = json.loads(
+        (ROOT / "contracts/platform/face-id-authorization.v1.json").read_text()
+    )
+    matches = [
+        (client_id, profile)
+        for client_id, profile in matrix["clients"].items()
+        if cmd.target in profile["allowed_targets"]
+        and any(
+            cmd.command_type.startswith(prefix)
+            for prefix in profile["allowed_command_prefixes"]
+        )
+    ]
+    assert len(matches) == 1, (cmd.command_type, matches)
+    client_id, profile = matches[0]
+    return client_id, tuple(profile["scopes"])
 
 
 async def token(audience, scope, tenant_id):
@@ -315,6 +346,15 @@ async def test_readback_absence_is_not_completion(status, expected):
 
 
 @pytest.mark.parametrize("sid", SERVICE_COMMANDS)
+def test_service_command_has_a_registered_least_privilege_submitter(sid):
+    caller = caller_for_client_id(SERVICE_SUBMIT_CALLERS[sid])
+    _, command_type, _ = SERVICE_COMMANDS[sid]
+    assert caller.connector_commands_allowed is True
+    assert sid in caller.allowed_targets
+    assert any(command_type.startswith(prefix) for prefix in caller.allowed_command_prefixes)
+
+
+@pytest.mark.parametrize("sid", SERVICE_COMMANDS)
 @pytest.mark.asyncio
 async def test_kernel_outbox_idempotency_and_worker_readback(sid, test_settings):
     await assert_kernel_delivery(command(sid), test_settings)
@@ -327,7 +367,6 @@ async def test_unavailable_backlog_at_execution_defers_without_effect(test_setti
 
 async def assert_kernel_delivery(cmd, test_settings, result=None, *, backlog_unavailable=False):
     from app.commands import CommandConflict, CommandService, MemoryCommandStore
-    from app.control_plane_auth import ControlPlaneCaller
     from app.platform.memory import MemoryExecutionBus
     from app.platform.principal import KernelPrincipal
     from app.platform.runtime import build_platform_runtime
@@ -350,30 +389,14 @@ async def assert_kernel_delivery(cmd, test_settings, result=None, *, backlog_una
         gates={**switches.gates, cmd.capability: gate},
         provider_kill_switches={**switches.provider_kill_switches, sid: False},
     )
+    submit_client, submit_scopes = submission_identity(cmd)
     principal = KernelPrincipal(
         subject=cmd.requested_by,
-        client_id="middleware-api",
+        client_id=submit_client,
         tenants=(cmd.tenant_id,),
         roles=(),
-        scopes=(
-            "platform.command",
-            "face-id.access.evaluate",
-            "face-id.presence.write",
-            "face-id.watchlist.write",
-            "face-id.enrollment.review",
-            "camera-gateway.ptz.control",
-            "camera-gateway.events.write",
-            "camera-gateway.maintenance.write",
-        ),
-        caller=ControlPlaneCaller(
-            client_id="middleware-api",
-            command_scope="platform.command",
-            status_scope="platform.command.read",
-            allowed_command_prefixes=(sid + ".",),
-            allowed_targets=frozenset({sid}),
-            connector_commands_allowed=True,
-            compatibility_only=False,
-        ),
+        scopes=submit_scopes,
+        caller=caller_for_client_id(submit_client),
     )
     posts = []
 
