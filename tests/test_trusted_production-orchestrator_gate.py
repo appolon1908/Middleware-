@@ -222,4 +222,3 @@ def test_repaired_candidate_requires_independent_protected_trust_transition(monk
         {repaired: {repaired: policy}},
     )
     assert launcher.validate_candidate(ROOT) == ORCHESTRATOR
-
