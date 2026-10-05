@@ -46,6 +46,7 @@ REQUIRED_EFFECT_CONTROLS = {
     "SMS_DELIVERY_ENABLED",
     "EMAIL_DELIVERY_ENABLED",
     "SOCIAL_DELIVERY_ENABLED",
+    "WHATSAPP_DELIVERY_ENABLED",
     "CRAWLER_EXECUTION_ENABLED",
     "SCRAPPER_EXECUTION_ENABLED",
     "LIVE_SMS_DELIVERY",
@@ -115,8 +116,10 @@ def validate_runtime_safety(
     if release["source_sha"] != expected_source_sha:
         raise AcceptanceError("deployed source SHA does not match the approved release")
     if release["image_digest"] != expected_image_digest:
-        raise AcceptanceError("deployed image digest does not match the approved release")
-    if release["schema_head"] != "0009_observability_incidents":
+        raise AcceptanceError(
+            "deployed image digest does not match the approved release"
+        )
+    if release["schema_head"] != "0071_defer_unbound_tenant_rls":
         raise AcceptanceError("deployed migration head is not current")
     if persistence != {"in_memory": False}:
         raise AcceptanceError("staging must use durable persistence")
@@ -130,9 +133,13 @@ def validate_runtime_safety(
         raise AcceptanceError("runtime effect-control set is incomplete or unexpected")
     enabled = sorted(name for name, enabled in effects.items() if enabled)
     if enabled:
-        raise AcceptanceError("staging external effects are enabled: " + ", ".join(enabled))
+        raise AcceptanceError(
+            "staging external effects are enabled: " + ", ".join(enabled)
+        )
     if set(umbrella_controls) != REQUIRED_UMBRELLA_CONTROLS:
-        raise AcceptanceError("runtime umbrella-control set is incomplete or unexpected")
+        raise AcceptanceError(
+            "runtime umbrella-control set is incomplete or unexpected"
+        )
     enabled_umbrella = sorted(
         name for name, enabled in umbrella_controls.items() if enabled
     )
@@ -147,7 +154,9 @@ def validate_runtime_safety(
     if value["all_external_effects_disabled"] is not True:
         raise AcceptanceError("runtime did not attest that all effects are disabled")
     if value["provider_effects_disabled"] is not True:
-        raise AcceptanceError("runtime did not attest that provider effects are disabled")
+        raise AcceptanceError(
+            "runtime did not attest that provider effects are disabled"
+        )
     if value["staging_safe"] is not True:
         raise AcceptanceError("runtime did not attest fail-closed staging safety")
     return value
@@ -164,7 +173,7 @@ def build_signed_event(
     event_id = f"synthetic-{generated.hex}"
     timestamp = str(int(time.time()) if now is None else now)
     occurred_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(timestamp)))
-    event = {
+    event: dict[str, Any] = {
         "event_id": event_id,
         "event_type": EVENT_TYPE,
         "event_version": "1.0",
@@ -197,7 +206,7 @@ def build_signed_event(
         )
     ).encode("utf-8")
     signature = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
-    headers = {
+    headers: dict[str, str] = {
         "Content-Type": "application/json",
         "Idempotency-Key": event_id,
         "X-Codestra-Event-Id": event_id,
@@ -206,7 +215,7 @@ def build_signed_event(
         "X-Codestra-Tenant-Id": tenant_id,
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": f"sha256={signature}",
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
     return event, body, headers
 
@@ -238,9 +247,13 @@ def run(
     if SOURCE_SHA.fullmatch(expected_source_sha) is None:
         raise AcceptanceError("EXPECTED_SOURCE_SHA must be an exact 40-character SHA")
     if IMAGE_DIGEST.fullmatch(expected_image_digest) is None:
-        raise AcceptanceError("EXPECTED_IMAGE_DIGEST must be an immutable sha256 digest")
+        raise AcceptanceError(
+            "EXPECTED_IMAGE_DIGEST must be an immutable sha256 digest"
+        )
     if len(secret) < 32:
-        raise AcceptanceError("STAGING_ODOO_WEBHOOK_SECRET must contain at least 32 bytes")
+        raise AcceptanceError(
+            "STAGING_ODOO_WEBHOOK_SECRET must contain at least 32 bytes"
+        )
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", tenant_id) is None:
         raise AcceptanceError(
             "STAGING_SYNTHETIC_TENANT_ID must be a safe 1-128 character identifier"
@@ -275,11 +288,17 @@ def run(
         ):
             raise AcceptanceError("runtime readiness is incomplete")
         if any(status != "ready" for status in components.values()):
-            raise AcceptanceError("one or more durable runtime dependencies are not ready")
+            raise AcceptanceError(
+                "one or more durable runtime dependencies are not ready"
+            )
         if ready.get("release_sha") != expected_source_sha:
-            raise AcceptanceError("readiness source SHA disagrees with the approved release")
+            raise AcceptanceError(
+                "readiness source SHA disagrees with the approved release"
+            )
         if ready.get("image_digest") != expected_image_digest:
-            raise AcceptanceError("readiness image digest disagrees with the approved release")
+            raise AcceptanceError(
+                "readiness image digest disagrees with the approved release"
+            )
 
         event, body, signed_headers = build_signed_event(
             tenant_id=tenant_id,

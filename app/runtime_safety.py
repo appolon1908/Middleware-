@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .config import Settings
+from app.core.config import Settings
 
 
 class RuntimeSafetyRelease(BaseModel):

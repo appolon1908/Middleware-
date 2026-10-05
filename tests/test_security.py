@@ -1,15 +1,120 @@
 from __future__ import annotations
 
-import pytest
+import json
+import time
+from unittest.mock import Mock
 
-from app.config import ConfigurationError, Settings, WEBHOOK_PRODUCERS
+import jwt
+import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+from app.core.config import ConfigurationError, Settings, WEBHOOK_PRODUCERS
 from app.security import (
     AuthorizationError,
+    KeycloakJwtVerifier,
     RequestValidationError,
     _parse_timestamp,
     authorize_tenant,
     validate_claims,
 )
+
+
+
+
+def _machine_token(private_key, settings, *, kid: str, jti: str) -> str:
+    now = int(time.time())
+    return jwt.encode(
+        {
+            "iss": settings.issuer,
+            "aud": settings.audience,
+            "sub": "auth02-subject",
+            "azp": "middleware-api",
+            "jti": jti,
+            "iat": now,
+            "exp": now + 120,
+            "scope": "platform.command",
+        },
+        private_key,
+        algorithm="RS256",
+        headers={"kid": kid},
+    )
+
+
+def _public_jwk(private_key, *, kid: str) -> dict:
+    value = json.loads(
+        jwt.algorithms.RSAAlgorithm.to_jwk(private_key.public_key())
+    )
+    value.update(kid=kid, use="sig", alg="RS256")
+    return value
+
+
+def test_machine_verifier_rejects_key_removed_after_jwks_refresh(
+    monkeypatch: pytest.MonkeyPatch, test_settings: Settings
+) -> None:
+    private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    kid = "auth02-removed-key"
+    verifier = KeycloakJwtVerifier(test_settings)
+    fetch = Mock(return_value={"keys": [_public_jwk(private, kid=kid)]})
+    monkeypatch.setattr(verifier._jwks, "fetch_data", fetch)
+
+    first = _machine_token(private, test_settings, kid=kid, jti="auth02-first")
+    assert verifier._verify_sync(
+        first,
+        expected_client_id="middleware-api",
+        required_scope="platform.command",
+    )["jti"] == "auth02-first"
+
+    # Simulate the bounded JWKS-set cache expiring/refreshing. Once authority
+    # no longer advertises the kid, the old key object must not survive in a
+    # separate unbounded per-key cache.
+    verifier._jwks.jwk_set_cache.put(None)
+    fetch.return_value = {"keys": []}
+    fresh = _machine_token(private, test_settings, kid=kid, jti="auth02-revoked")
+
+    with pytest.raises((jwt.PyJWKClientError, jwt.PyJWKSetError)):
+        verifier._verify_sync(
+            fresh,
+            expected_client_id="middleware-api",
+            required_scope="platform.command",
+        )
+    assert fetch.call_count >= 2
+
+
+def test_machine_verifier_accepts_same_kid_replacement_after_refresh(
+    monkeypatch: pytest.MonkeyPatch, test_settings: Settings
+) -> None:
+    old_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    new_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    kid = "auth02-rotated-key"
+    verifier = KeycloakJwtVerifier(test_settings)
+    fetch = Mock(return_value={"keys": [_public_jwk(old_private, kid=kid)]})
+    monkeypatch.setattr(verifier._jwks, "fetch_data", fetch)
+
+    old = _machine_token(old_private, test_settings, kid=kid, jti="auth02-old")
+    assert verifier._verify_sync(
+        old,
+        expected_client_id="middleware-api",
+        required_scope="platform.command",
+    )["jti"] == "auth02-old"
+
+    verifier._jwks.jwk_set_cache.put(None)
+    fetch.return_value = {"keys": [_public_jwk(new_private, kid=kid)]}
+    rotated = _machine_token(new_private, test_settings, kid=kid, jti="auth02-new")
+    assert verifier._verify_sync(
+        rotated,
+        expected_client_id="middleware-api",
+        required_scope="platform.command",
+    )["jti"] == "auth02-new"
+
+
+def test_machine_verifier_has_no_unbounded_signing_key_cache(
+    test_settings: Settings,
+) -> None:
+    verifier = KeycloakJwtVerifier(test_settings)
+    # PyJWT only replaces get_signing_key with functools.lru_cache when
+    # cache_keys=True. The bounded JWKS set cache remains enabled separately.
+    assert not hasattr(verifier._jwks.get_signing_key, "cache_info")
+    assert verifier._jwks.jwk_set_cache is not None
 
 
 def test_exact_scope_and_azp_are_required() -> None:
@@ -156,7 +261,8 @@ def test_jetstream_dispatch_requires_matching_gate_and_authorization() -> None:
         )
 
 
-def test_production_jetstream_dispatch_requires_approved_identity() -> None:
+def production_jetstream_env() -> dict[str, str]:
+    """A JetStream activation that satisfies every transport-level rule."""
     env = {
         "APP_ENV": "production",
         "RUNTIME_PROFILE_ID": "codestra-middleware-production-v1",
@@ -186,11 +292,61 @@ def test_production_jetstream_dispatch_requires_approved_identity() -> None:
             "WEBHOOK_SECRET_"
             + producer.upper().replace("-", "_").replace(".", "_")
         ] = "x" * 32
+    return env
 
-    settings = Settings.from_env(env)
 
+# SEND_EVENTS gates the JetStream outbox transport only. The n8n broad-event
+# pipeline has its own first switch (BROAD_EVENT_SEND_ENABLED) and its own
+# conjunction; the two never imply each other.
+BROAD_EVENT_GATES = {
+    "BROAD_EVENT_SEND_ENABLED": "true",
+    "BROAD_EVENT_DELIVERY_ENABLED": "true",
+    "PRODUCTION_N8N_ENABLED": "true",
+    "N8N_PRODUCTION_WORKFLOWS_ENABLED": "true",
+    "CONTROLLED_BROAD_EVENT_ACTIVATION": "true",
+    "BROAD_EVENT_BUSINESS_UNIT_ALLOWLIST": "BU-TEST",
+    "BROAD_EVENT_CAMPAIGN_ALLOWLIST": "TEST_SYN",
+    "BROAD_EVENT_WORKFLOW_ALLOWLIST": "wf-test",
+    "BROAD_EVENT_TYPE_ALLOWLIST": "lead.created",
+    "BROAD_EVENT_ACTIVATION_HIGH_WATER_MARK": "2026-08-28T12:00:00Z",
+    "BROAD_EVENT_SUBMISSION_LIMIT": "1",
+}
+
+
+def test_production_jetstream_dispatch_requires_approved_identity() -> None:
+    settings = Settings.from_env(production_jetstream_env())
     assert settings.outbox_dispatch_enabled is True
     assert settings.production_activation_id == "CHG-20260828-EVENTS"
+    assert settings.broad_event_pipeline_enabled is False
+
+    without_activation = production_jetstream_env()
+    del without_activation["PRODUCTION_ACTIVATION_ID"]
+    with pytest.raises(ConfigurationError, match="PRODUCTION_ACTIVATION_ID"):
+        Settings.from_env(without_activation)
+
+    wrong_stream = {**production_jetstream_env(), "NATS_STREAM": "CODESTRA_STAGING_EVENTS"}
+    with pytest.raises(ConfigurationError, match="NATS_STREAM"):
+        Settings.from_env(wrong_stream)
+
+    plaintext = {
+        **production_jetstream_env(),
+        "NATS_URL": "nats://nats.middleware-production.svc.cluster.local:4222",
+    }
+    with pytest.raises(ConfigurationError, match="NATS_URL"):
+        Settings.from_env(plaintext)
+
+
+def test_jetstream_and_broad_event_gates_are_independent() -> None:
+    # A single broad-event switch without the rest fails closed regardless of
+    # SEND_EVENTS; the full set is refused because the n8n production-workflow
+    # effect is not implemented by this runtime.
+    with pytest.raises(ConfigurationError, match="broad-event activation"):
+        Settings.from_env({**production_jetstream_env(), "BROAD_EVENT_SEND_ENABLED": "true"})
+    with pytest.raises(
+        ConfigurationError,
+        match="not implemented by this runtime: N8N_PRODUCTION_WORKFLOWS_ENABLED",
+    ):
+        Settings.from_env({**production_jetstream_env(), **BROAD_EVENT_GATES})
 
 
 def test_staging_uses_an_isolated_jetstream_namespace() -> None:
@@ -213,9 +369,11 @@ def test_staging_uses_an_isolated_jetstream_namespace() -> None:
         ] = "x" * 32
 
     settings = Settings.from_env(env)
-
     assert settings.nats_dispatch_mode == "isolated"
     assert settings.nats_subject_prefix == "codestra.staging.events"
+
+    with pytest.raises(ConfigurationError, match="NATS_STREAM"):
+        Settings.from_env({**env, "NATS_STREAM": "CODESTRA_EVENTS"})
 
 
 def test_staging_rejects_production_jetstream_namespace() -> None:
@@ -530,5 +688,70 @@ def test_jwks_uri_is_pinned_to_canonical_issuer() -> None:
                 "APP_ENV": "test",
                 "ALLOW_IN_MEMORY_STORAGE": "true",
                 "KEYCLOAK_JWKS_URI": "http://attacker.invalid/jwks",
+            }
+        )
+
+
+def test_ci_readiness_identity_uses_canonical_jwks_url_alias() -> None:
+    settings = Settings.from_env(
+        {
+            "APP_ENV": "test",
+            "ALLOW_IN_MEMORY_STORAGE": "true",
+            "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
+            "KEYCLOAK_JWKS_URL": "http://127.0.0.1:8120/certs.json",
+        }
+    )
+    assert settings.issuer == "https://ci-identity.example.invalid/realm"
+    assert settings.jwks_uri == "http://127.0.0.1:8120/certs.json"
+
+
+def test_ci_readiness_identity_accepts_assigned_loopback_jwks_port() -> None:
+    settings = Settings.from_env(
+        {
+            "APP_ENV": "test",
+            "ALLOW_IN_MEMORY_STORAGE": "true",
+            "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
+            "KEYCLOAK_JWKS_URL": "http://127.0.0.1:43127/certs.json",
+        }
+    )
+    assert settings.synthetic_ci_identity is True
+
+
+@pytest.mark.parametrize(
+    "jwks_url",
+    [
+        "http://localhost:43127/certs.json",
+        "http://10.0.0.5:43127/certs.json",
+        "http://127.0.0.1/certs.json",
+        "http://127.0.0.1:43127/other.json",
+        "http://127.0.0.1:43127/certs.json?x=1",
+        "http://user@127.0.0.1:43127/certs.json",
+    ],
+)
+def test_ci_readiness_identity_rejects_non_fixture_plaintext_jwks(jwks_url: str) -> None:
+    with pytest.raises(ConfigurationError):
+        Settings.from_env(
+            {
+                "APP_ENV": "test",
+                "ALLOW_IN_MEMORY_STORAGE": "true",
+                "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
+                "KEYCLOAK_JWKS_URL": jwks_url,
+            }
+        )
+
+
+@pytest.mark.parametrize("environment", ["staging", "production"])
+@pytest.mark.parametrize(
+    "jwks_url", ["http://127.0.0.1:8120/certs.json", "http://127.0.0.1:43127/certs.json"]
+)
+def test_synthetic_ci_identity_is_forbidden_in_deployable_environments(
+    environment: str, jwks_url: str
+) -> None:
+    with pytest.raises(ConfigurationError):
+        Settings.from_env(
+            {
+                "APP_ENV": environment,
+                "KEYCLOAK_ISSUER": "https://ci-identity.example.invalid/realm",
+                "KEYCLOAK_JWKS_URL": jwks_url,
             }
         )

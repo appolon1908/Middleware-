@@ -441,7 +441,7 @@ def main() -> int:
             "temporal_rpc",
         ),
     }
-    for connection_id, expected in required_central_links.items():
+    for connection_id, expected_link in required_central_links.items():
         connection = by_id.get(connection_id)
         if connection is None:
             errors.append(f"required central connection is missing: {connection_id}")
@@ -451,10 +451,10 @@ def main() -> int:
             connection.get("target_branch"),
             connection.get("transport"),
         )
-        if actual != expected:
+        if actual != expected_link:
             errors.append(
-                f"{connection_id} must connect {expected[0]} to {expected[1]} "
-                f"using {expected[2]}"
+                f"{connection_id} must connect {expected_link[0]} to {expected_link[1]} "
+                f"using {expected_link[2]}"
             )
 
     central_rabbitmq_links = [

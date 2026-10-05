@@ -8,9 +8,9 @@ from typing import Any
 
 import pytest
 
-from app.config import Settings
+from app.core.config import Settings
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 
 
@@ -126,5 +126,5 @@ def signed_headers(
         "X-Codestra-Tenant-Id": event["tenant_id"],
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": f"sha256={signature}",
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }

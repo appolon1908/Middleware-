@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -20,6 +21,20 @@ CODEOWNERS_PATH = ROOT / ".github" / "CODEOWNERS"
 WORKFLOW_DIR = ROOT / ".github" / "workflows"
 RUN_CI_PATH = ROOT / "scripts" / "run_ci.sh"
 RULESET_NAME = "middleware-main-production-authority"
+REQUIRED_CHECK_APP_ID = 15368
+INDEPENDENT_REVIEWER_ID = 77101516
+TRUSTED_PULL_REQUEST_TARGET_WORKFLOWS = {
+    "production-orchestrator-contract.yml": frozenset(
+        {
+            "5e968a824d9738ac8237dfd677bae1091aaecfe73f3f98d0c6c63f07a503968f",
+        }
+    ),
+    "trusted-production-orchestrator-gate.yml": frozenset(
+        {
+            "24b766af40ad1deb6c47fe1f667ed93b29e556abdacce88d6c3daf527f4f902e",
+        }
+    ),
+}
 
 EXPECTED_REQUIRED_STATUS_CHECKS = frozenset(
     {
@@ -34,6 +49,21 @@ EXPECTED_REQUIRED_STATUS_CHECKS = frozenset(
         "Disposable NATS JetStream integration",
         "Temporal critical workflow integration",
         "Synthetic no-effect acceptance E2E",
+    }
+)
+EXPECTED_SECURITY_CODEOWNER_PATHS = frozenset(
+    {
+        "/.github/CODEOWNERS",
+        "/.github/workflows/manual-release-intent.yml",
+        "/.github/workflows/production-orchestrator-contract.yml",
+        "/.github/workflows/trusted-production-orchestrator-gate.yml",
+        "/.codestra/production-orchestrator-contract.v1.json",
+        "/.codestra/run-trusted-production-orchestrator.py",
+        "/.codestra/validate-production-orchestrator-contract.py",
+        "/.codestra/validate-release-intent.py",
+        "/config/repository-governance.v1.json",
+        "/scripts/apply_repository_governance.py",
+        "/scripts/validate_repository_governance.py",
     }
 )
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -62,6 +92,35 @@ def require(condition: bool, message: str) -> None:
         raise GovernanceError(message)
 
 
+def validate_pull_request_target_workflow(workflow: Path, text: str) -> None:
+    if "pull_request_target:" not in text:
+        return
+    trusted_digests = TRUSTED_PULL_REQUEST_TARGET_WORKFLOWS.get(workflow.name)
+    require(
+        trusted_digests is not None
+        and hashlib.sha256(text.encode()).hexdigest() in trusted_digests,
+        f"{workflow.name}: pull_request_target is forbidden",
+    )
+
+
+def require_mapping(value: Any, message: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise GovernanceError(message)
+    return value
+
+
+def require_list(value: Any, message: str, *, nonempty: bool = False) -> list[Any]:
+    if not isinstance(value, list) or (nonempty and not value):
+        raise GovernanceError(message)
+    return value
+
+
+def require_string(value: Any, message: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise GovernanceError(message)
+    return value
+
+
 def require_exact_strings(
     observed: Any,
     expected: frozenset[str],
@@ -85,16 +144,110 @@ def require_exact_strings(
     )
 
 
+def validate_codeowners(text: str) -> None:
+    assignments: dict[str, tuple[str, ...]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        require(len(parts) >= 2, "CODEOWNERS entry has no owner")
+        pattern, *owners = parts
+        require(pattern not in assignments, f"duplicate CODEOWNERS pattern: {pattern}")
+        require(
+            all(owner.startswith("@") and len(owner) > 1 for owner in owners),
+            f"CODEOWNERS entry has an invalid owner: {pattern}",
+        )
+        assignments[pattern] = tuple(owners)
+
+    require(
+        assignments.get("*") == ("@appolon1908", "@kazan555"),
+        "CODEOWNERS does not identify both repository reviewers",
+    )
+    for pattern in EXPECTED_SECURITY_CODEOWNER_PATHS:
+        require(
+            assignments.get(pattern) == ("@kazan555",),
+            f"independent security CODEOWNER drift: {pattern}",
+        )
+
+
+def validate_environment_release_policy(policy: dict[str, Any]) -> None:
+    environments = require_mapping(
+        policy.get("environments"),
+        "environments policy is missing",
+    )
+    require(
+        set(environments) == {"staging", "production"},
+        "staging and production environments are required",
+    )
+    expected_reviewers = [{"type": "User", "id": INDEPENDENT_REVIEWER_ID}]
+    expected_branch_policy = {
+        "protected_branches": True,
+        "custom_branch_policies": False,
+    }
+    for name in ("staging", "production"):
+        environment = require_mapping(
+            environments.get(name),
+            f"{name}: environment policy is missing",
+        )
+        wait_timer = environment.get("wait_timer")
+        require(
+            isinstance(wait_timer, int)
+            and not isinstance(wait_timer, bool)
+            and wait_timer == 0,
+            f"{name}: wait timer drift",
+        )
+        require(
+            environment.get("prevent_self_review") is True,
+            f"{name}: self-review must be prevented",
+        )
+        require(
+            environment.get("can_admins_bypass") is False,
+            f"{name}: administrator bypass must be disabled",
+        )
+        require(
+            environment.get("reviewers") == expected_reviewers,
+            f"{name}: independent reviewer drift",
+        )
+        require(
+            environment.get("deployment_branch_policy") == expected_branch_policy,
+            f"{name}: deployments must use protected branches",
+        )
+        require(
+            environment.get("allowed_branches") == [],
+            f"{name}: custom deployment branches are forbidden",
+        )
+        require(
+            environment.get("live_write_secrets_allowed") is False,
+            f"{name}: live-write secrets must remain forbidden",
+        )
+
+    release_policy = require_mapping(
+        policy.get("release_policy"),
+        "release policy is missing",
+    )
+    require(
+        release_policy
+        == {
+            "live_writes_default": False,
+            "odoo_write_default": False,
+            "live_apply_authorized_default": False,
+            "production_release_requires_independent_human_approval": True,
+            "production_release_environment": "production",
+        },
+        "release policy drift",
+    )
+
+
 def validate_source_policy() -> dict[str, Any]:
     policy = load_json(POLICY_PATH)
     require(policy.get("schema_version") == "1.0", "unsupported governance schema")
     require(
-        policy.get("repository") == "appolon1908-hue/Middleware-",
+        policy.get("repository") == "appolon1908/Middleware-",
         "repository authority drift",
     )
 
-    authority = policy.get("authority")
-    require(isinstance(authority, dict), "authority policy is missing")
+    authority = require_mapping(policy.get("authority"), "authority policy is missing")
     require(authority.get("default_branch") == "main", "main must remain the default branch")
     for key in (
         "deployment_from_unreviewed_ref_allowed",
@@ -104,8 +257,7 @@ def validate_source_policy() -> dict[str, Any]:
     ):
         require(authority.get(key) is False, f"{key} must remain false")
 
-    merge = policy.get("merge_policy")
-    require(isinstance(merge, dict), "merge policy is missing")
+    merge = require_mapping(policy.get("merge_policy"), "merge policy is missing")
     expected_merge = {
         "allow_squash_merge": True,
         "allow_merge_commit": False,
@@ -117,12 +269,15 @@ def validate_source_policy() -> dict[str, Any]:
     }
     require(merge == expected_merge, "merge policy drift")
 
-    rules = policy.get("default_branch_ruleset")
-    require(isinstance(rules, dict), "default branch ruleset is missing")
+    rules = require_mapping(
+        policy.get("default_branch_ruleset"),
+        "default branch ruleset is missing",
+    )
     require(rules.get("pattern") == "main", "ruleset must target main")
     require(rules.get("enforcement") == "active", "ruleset must be active")
     for key in (
         "require_pull_request",
+        "require_code_owner_review",
         "require_review_thread_resolution",
         "require_linear_history",
         "require_status_checks_to_pass",
@@ -142,19 +297,13 @@ def validate_source_policy() -> dict[str, Any]:
         EXPECTED_REQUIRED_STATUS_CHECKS,
         label="required status checks",
     )
+    validate_environment_release_policy(policy)
 
-    codeowners = CODEOWNERS_PATH.read_text(encoding="utf-8")
-    require(
-        "@appolon1908-hue" in codeowners,
-        "CODEOWNERS does not identify the repository owner",
-    )
+    validate_codeowners(CODEOWNERS_PATH.read_text(encoding="utf-8"))
 
     for workflow in sorted(WORKFLOW_DIR.glob("*.y*ml")):
         text = workflow.read_text(encoding="utf-8")
-        require(
-            "pull_request_target:" not in text,
-            f"{workflow.name}: pull_request_target is forbidden",
-        )
+        validate_pull_request_target_workflow(workflow, text)
         require("write-all" not in text, f"{workflow.name}: write-all permission is forbidden")
         for action, ref in USES.findall(text):
             if action.startswith("./"):
@@ -172,7 +321,11 @@ def validate_source_policy() -> dict[str, Any]:
     production_environment_users = [
         workflow.name
         for workflow in sorted(WORKFLOW_DIR.glob("*.y*ml"))
-        if "environment: production" in workflow.read_text(encoding="utf-8")
+        if re.search(
+            r"^\s*environment:\s*production\s*$",
+            workflow.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
     ]
     require(
         production_environment_users == ["automated-production-promotion.yml"],
@@ -203,30 +356,35 @@ def validate_source_policy() -> dict[str, Any]:
 def validate_skip_register() -> None:
     register = load_json(SKIP_REGISTER_PATH)
     require(register.get("schema_version") == "1.0", "unsupported skip-register schema")
-    entries = register.get("registered_files")
-    require(isinstance(entries, list) and entries, "skip register is empty")
+    entries = require_list(
+        register.get("registered_files"),
+        "skip register is empty",
+        nonempty=True,
+    )
     registered: dict[str, dict[str, Any]] = {}
-    for item in entries:
-        require(isinstance(item, dict), "invalid skip-register entry")
-        path = item.get("path")
-        require(isinstance(path, str) and path, "skip-register path is invalid")
-        require(path not in registered, f"duplicate skip-register entry: {path}")
-        require(isinstance(item.get("gate"), str) and item["gate"], f"{path}: gate is required")
+    for value in entries:
+        item = require_mapping(value, "invalid skip-register entry")
+        registered_path = require_string(item.get("path"), "skip-register path is invalid")
         require(
-            isinstance(item.get("required_job"), str) and item["required_job"],
-            f"{path}: required_job is required",
+            registered_path not in registered,
+            f"duplicate skip-register entry: {registered_path}",
         )
-        registered[path] = item
+        require_string(item.get("gate"), f"{registered_path}: gate is required")
+        require_string(
+            item.get("required_job"),
+            f"{registered_path}: required_job is required",
+        )
+        registered[registered_path] = item
 
     observed: set[str] = set()
     roots = (ROOT / "tests", ROOT / "services" / "connector-runtime" / "tests")
     for test_root in roots:
         if not test_root.exists():
             continue
-        for path in sorted(test_root.rglob("test_*.py")):
-            text = path.read_text(encoding="utf-8")
+        for test_path in sorted(test_root.rglob("test_*.py")):
+            text = test_path.read_text(encoding="utf-8")
             if SKIP_TOKEN.search(text):
-                observed.add(path.relative_to(ROOT).as_posix())
+                observed.add(test_path.relative_to(ROOT).as_posix())
 
     missing = observed - set(registered)
     stale = set(registered) - observed
@@ -236,10 +394,10 @@ def validate_skip_register() -> None:
     workflow_text = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted(WORKFLOW_DIR.glob("*.y*ml"))
     )
-    for path, item in registered.items():
+    for registered_path, item in registered.items():
         require(
             item["required_job"] in workflow_text,
-            f"{path}: required CI job is not present",
+            f"{registered_path}: required CI job is not present",
         )
 
 
@@ -263,13 +421,11 @@ def api_get(url: str, token: str) -> Any:
 
 
 def rules_by_type(ruleset: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    rules = ruleset.get("rules")
-    require(isinstance(rules, list), "live ruleset rules are unavailable")
+    rules = require_list(ruleset.get("rules"), "live ruleset rules are unavailable")
     result: dict[str, dict[str, Any]] = {}
-    for item in rules:
-        require(isinstance(item, dict), "live ruleset contains an invalid rule")
-        rule_type = item.get("type")
-        require(isinstance(rule_type, str) and rule_type, "live ruleset rule type is invalid")
+    for value in rules:
+        item = require_mapping(value, "live ruleset contains an invalid rule")
+        rule_type = require_string(item.get("type"), "live ruleset rule type is invalid")
         require(rule_type not in result, f"live ruleset has duplicate rule type: {rule_type}")
         result[rule_type] = item
     return result
@@ -283,7 +439,7 @@ def validate_live_ruleset(
     require(ruleset.get("target") == "branch", "live ruleset does not target branches")
     require(ruleset.get("source_type") == "Repository", "live ruleset is not repository-owned")
     require(
-        ruleset.get("source") == "appolon1908-hue/Middleware-",
+        ruleset.get("source") == "appolon1908/Middleware-",
         "live ruleset source drift",
     )
     require(
@@ -294,14 +450,22 @@ def validate_live_ruleset(
     require("bypass_actors" in ruleset, "admin token cannot inspect live ruleset bypass actors")
     require(ruleset.get("bypass_actors") == [], "live ruleset permits bypass actors")
 
-    conditions = ruleset.get("conditions")
-    require(isinstance(conditions, dict), "live ruleset conditions are unavailable")
-    ref_name = conditions.get("ref_name")
-    require(isinstance(ref_name, dict), "live ruleset ref-name condition is unavailable")
-    includes = ref_name.get("include")
-    excludes = ref_name.get("exclude")
-    require(isinstance(includes, list), "live ruleset include condition is invalid")
-    require(isinstance(excludes, list), "live ruleset exclude condition is invalid")
+    conditions = require_mapping(
+        ruleset.get("conditions"),
+        "live ruleset conditions are unavailable",
+    )
+    ref_name = require_mapping(
+        conditions.get("ref_name"),
+        "live ruleset ref-name condition is unavailable",
+    )
+    includes = require_list(
+        ref_name.get("include"),
+        "live ruleset include condition is invalid",
+    )
+    excludes = require_list(
+        ref_name.get("exclude"),
+        "live ruleset exclude condition is invalid",
+    )
     allowed_targets = {"~DEFAULT_BRANCH", "refs/heads/main"}
     include_set = set(includes)
     require(
@@ -324,9 +488,8 @@ def validate_live_ruleset(
         "live ruleset missing controls: " + ", ".join(sorted(missing_rule_types)),
     )
 
-    pull_request_parameters = observed_rules["pull_request"].get("parameters")
-    require(
-        isinstance(pull_request_parameters, dict),
+    pull_request_parameters = require_mapping(
+        observed_rules["pull_request"].get("parameters"),
         "live pull-request rule parameters are unavailable",
     )
     require(
@@ -340,14 +503,18 @@ def validate_live_ruleset(
         "live stale-review dismissal drift",
     )
     require(
+        pull_request_parameters.get("require_code_owner_review")
+        is encoded.get("require_code_owner_review"),
+        "live code-owner review requirement drift",
+    )
+    require(
         pull_request_parameters.get("required_review_thread_resolution")
         is encoded.get("require_review_thread_resolution"),
         "live review-thread resolution drift",
     )
 
-    status_parameters = observed_rules["required_status_checks"].get("parameters")
-    require(
-        isinstance(status_parameters, dict),
+    status_parameters = require_mapping(
+        observed_rules["required_status_checks"].get("parameters"),
         "live status-check rule parameters are unavailable",
     )
     require(
@@ -355,35 +522,53 @@ def validate_live_ruleset(
         is encoded.get("require_branch_up_to_date"),
         "live branch-up-to-date requirement drift",
     )
-    required_checks = status_parameters.get("required_status_checks")
-    require(isinstance(required_checks, list), "live required status checks are unavailable")
-    contexts: list[str] = []
-    for item in required_checks:
-        require(isinstance(item, dict), "live required status check is invalid")
-        context = item.get("context")
-        require(isinstance(context, str) and context, "live status-check context is invalid")
-        contexts.append(context)
+    required_checks = require_list(
+        status_parameters.get("required_status_checks"),
+        "live required status checks are unavailable",
+    )
+    check_bindings: list[tuple[str, int]] = []
+    for value in required_checks:
+        item = require_mapping(value, "live required status check is invalid")
+        context = require_string(item.get("context"), "live status-check context is invalid")
+        integration_id = item.get("integration_id")
+        if not isinstance(integration_id, int) or integration_id <= 0:
+            raise GovernanceError("live status-check integration ID is invalid")
+        check_bindings.append((context, integration_id))
     require_exact_strings(
-        contexts,
+        [context for context, _ in check_bindings],
         EXPECTED_REQUIRED_STATUS_CHECKS,
         label="live required status checks",
+    )
+    require(
+        set(check_bindings)
+        == {
+            (context, REQUIRED_CHECK_APP_ID)
+            for context in EXPECTED_REQUIRED_STATUS_CHECKS
+        },
+        "live required status-check app binding drift",
     )
 
 
 def validate_live(policy: dict[str, Any]) -> None:
     token = os.environ.get("CODESTRA_REPOSITORY_ADMIN_TOKEN", "")
     require(bool(token), "CODESTRA_REPOSITORY_ADMIN_TOKEN is required for --live")
-    base = "https://api.github.com/repos/appolon1908-hue/Middleware-"
-    repo = api_get(base, token)
-    merge = policy["merge_policy"]
+    base = "https://api.github.com/repos/appolon1908/Middleware-"
+    repo = require_mapping(api_get(base, token), "live repository response is invalid")
+    merge = require_mapping(policy["merge_policy"], "merge policy is missing")
     for key, expected in merge.items():
         require(repo.get(key) is expected, f"live repository setting drift: {key}")
 
-    branch = api_get(f"{base}/branches/main", token)
+    branch = require_mapping(
+        api_get(f"{base}/branches/main", token),
+        "live branch response is invalid",
+    )
     require(branch.get("protected") is True, "live main branch is not protected")
 
-    rulesets = api_get(f"{base}/rulesets?per_page=100", token)
-    require(isinstance(rulesets, list) and rulesets, "live repository has no ruleset")
+    rulesets = require_list(
+        api_get(f"{base}/rulesets?per_page=100", token),
+        "live repository has no ruleset",
+        nonempty=True,
+    )
     matching = [
         item
         for item in rulesets

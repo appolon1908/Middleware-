@@ -12,7 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from architecture.site_architecture import workstreams as supplemental_workstreams
+from architecture.site_architecture import (  # noqa: E402
+    workstreams as supplemental_workstreams,
+)
 
 BASE_MANIFEST = ROOT / "config" / "integration-branches.json"
 

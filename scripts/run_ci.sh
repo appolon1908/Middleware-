@@ -27,6 +27,9 @@ python3 scripts/validate_repository_governance.py
 printf '==> Validating live-governance applier source plan\n'
 python3 scripts/apply_repository_governance.py
 
+# The mandatory bundle validator runs in project_ci.sh after hash-locked
+# dependencies are installed, before pytest; clean source jobs have no PyYAML.
+
 printf '==> Validating strict automation v2 route conformance\n'
 python3 scripts/validate_automation_contract_conformance.py
 
@@ -35,6 +38,10 @@ python3 scripts/validate_automation_operation_policy.py
 
 printf '==> Validating repository safety controls\n'
 python3 scripts/validate_repository.py
+
+printf '==> Validating Middleware authority convergence controls\n'
+python3 scripts/validate_middleware_authority_convergence.py
+python3 scripts/validate_middleware_authority_assets.py
 
 printf '==> Validating integration workstream manifest\n'
 python3 scripts/validate_workstream_manifest.py

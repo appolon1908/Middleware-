@@ -16,7 +16,7 @@ from app.provider_control_api import (
     normalize_payload_key,
 )
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.security import AuthenticationError
 from app.storage import MemoryInboxStore
 from middleware.connector_sdk.standards import is_secret_key_name
@@ -195,6 +195,55 @@ def test_provider_control_routes_require_exact_caller_scope_and_tenant(
 
         wrong_tenant = {**_headers(spec), "X-Tenant-ID": "tenant-2"}
         assert client.post(spec.route, headers=wrong_tenant, json=body).status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("name", "second"),
+    (
+        ("Authorization", "Bearer duplicate:token"),
+        ("X-Tenant-ID", "tenant-2"),
+        ("X-Correlation-ID", "provider-control-correlation-2"),
+        ("Idempotency-Key", "provider-control-idempotency-2"),
+    ),
+)
+def test_provider_control_routes_reject_duplicate_security_headers(
+    test_settings,
+    name: str,
+    second: str,
+) -> None:
+    spec = PROVIDER_CONTROL_SPECS[0]
+    runtime = _runtime(test_settings, capabilities_enabled=True)
+    app = create_app(settings=test_settings, runtime=runtime)
+    headers = list(_headers(spec).items()) + [(name, second)]
+    body = {"operation_id": str(uuid4()), "payload": {"reference": "safe"}}
+
+    with TestClient(app) as client:
+        response = client.post(spec.route, headers=headers, json=body)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert not runtime.commands.store._commands  # type: ignore[union-attr]
+
+
+def test_provider_control_authentication_precedes_storage_disclosure(
+    test_settings,
+) -> None:
+    spec = PROVIDER_CONTROL_SPECS[0]
+    runtime = _runtime(test_settings, capabilities_enabled=True)
+    runtime.commands = None
+    app = create_app(settings=test_settings, runtime=runtime)
+    body = {"operation_id": str(uuid4()), "payload": {"reference": "safe"}}
+
+    with TestClient(app) as client:
+        unauthorized = client.post(
+            spec.route,
+            headers={**_headers(spec), "Authorization": "Bearer invalid"},
+            json=body,
+        )
+        unavailable = client.post(spec.route, headers=_headers(spec), json=body)
+
+    assert unauthorized.status_code == 401
+    assert unavailable.status_code == 503
 
 
 def test_provider_control_routes_fail_closed_when_capability_is_disabled(

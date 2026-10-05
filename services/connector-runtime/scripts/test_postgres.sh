@@ -5,6 +5,33 @@ set -Eeuo pipefail
 : "${APP_DATABASE_URL:?APP_DATABASE_URL is required}"
 : "${POSTGRES_TOOL_IMAGE:?POSTGRES_TOOL_IMAGE is required}"
 
+# This script performs destructive schema and database operations and is only
+# safe against the disposable loopback PostgreSQL service created by CI.
+python3 - "$ADMIN_DATABASE_URL" "$APP_DATABASE_URL" <<'PY'
+import ipaddress
+import sys
+from urllib.parse import urlsplit
+
+for name, value in zip(("ADMIN_DATABASE_URL", "APP_DATABASE_URL"), sys.argv[1:], strict=True):
+    parsed = urlsplit(value)
+    if parsed.scheme not in {
+        "postgres",
+        "postgresql",
+        "postgresql+psycopg",
+        "postgresql+psycopg_async",
+    }:
+        raise SystemExit(f"{name} must use PostgreSQL")
+    hostname = parsed.hostname
+    try:
+        loopback = hostname == "localhost" or (
+            hostname is not None and ipaddress.ip_address(hostname).is_loopback
+        )
+    except ValueError:
+        loopback = False
+    if not loopback:
+        raise SystemExit(f"{name} must target a disposable loopback database")
+PY
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 

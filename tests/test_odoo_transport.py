@@ -399,25 +399,25 @@ LONG_SECRET = "s" * 40
 
 
 def settings_for(**overrides: str):
-    from app.config import Settings
+    from app.core.config import Settings
 
     return Settings.from_env({**BASE_ENV, **overrides})
 
 
 def test_odoo_delivery_is_closed_by_default() -> None:
     settings = settings_for()
-    assert settings.odoo_delivery_enabled is False
+    assert settings.odoo_19_delivery_enabled is False
 
 
 def test_enabling_odoo_write_requires_a_configured_endpoint() -> None:
-    from app.config import ConfigurationError
+    from app.core.config import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         settings_for(ODOO_WRITE="true")
 
 
 def test_odoo_endpoint_must_be_https() -> None:
-    from app.config import ConfigurationError
+    from app.core.config import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         settings_for(
@@ -428,7 +428,7 @@ def test_odoo_endpoint_must_be_https() -> None:
 
 
 def test_odoo_secret_must_be_long_enough() -> None:
-    from app.config import ConfigurationError
+    from app.core.config import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         settings_for(
@@ -439,7 +439,7 @@ def test_odoo_secret_must_be_long_enough() -> None:
 
 
 def test_source_scoped_delivery_cannot_outrun_the_write_capability() -> None:
-    from app.config import ConfigurationError
+    from app.core.config import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         settings_for(
@@ -457,7 +457,7 @@ def test_fully_configured_odoo_delivery_validates() -> None:
         ODOO_19_BASE_URL=BASE_URL,
         ODOO_19_HMAC_SECRET=LONG_SECRET,
     )
-    assert settings.odoo_delivery_enabled is True
+    assert settings.odoo_19_delivery_enabled is True
     assert settings.odoo_source_delivery_enabled("submitted_by_person") is True
     assert settings.odoo_source_delivery_enabled("crawler_discovery") is False
     assert settings.odoo_secret_for("any-tenant") == LONG_SECRET.encode("utf-8")
@@ -489,14 +489,14 @@ def test_per_tenant_secret_map_is_parsed_and_preferred() -> None:
 
 
 def test_malformed_tenant_secret_map_fails_closed() -> None:
-    from app.config import ConfigurationError
+    from app.core.config import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         settings_for(ODOO_19_TENANT_HMAC_SECRETS="not-json")
 
 
 def test_unimplemented_effects_still_cannot_be_enabled() -> None:
-    from app.config import ConfigurationError
+    from app.core.config import ConfigurationError
 
     with pytest.raises(ConfigurationError):
         settings_for(SMS_DELIVERY_ENABLED="true")

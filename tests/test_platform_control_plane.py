@@ -4,7 +4,8 @@ import asyncio
 import json
 from dataclasses import replace
 from pathlib import Path
-from types import SimpleNamespace
+from unittest.mock import Mock
+from app.core.config import Settings
 from typing import Any
 from uuid import uuid4
 
@@ -16,7 +17,7 @@ from app.commands import CommandPolicy, CommandPolicyRegistry, CommandService, M
 from app.main import create_app
 from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 from app.temporal_workflows import ActivityResult, CommandExecutionRequest
 
@@ -126,13 +127,7 @@ def _body() -> dict[str, Any]:
 def test_legacy_n8n_control_plane_submit_and_status_remain_tenant_scoped(
     test_settings,
 ) -> None:
-    settings = replace(
-        test_settings,
-        umbrella_controls={
-            **test_settings.umbrella_controls,
-            "N8N_EXTERNAL_PROVIDER_WRITES": True,
-        },
-    )
+    settings = test_settings.replace(umbrella_n8n_external_provider_writes=True)
     runtime = Runtime(
         settings=settings,
         inbox=MemoryInboxStore(),
@@ -141,7 +136,8 @@ def test_legacy_n8n_control_plane_submit_and_status_remain_tenant_scoped(
         commands=CommandService(MemoryCommandStore(), _policy()),
     )
     body = _body()
-    app = create_app(settings=settings, runtime=runtime)
+    # The deprecated /v1/integrations/n8n/* aliases exist only on the monolith.
+    app = create_app(settings=settings, runtime=runtime, legacy_monolith=True)
     with TestClient(app) as client:
         submitted = client.post(
             "/v1/integrations/n8n/commands",
@@ -188,7 +184,7 @@ def _request(command_type: str = "crm.lead.upsert") -> CommandExecutionRequest:
 
 
 def _adapter() -> OdooProviderAdapter:
-    settings = SimpleNamespace(
+    settings = Mock(spec=Settings,
         app_env="test",
         external_effects={"ODOO_WRITE": True},
         umbrella_controls={"N8N_EXTERNAL_PROVIDER_WRITES": True},
@@ -204,7 +200,7 @@ def _adapter() -> OdooProviderAdapter:
 
 
 def test_odoo_adapter_fails_closed_when_write_capability_is_off() -> None:
-    settings = SimpleNamespace(
+    settings = Mock(spec=Settings,
         app_env="test",
         external_effects={"ODOO_WRITE": False},
         umbrella_controls={"N8N_EXTERNAL_PROVIDER_WRITES": True},
@@ -216,7 +212,7 @@ def test_odoo_adapter_fails_closed_when_write_capability_is_off() -> None:
 
 
 def test_odoo_adapter_rechecks_n8n_kill_switch_at_execution() -> None:
-    settings = SimpleNamespace(
+    settings = Mock(spec=Settings,
         app_env="test",
         external_effects={"ODOO_WRITE": True},
         umbrella_controls={"N8N_EXTERNAL_PROVIDER_WRITES": False},
@@ -245,7 +241,7 @@ def test_odoo_adapter_rejects_legacy_workflow_without_client_provenance() -> Non
 
 
 def test_odoo_adapter_enforces_canonical_source_gate_on_legacy_temporal_rows() -> None:
-    settings = SimpleNamespace(
+    settings = Mock(spec=Settings,
         app_env="test",
         external_effects={"ODOO_WRITE": True},
         umbrella_controls={"N8N_EXTERNAL_PROVIDER_WRITES": True},
@@ -261,7 +257,7 @@ def test_odoo_adapter_enforces_canonical_source_gate_on_legacy_temporal_rows() -
 
 
 def test_odoo_readback_identity_validation_does_not_require_write_gate() -> None:
-    settings = SimpleNamespace(
+    settings = Mock(spec=Settings,
         app_env="test",
         external_effects={"ODOO_WRITE": False},
         umbrella_controls={"N8N_EXTERNAL_PROVIDER_WRITES": True},
@@ -377,7 +373,7 @@ def test_odoo_adapter_keeps_timeout_unknown_when_status_mismatches(monkeypatch) 
 
 def test_odoo_hmac_matches_cross_repository_golden_vector() -> None:
     document = json.loads(HMAC_VECTOR["body_utf8"])
-    settings = SimpleNamespace(
+    settings = Mock(spec=Settings,
         app_env="test",
         external_effects={"ODOO_WRITE": True},
         umbrella_controls={"N8N_EXTERNAL_PROVIDER_WRITES": True},

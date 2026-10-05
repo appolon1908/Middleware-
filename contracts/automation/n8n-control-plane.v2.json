@@ -1,9 +1,11 @@
 {
   "schema_version": "2.1",
-  "status": "SOURCE_ONLY",
-  "implementation_status": "NOT_IMPLEMENTED",
-  "runtime_test_evidence": "NOT_AVAILABLE",
+  "status": "SOURCE_IMPLEMENTED_RUNTIME_NOT_DEPLOYED",
+  "implementation_status": "IMPLEMENTED_SOURCE_CANDIDATE",
+  "runtime_test_evidence": "EXACT_HEAD_CI_AND_STAGING_REQUIRED",
   "independent_approval": "PENDING",
+  "command_envelope_authority": "contracts/automation/command-envelope-authority.v1.json",
+  "workflow_routing_authority": "config/automation-workflow-routing.v1.json",
   "authority": {
     "job_ledger": "codestra-middleware-postgresql",
     "orchestration": "n8n",
@@ -38,16 +40,16 @@
     "GET /v2/automation/capabilities/{capability}"
   ],
   "durable_models": [
-    "automation_jobs",
-    "automation_job_attempts",
-    "automation_job_steps",
-    "automation_job_leases",
-    "automation_approvals",
-    "automation_commands",
-    "automation_command_attempts",
-    "automation_dead_letters",
-    "automation_reconciliation_runs",
-    "automation_dispatch_outbox"
+    "middleware_automation_jobs",
+    "middleware_automation_job_steps",
+    "middleware_automation_approvals",
+    "middleware_commands",
+    "middleware_command_attempts",
+    "middleware_automation_dead_letters",
+    "middleware_automation_replay_requests",
+    "middleware_automation_reconciliation_runs",
+    "middleware_automation_dispatch_outbox",
+    "middleware_automation_audit"
   ],
   "required_job_metadata": [
     "event_id",
@@ -102,15 +104,21 @@
   },
   "evidence_state": {
     "design_contract": "PRESENT",
-    "database_migrations": "PENDING",
-    "runtime_api": "PENDING",
-    "authorization_tests": "PENDING",
-    "idempotency_tests": "PENDING",
-    "concurrency_tests": "PENDING",
-    "lease_recovery_tests": "PENDING",
-    "unknown_outcome_tests": "PENDING",
-    "staging_no_effect_tests": "PENDING",
-    "backup_restore_tests": "PENDING",
-    "rollback_rehearsal": "PENDING"
+    "database_migrations": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "runtime_api": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "authorization_tests": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "idempotency_tests": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "concurrency_tests": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "lease_recovery_tests": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "unknown_outcome_tests": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "staging_no_effect_tests": "PENDING_PROTECTED_RUNTIME",
+    "backup_restore_tests": "PENDING_PROTECTED_RUNTIME",
+    "rollback_rehearsal": "PENDING_PROTECTED_RUNTIME"
+  },
+  "release_safety": {
+    "workflows_active": false,
+    "external_effects_enabled": false,
+    "runtime_deployment_authorized": false,
+    "production_promotion_authorized": false
   }
 }

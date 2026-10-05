@@ -35,7 +35,7 @@ from app.observability_incidents import (
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 RUN = os.getenv("RUNTIME_INTEGRATION_TESTS") == "1"
 TENANT_ID = f"observability-incident-integration-{uuid.uuid4()}"
-ACTOR_ID = "service-account-alertmanager-service"
+ACTOR_ID = "service-account-alertmanager"
 GROUP_KEY = '{}:{alertname="IncidentIntegration"}'
 
 pytestmark = pytest.mark.skipif(

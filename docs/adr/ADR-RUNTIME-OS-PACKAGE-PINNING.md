@@ -18,7 +18,7 @@ WHY_IT_BROKE=Alpine's repository and the pinned base moved as a set to OpenSSL 3
 
 ## Decision
 
-NEW_POLICY=Pin immutable builder, test, and final base-image digests. Do not upgrade OS packages during the build. Production final images use the pinned distroless base and install no OS packages. The test target uses a pinned Debian base whose immutable filesystem already supplies OpenSSL 3.0.20; it does not install or independently pin an OpenSSL package revision.
+NEW_POLICY=Pin immutable builder, test, and final base-image digests. Do not run uncontrolled OS package upgrades during the build. When a pinned Bookworm final base carries a fixable security finding, the reviewed patched-final-base stage may install only exact Debian security revisions that are explicitly validated by repository policy. The test target remains pinned separately and uses its base-provided OpenSSL 3.0.20.
 
 Python dependencies remain exact and hash-locked. A change to any base digest,
 lock file, Python version, or expected test OpenSSL version is a reviewed build

@@ -5,11 +5,18 @@ the build-system change. Image IDs are local BuildKit results, not published
 release digests and not a claim of byte-for-byte deterministic construction.
 CI rebuilds the final PR SHA and publishes SBOM artifacts.
 
+The production runtime is rebuilt from the immutable Python slim Bookworm base with
+exact Debian security revisions `libpcre2-8-0=10.42-1+deb12u2`,
+`libssl3=3.0.22-1~deb12u1`, and `openssl=3.0.22-1~deb12u1`.
+This keeps remediation bounded to reviewed package pins rather than an uncontrolled
+distribution upgrade. The supply-chain validator rejects removal or loosening of
+these exact runtime pins.
+
 ```text
 SOURCE_SHA=844d13c7ba808653a7d982c63353bc67cdc9adef (frozen main used for local candidate labels)
-BASE_IMAGE_DIGESTS=python builder sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1; test sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13; final sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33
+BASE_IMAGE_DIGESTS=python builder sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1; test sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13; final sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1
 OPENSSL_VERSION=3.0.20 (test image only)
-PYTHON_VERSION=3.13.15 builder/test; 3.13.5 distroless final
+PYTHON_VERSION=3.13.15 builder/test; 3.13.15 slim Bookworm final
 LOCKFILE_HASH=runtime 114b8f10bb38ea322e9989db460d3c4f7539ab89d9d0656e4f7efc4572eb4447; test 81ada0e0c804a7cb2e32772088292b563fa5b51c9371f7c7cc0132ef25a006c8; connector db28131adce3fb29e0b3ffb77ee427160dd9973f5d3320288d8b354971f01595
 DOCKERFILE_HASH=7b31bc40fb99a8314c44d2e24589fe8958ce07e62a3148e0db4720fd8eb38b6a
 

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from .config import Settings
+from app.core.config import Settings
 from .storage import NATS_JETSTREAM_DESTINATION, OutboxRecord
 
 

@@ -6,14 +6,14 @@ Normal alerts do not use direct Alertmanager SMTP. The approved path is:
 
 ```text
 Prometheus
-  -> Alertmanager (`alertmanager-service`)
+  -> Alertmanager (`alertmanager`)
   -> POST /v1/integrations/alertmanager/events
   -> Middleware durable command ledger and outbox
   -> Temporal command execution
   -> `KlyrowAlertAdapter`
   -> Klyrow private API `/v1/email/messages`
   -> fixed sender `alerts@codestra.co`
-  -> fixed recipient `appolon@codestra.co`
+  -> fixed recipient `appolon1908@gmail.com`
 ```
 
 This preserves authentication, tenant policy, idempotency, audit, retries, unknown-outcome reconciliation, and provider read-back.
@@ -31,10 +31,10 @@ This preserves authentication, tenant policy, idempotency, audit, retries, unkno
 
 ## Authentication
 
-`alertmanager-service` uses Client Credentials with audience `middleware-api` and scopes:
+`alertmanager` uses Client Credentials with audience `middleware-api` and scopes:
 
-- `observability.alerts.write`
-- `observability.alerts.read`
+- `alerts.write`
+- `alerts.read`
 
 `middleware-alert-delivery` uses Client Credentials with audience `klyrow-email` and scopes:
 

@@ -9,14 +9,14 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK_PATH = ROOT / "config" / "production-integration-lock.v1.json"
 EVIDENCE_DIR = ROOT / "artifacts" / "production-integration-lock"
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-REPO_RE = re.compile(r"^appolon1908-hue/[A-Za-z0-9_.-]+$")
+REPO_RE = re.compile(r"^appolon1908/[A-Za-z0-9_.-]+$")
 SOURCE_STATES = {
     "protected_source_ready",
     "candidate_pending_review",
@@ -88,21 +88,73 @@ class LockError(RuntimeError):
     """The integration lock would permit an unsupported production claim."""
 
 
-def require(condition: bool, message: str) -> None:
+def require(condition: object, message: str) -> None:
     if not condition:
         raise LockError(message)
 
 
-def load_lock(path: Path = LOCK_PATH) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise LockError(f"cannot load integration lock: {path}") from exc
-    require(isinstance(value, dict), "integration lock must be an object")
+def require_mapping(value: object, message: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise LockError(message)
+    require(
+        all(isinstance(key, str) for key in value),
+        f"{message}: keys must be strings",
+    )
+    return cast(Mapping[str, Any], value)
+
+
+def require_list(value: object, message: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise LockError(message)
     return value
 
 
-def expand_component(raw: Mapping[str, Any], defaults: Mapping[str, Any]) -> dict[str, Any]:
+def require_nonempty_string(value: object, message: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise LockError(message)
+    return value
+
+
+def require_integer(value: object, message: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise LockError(message)
+    return value
+
+
+def unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
+
+
+def reject_nonstandard_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON constant: {value}")
+
+
+def load_lock(path: Path = LOCK_PATH) -> dict[str, Any]:
+    try:
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=unique_json_object,
+            parse_constant=reject_nonstandard_json_constant,
+        )
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise LockError(f"cannot load integration lock: {path}") from exc
+    if not isinstance(value, dict):
+        raise LockError("integration lock must be an object")
+    require(
+        all(isinstance(key, str) for key in value),
+        "integration lock keys must be strings",
+    )
+    return cast(dict[str, Any], value)
+
+
+def expand_component(
+    raw: Mapping[str, Any], defaults: Mapping[str, Any]
+) -> dict[str, Any]:
     require(set(raw).issubset(COMPONENT_ALLOWED_KEYS), "unknown component field")
     require(COMPONENT_REQUIRED_KEYS.issubset(raw), "component identity fields missing")
     row = copy.deepcopy(dict(defaults))
@@ -115,25 +167,30 @@ def validate_candidate(component_id: str, candidate: Mapping[str, Any]) -> None:
         set(candidate) == {"n", "sha", "base", "status", "merge"},
         f"{component_id}: candidate field drift",
     )
-    require(
-        isinstance(candidate.get("n"), int) and candidate["n"] > 0,
-        f"{component_id}: invalid PR number",
+    number = require_integer(candidate.get("n"), f"{component_id}: invalid PR number")
+    require(number > 0, f"{component_id}: invalid PR number")
+    sha = require_nonempty_string(
+        candidate.get("sha"), f"{component_id}: invalid candidate SHA"
     )
     require(
-        isinstance(candidate.get("sha"), str)
-        and SHA_RE.fullmatch(candidate["sha"]),
+        SHA_RE.fullmatch(sha) is not None,
         f"{component_id}: invalid candidate SHA",
     )
-    require(
-        isinstance(candidate.get("base"), str) and candidate["base"],
-        f"{component_id}: candidate base missing",
+    require_nonempty_string(
+        candidate.get("base"), f"{component_id}: candidate base missing"
+    )
+    status = require_nonempty_string(
+        candidate.get("status"), f"{component_id}: invalid candidate status"
     )
     require(
-        candidate.get("status") in CANDIDATE_STATES,
+        status in CANDIDATE_STATES,
         f"{component_id}: invalid candidate status",
     )
+    merge_method = require_nonempty_string(
+        candidate.get("merge"), f"{component_id}: invalid merge method"
+    )
     require(
-        candidate.get("merge") in {"squash", "merge"},
+        merge_method in {"squash", "merge"},
         f"{component_id}: invalid merge method",
     )
 
@@ -143,15 +200,19 @@ def validate_certification(
     certification: Mapping[str, Any],
 ) -> None:
     cid = str(component["id"])
-    require(set(certification) == CERTIFICATION_FIELDS, f"{cid}: certification field drift")
-    digest = certification.get("immutable_image_digest")
     require(
-        isinstance(digest, str) and DIGEST_RE.fullmatch(digest),
+        set(certification) == CERTIFICATION_FIELDS, f"{cid}: certification field drift"
+    )
+    digest = require_nonempty_string(
+        certification.get("immutable_image_digest"),
+        f"{cid}: immutable digest required",
+    )
+    require(
+        DIGEST_RE.fullmatch(digest) is not None,
         f"{cid}: immutable digest required",
     )
     for field in CERTIFICATION_FIELDS - {"immutable_image_digest"}:
-        value = certification.get(field)
-        require(isinstance(value, str) and value.strip(), f"{cid}: {field} required")
+        require_nonempty_string(certification.get(field), f"{cid}: {field} required")
     require(
         component["source"] == "protected_source_ready",
         f"{cid}: certified runtime requires protected source",
@@ -167,27 +228,38 @@ def validate_lock(value: Mapping[str, Any]) -> dict[str, Any]:
         "lock ID drift",
     )
     require(value.get("decision") == "NO_GO", "source lock decision must remain NO_GO")
-    require(value.get("production_activated") is False, "production must remain inactive")
-
-    authority = value.get("authority")
-    require(isinstance(authority, Mapping), "authority missing")
     require(
-        authority.get("repository") == "appolon1908-hue/Middleware-",
+        value.get("production_activated") is False, "production must remain inactive"
+    )
+
+    authority = require_mapping(value.get("authority"), "authority missing")
+    require(
+        authority.get("repository") == "appolon1908/Middleware-",
         "authority repository drift",
     )
-    base_sha = authority.get("base_sha")
+    base_sha = require_nonempty_string(
+        authority.get("base_sha"), "authority base SHA invalid"
+    )
     require(
-        isinstance(base_sha, str) and SHA_RE.fullmatch(base_sha),
+        SHA_RE.fullmatch(base_sha) is not None,
         "authority base SHA invalid",
     )
 
-    policy = value.get("release_policy")
-    require(isinstance(policy, Mapping), "release policy missing")
-    require(policy.get("immutable_artifacts_only") is True, "immutable artifacts are required")
-    require(policy.get("rebuild_between_environments") is False, "environment rebuilds are forbidden")
-    percent = policy.get("max_read_only_canary_percent")
+    policy = require_mapping(value.get("release_policy"), "release policy missing")
     require(
-        isinstance(percent, int) and 0 < percent <= 1,
+        policy.get("immutable_artifacts_only") is True,
+        "immutable artifacts are required",
+    )
+    require(
+        policy.get("rebuild_between_environments") is False,
+        "environment rebuilds are forbidden",
+    )
+    percent = require_integer(
+        policy.get("max_read_only_canary_percent"),
+        "read-only canary must be <=1 percent",
+    )
+    require(
+        0 < percent <= 1,
         "read-only canary must be <=1 percent",
     )
     require(
@@ -198,33 +270,55 @@ def validate_lock(value: Mapping[str, Any]) -> dict[str, Any]:
         policy.get("required_global_gates") == GLOBAL_GATES,
         "global gate order or coverage drift",
     )
-    require(policy.get("calls_placed") == 0, "CALLS_PLACED must remain zero")
-    effects = policy.get("external_effects")
-    require(isinstance(effects, Mapping) and effects, "external effects registry missing")
+    calls_placed = require_integer(
+        policy.get("calls_placed"), "CALLS_PLACED must remain zero"
+    )
+    require(calls_placed == 0, "CALLS_PLACED must remain zero")
+    effects = require_mapping(
+        policy.get("external_effects"), "external effects registry missing"
+    )
+    require(effects, "external effects registry missing")
     for name, enabled in effects.items():
         require(isinstance(name, str) and name, "invalid external effect name")
         require(enabled is False, f"external effect must remain disabled: {name}")
 
-    defaults = value.get("component_defaults")
-    require(isinstance(defaults, Mapping), "component defaults missing")
+    defaults = require_mapping(
+        value.get("component_defaults"), "component defaults missing"
+    )
     require(set(defaults) == COMPONENT_DEFAULT_KEYS, "component default field drift")
     require(defaults.get("branch") == "main", "default branch drift")
-    require(defaults.get("source") in SOURCE_STATES, "default source state invalid")
+    default_source = require_nonempty_string(
+        defaults.get("source"), "default source state invalid"
+    )
+    require(default_source in SOURCE_STATES, "default source state invalid")
     require(defaults.get("protected") is False, "default protection must fail closed")
-    require(defaults.get("checks") in CHECK_STATES, "default checks invalid")
-    require(defaults.get("reviewer") in REVIEWER_STATES, "default reviewer invalid")
+    default_checks = require_nonempty_string(
+        defaults.get("checks"), "default checks invalid"
+    )
+    require(default_checks in CHECK_STATES, "default checks invalid")
+    default_reviewer = require_nonempty_string(
+        defaults.get("reviewer"), "default reviewer invalid"
+    )
+    require(default_reviewer in REVIEWER_STATES, "default reviewer invalid")
     require(defaults.get("prs") == [], "default PR list must be empty")
     require(defaults.get("deps") == [], "default dependencies must be empty")
-    require(defaults.get("binding") in BINDING_STATES, "default binding invalid")
-    require(defaults.get("state") == "BLOCKED", "default production state must be BLOCKED")
-    require(
-        isinstance(defaults.get("blockers"), list) and defaults["blockers"],
-        "default blockers missing",
+    default_binding = require_nonempty_string(
+        defaults.get("binding"), "default binding invalid"
     )
-
-    components_raw = value.get("components")
+    require(default_binding in BINDING_STATES, "default binding invalid")
     require(
-        isinstance(components_raw, list) and len(components_raw) >= 20,
+        defaults.get("state") == "BLOCKED", "default production state must be BLOCKED"
+    )
+    default_blockers = require_list(
+        defaults.get("blockers"), "default blockers missing"
+    )
+    require(default_blockers, "default blockers missing")
+
+    components_raw = require_list(
+        value.get("components"), "component coverage incomplete"
+    )
+    require(
+        len(components_raw) >= 20,
         "component coverage incomplete",
     )
     ids: set[str] = set()
@@ -232,44 +326,74 @@ def validate_lock(value: Mapping[str, Any]) -> dict[str, Any]:
     repository_ids: set[int] = set()
     components: list[dict[str, Any]] = []
     for raw in components_raw:
-        require(isinstance(raw, Mapping), "component must be an object")
-        row = expand_component(raw, defaults)
-        cid = row.get("id")
-        require(isinstance(cid, str) and cid, "component ID missing")
+        raw_component = require_mapping(raw, "component must be an object")
+        row = expand_component(raw_component, defaults)
+        cid = require_nonempty_string(row.get("id"), "component ID missing")
         require(cid not in ids, f"duplicate component ID: {cid}")
         ids.add(cid)
 
-        repository = row.get("repo")
+        repository = require_nonempty_string(
+            row.get("repo"), f"{cid}: invalid repository authority"
+        )
         require(
-            isinstance(repository, str) and REPO_RE.fullmatch(repository),
+            REPO_RE.fullmatch(repository) is not None,
             f"{cid}: invalid repository authority",
         )
         require(repository not in repositories, f"duplicate repository: {repository}")
         repositories.add(repository)
-        repository_id = row.get("rid")
+        repository_id = require_integer(row.get("rid"), f"{cid}: repository ID invalid")
+        require(repository_id > 0, f"{cid}: repository ID invalid")
         require(
-            isinstance(repository_id, int) and repository_id > 0,
-            f"{cid}: repository ID invalid",
+            repository_id not in repository_ids,
+            f"duplicate repository ID: {repository_id}",
         )
-        require(repository_id not in repository_ids, f"duplicate repository ID: {repository_id}")
         repository_ids.add(repository_id)
 
-        require(
-            isinstance(row.get("branch"), str) and row["branch"],
-            f"{cid}: authority branch missing",
+        require_nonempty_string(row.get("branch"), f"{cid}: authority branch missing")
+        source_sha = require_nonempty_string(
+            row.get("sha"), f"{cid}: source SHA invalid"
         )
         require(
-            isinstance(row.get("sha"), str) and SHA_RE.fullmatch(row["sha"]),
+            SHA_RE.fullmatch(source_sha) is not None,
             f"{cid}: source SHA invalid",
         )
-        require(row.get("source") in SOURCE_STATES, f"{cid}: invalid source state")
-        require(row.get("state") in PRODUCTION_STATES, f"{cid}: invalid production state")
-        require(isinstance(row.get("protected"), bool), f"{cid}: branch protection invalid")
-        require(row.get("checks") in CHECK_STATES, f"{cid}: required-check state invalid")
-        require(row.get("reviewer") in REVIEWER_STATES, f"{cid}: reviewer state invalid")
-        require(row.get("binding") in BINDING_STATES, f"{cid}: binding state invalid")
-        blockers = row.get("blockers")
-        require(isinstance(blockers, list) and blockers, f"{cid}: blockers must be explicit")
+        source_state = require_nonempty_string(
+            row.get("source"), f"{cid}: invalid source state"
+        )
+        require(source_state in SOURCE_STATES, f"{cid}: invalid source state")
+        production_state = require_nonempty_string(
+            row.get("state"), f"{cid}: invalid production state"
+        )
+        require(
+            production_state in PRODUCTION_STATES,
+            f"{cid}: invalid production state",
+        )
+        require(
+            isinstance(row.get("protected"), bool), f"{cid}: branch protection invalid"
+        )
+        check_state = require_nonempty_string(
+            row.get("checks"), f"{cid}: required-check state invalid"
+        )
+        require(check_state in CHECK_STATES, f"{cid}: required-check state invalid")
+        reviewer_state = require_nonempty_string(
+            row.get("reviewer"), f"{cid}: reviewer state invalid"
+        )
+        require(reviewer_state in REVIEWER_STATES, f"{cid}: reviewer state invalid")
+        binding_state = require_nonempty_string(
+            row.get("binding"), f"{cid}: binding state invalid"
+        )
+        require(binding_state in BINDING_STATES, f"{cid}: binding state invalid")
+        row.update(
+            source=source_state,
+            state=production_state,
+            checks=check_state,
+            reviewer=reviewer_state,
+            binding=binding_state,
+        )
+        blockers = require_list(
+            row.get("blockers"), f"{cid}: blockers must be explicit"
+        )
+        require(blockers, f"{cid}: blockers must be explicit")
         require(
             all(isinstance(item, str) and item for item in blockers),
             f"{cid}: invalid blocker",
@@ -277,24 +401,31 @@ def validate_lock(value: Mapping[str, Any]) -> dict[str, Any]:
 
         if row["source"] == "protected_source_ready":
             require(row["protected"] is True, f"{cid}: protected source claim invalid")
-            require(row["checks"] == "active", f"{cid}: protected source requires active checks")
+            require(
+                row["checks"] == "active",
+                f"{cid}: protected source requires active checks",
+            )
         if row["protected"] is False or row["checks"] != "active":
-            require(row["state"] == "BLOCKED", f"{cid}: incomplete governance must remain blocked")
+            require(
+                row["state"] == "BLOCKED",
+                f"{cid}: incomplete governance must remain blocked",
+            )
 
-        prs = row.get("prs")
-        require(isinstance(prs, list), f"{cid}: candidates must be a list")
+        prs = require_list(row.get("prs"), f"{cid}: candidates must be a list")
         for candidate in prs:
-            require(isinstance(candidate, Mapping), f"{cid}: candidate must be an object")
-            validate_candidate(cid, candidate)
+            validate_candidate(
+                cid,
+                require_mapping(candidate, f"{cid}: candidate must be an object"),
+            )
         if row["source"] in {"candidate_pending_review", "candidate_needs_refresh"}:
             require(bool(prs), f"{cid}: candidate source state requires PR evidence")
 
-        deps = row.get("deps")
-        require(isinstance(deps, list), f"{cid}: dependencies must be a list")
+        deps = require_list(row.get("deps"), f"{cid}: dependencies must be a list")
         require(
             all(isinstance(item, str) and item for item in deps),
             f"{cid}: invalid dependency",
         )
+        row["deps"] = deps
         components.append(row)
 
     for row in components:
@@ -302,17 +433,26 @@ def validate_lock(value: Mapping[str, Any]) -> dict[str, Any]:
             require(dependency in ids, f"{row['id']}: unknown dependency: {dependency}")
             require(dependency != row["id"], f"{row['id']}: self-dependency forbidden")
 
-    certifications = value.get("runtime_certifications")
-    require(isinstance(certifications, Mapping), "runtime certifications must be an object")
-    by_id = {row["id"]: row for row in components}
+    certifications = require_mapping(
+        value.get("runtime_certifications"),
+        "runtime certifications must be an object",
+    )
+    by_id: dict[str, dict[str, Any]] = {
+        require_nonempty_string(row.get("id"), "component ID missing"): row
+        for row in components
+    }
     for cid, certification in certifications.items():
         require(cid in by_id, f"unknown runtime certification: {cid}")
-        require(isinstance(certification, Mapping), f"{cid}: certification must be an object")
-        validate_certification(by_id[cid], certification)
+        validate_certification(
+            by_id[cid],
+            require_mapping(certification, f"{cid}: certification must be an object"),
+        )
 
-    order = value.get("promotion_order")
-    require(isinstance(order, list) and len(order) >= 10, "promotion order incomplete")
-    require(all(isinstance(step, str) and step for step in order), "invalid promotion step")
+    order = require_list(value.get("promotion_order"), "promotion order incomplete")
+    require(len(order) >= 10, "promotion order incomplete")
+    require(
+        all(isinstance(step, str) and step for step in order), "invalid promotion step"
+    )
 
     return {
         "schema_version": "1.0",

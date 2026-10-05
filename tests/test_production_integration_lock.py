@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
@@ -52,7 +53,9 @@ class ProductionIntegrationLockTests(unittest.TestCase):
         with self.assertRaises(MODULE.LockError):
             MODULE.validate_lock(broken)
 
-    def test_false_runtime_certification_fails_without_digest_and_evidence(self) -> None:
+    def test_false_runtime_certification_fails_without_digest_and_evidence(
+        self,
+    ) -> None:
         broken = copy.deepcopy(self.lock)
         broken["runtime_certifications"]["middleware"] = {
             "immutable_image_digest": None,
@@ -92,6 +95,83 @@ class ProductionIntegrationLockTests(unittest.TestCase):
         broken["component_defaults"]["state"] = "SOURCE_READY"
         with self.assertRaises(MODULE.LockError):
             MODULE.validate_lock(broken)
+
+    def test_malformed_nested_shapes_fail_with_controlled_error(self) -> None:
+        component_id = self.lock["components"][0]["id"]
+        cases: list[tuple[str, tuple[str | int, ...], object]] = [
+            ("authority", ("authority",), []),
+            ("release policy", ("release_policy",), []),
+            (
+                "external effects",
+                ("release_policy", "external_effects"),
+                [],
+            ),
+            ("component defaults", ("component_defaults",), []),
+            (
+                "default blockers",
+                ("component_defaults", "blockers"),
+                "not-a-list",
+            ),
+            ("components", ("components",), {}),
+            ("component", ("components", 0), "not-an-object"),
+            ("component source", ("components", 0, "source"), []),
+            ("candidate", ("components", 4, "prs", 0), "not-an-object"),
+            ("candidate status", ("components", 4, "prs", 0, "status"), []),
+            ("dependencies", ("components", 0, "deps"), {}),
+            ("runtime certifications", ("runtime_certifications",), []),
+            (
+                "runtime certification",
+                ("runtime_certifications",),
+                {component_id: []},
+            ),
+            ("promotion order", ("promotion_order",), {}),
+        ]
+
+        for label, path, invalid in cases:
+            with self.subTest(label=label):
+                broken = copy.deepcopy(self.lock)
+                target: Any = broken
+                for segment in path[:-1]:
+                    target = target[segment]
+                target[path[-1]] = invalid
+                with self.assertRaises(MODULE.LockError):
+                    MODULE.validate_lock(broken)
+
+    def test_booleans_are_not_accepted_as_integer_authority(self) -> None:
+        for path in (
+            ("release_policy", "calls_placed"),
+            ("release_policy", "max_read_only_canary_percent"),
+            ("components", 0, "rid"),
+            ("components", 4, "prs", 0, "n"),
+        ):
+            with self.subTest(path=path):
+                broken = copy.deepcopy(self.lock)
+                target: Any = broken
+                for segment in path[:-1]:
+                    target = target[segment]
+                target[path[-1]] = True
+                with self.assertRaises(MODULE.LockError):
+                    MODULE.validate_lock(broken)
+
+    def test_authority_strings_must_be_canonical(self) -> None:
+        broken = copy.deepcopy(self.lock)
+        broken["components"][0]["branch"] = " main"
+        with self.assertRaises(MODULE.LockError):
+            MODULE.validate_lock(broken)
+
+    def test_noncanonical_json_fails_closed(self) -> None:
+        cases = (
+            '{"schema_version":"1.0","schema_version":"2.0"}',
+            '{"schema_version":NaN}',
+            '{"schema_version":Infinity}',
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "lock.json"
+            for source in cases:
+                with self.subTest(source=source):
+                    path.write_text(source, encoding="utf-8")
+                    with self.assertRaises(MODULE.LockError):
+                        MODULE.load_lock(path)
 
 
 if __name__ == "__main__":

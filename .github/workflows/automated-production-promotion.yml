@@ -18,6 +18,7 @@ jobs:
   verify-release:
     name: Verify signed exact-main release
     if: >-
+      github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
@@ -39,7 +40,7 @@ jobs:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -Eeuo pipefail
-          test "$GITHUB_REPOSITORY" = "appolon1908-hue/Middleware-"
+          test "$GITHUB_REPOSITORY" = "appolon1908/Middleware-"
           test "$GITHUB_REF" = "refs/heads/main"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           test -z "$(git status --porcelain)"
@@ -89,6 +90,8 @@ jobs:
 
   production-read-only-admission:
     name: Admit signed release to production read-only canary
+    # RUNTIME_MUTATION_DISABLED=true: production admission requires separate authorization.
+    if: ${{ false }}
     needs: verify-release
     environment: production
     runs-on: ubuntu-24.04

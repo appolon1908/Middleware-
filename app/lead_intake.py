@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .models import EventEnvelope, IngressResult
-from .runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from .storage import canonical_payload_sha256
 
 

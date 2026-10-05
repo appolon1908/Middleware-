@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "status": "SOURCE_WIRED_TARGETS_PENDING",
-  "authority": "appolon1908-hue/Middleware-",
+  "authority": "appolon1908/Middleware-",
   "metricsEndpoint": {
     "method": "GET",
     "path": "/metrics",

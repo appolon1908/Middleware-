@@ -485,6 +485,8 @@ class MemoryIncidentStore:
         authenticated_client_id: str,
         notification_kind: str,
     ) -> IncidentIngestionResult:
+        previous: IncidentRecord | None
+        operation: CommandOperation | None
         event_key = transition_identity(group_key=group_key, alert=alert)
         request_key = request_identity(
             authenticated_client_id, request_idempotency_key, alert.fingerprint
@@ -1053,11 +1055,10 @@ class MemoryIncidentStore:
             if previous.state not in allowed[action]:
                 raise IncidentConflict(f"incident cannot transition via {action}")
             now = datetime.now(UTC)
-            state: IncidentState = {
-                "acknowledge": "acknowledged",
-                "resolve": "resolved",
-                "reopen": "firing",
-            }[action]
+            target_states: dict[IncidentAction, IncidentState] = {
+                "acknowledge": "acknowledged", "resolve": "resolved", "reopen": "firing",
+            }
+            state = target_states[action]
             if action == "resolve":
                 await self._cancel_pending_grouped_notifications(
                     tenant_id=tenant_id,
@@ -1116,7 +1117,7 @@ class MemoryIncidentStore:
                     NotificationAttemptView(
                         notification_id=notification_id,
                         operation_id=operation_id,
-                        notification_class=kind,
+                        notification_class=_delivered_notification_class(kind),
                         operation_state=operation.state,
                         reconciliation_required=operation.state
                         == "reconciliation_required",
@@ -1136,6 +1137,14 @@ class MemoryIncidentStore:
         return None
 
 
+def _delivered_notification_class(kind: str) -> Literal["immediate", "grouped"]:
+    if kind == "immediate":
+        return "immediate"
+    if kind == "grouped":
+        return "grouped"
+    raise IncidentConflict("notification attempt has an invalid delivery class")
+
+
 def _attempt_view(
     notification_id: int,
     kind: str,
@@ -1146,7 +1155,7 @@ def _attempt_view(
     return NotificationAttemptView(
         notification_id=notification_id,
         operation_id=operation.command_id,
-        notification_class=kind,
+        notification_class=_delivered_notification_class(kind),
         operation_state=operation.state,
         attempt_number=attempt.attempt_number,
         attempt_state=attempt.state,
@@ -1542,6 +1551,7 @@ class PostgresIncidentStore:
         authenticated_client_id: str,
         notification_kind: str,
     ) -> IncidentIngestionResult:
+        operation: CommandOperation | None
         event_key = transition_identity(group_key=group_key, alert=alert)
         request_key = request_identity(
             authenticated_client_id, request_idempotency_key, alert.fingerprint
@@ -2399,11 +2409,10 @@ class PostgresIncidentStore:
                 }
                 if current["state"] not in allowed[action]:
                     raise IncidentConflict(f"incident cannot transition via {action}")
-                state: IncidentState = {
-                    "acknowledge": "acknowledged",
-                    "resolve": "resolved",
-                    "reopen": "firing",
-                }[action]
+                target_states: dict[IncidentAction, IncidentState] = {
+                    "acknowledge": "acknowledged", "resolve": "resolved", "reopen": "firing",
+                }
+                state = target_states[action]
                 now = datetime.now(UTC)
                 if action == "resolve":
                     await self._cancel_pending_grouped_notifications(
@@ -2601,7 +2610,7 @@ class PostgresIncidentStore:
                     list(self.REQUIRED_TRIGGERS),
                 )
             found_tables = {row["table_name"] for row in table_rows}
-            found_columns = {table: set() for table in self.REQUIRED_COLUMNS}
+            found_columns: dict[str, set[str]] = {table: set() for table in self.REQUIRED_COLUMNS}
             for row in column_rows:
                 found_columns[row["table_name"]].add(row["column_name"])
             found_keys = {
@@ -2625,7 +2634,8 @@ class PostgresIncidentStore:
                 row["tgname"] for row in triggers if row["enabled"] == "O"
             }
             return (
-                head == 9
+                head is not None
+                and head >= 9
                 and found_tables == self.REQUIRED_TABLES
                 and all(
                     required <= found_columns[table]

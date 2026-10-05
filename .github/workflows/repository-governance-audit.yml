@@ -37,4 +37,7 @@ jobs:
         if: inputs.live
         env:
           CODESTRA_REPOSITORY_ADMIN_TOKEN: ${{ secrets.CODESTRA_REPOSITORY_ADMIN_TOKEN }}
-        run: python3 scripts/validate_repository_governance.py --live
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/validate_repository_governance.py --live
+          python3 scripts/apply_repository_governance.py --verify-live

@@ -16,7 +16,7 @@ controls:
 
 | Caller | Audience | Write scope | Read scope | Authority |
 | --- | --- | --- | --- | --- |
-| `alertmanager-service` | `middleware-api` | `observability.alerts.write` | `observability.alerts.read` | alert transitions and authenticated status snapshots |
+| `alertmanager` | `middleware-api` | `alerts.write` | `alerts.read` | alert transitions and authenticated status snapshots |
 | `observability-operator` | `middleware-api` | `observability.incidents.write` | `observability.incidents.read` | incident reads and lifecycle mutations; no connector commands |
 | `klyrow-alert-adapter` | `middleware-api` | `observability.alerts.events.write` | `observability.alerts.read` | provider read-back delivery events |
 

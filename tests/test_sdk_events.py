@@ -91,22 +91,22 @@ def test_build_sms_received_event_matches_sdk_contract() -> None:
 
 def test_sdk_payloads_fail_closed_on_unknown_or_invalid_values() -> None:
     with pytest.raises(ValidationError):
-        CallDispositionUpdatedPayload(
-            correlation_id="corr-1",
-            causation_id="call-1",
-            disposition="SALE",
-            phone_number="5551234567",
-            provider_call_id="call-1",
-        )
+        CallDispositionUpdatedPayload.model_validate({
+            "correlation_id": "corr-1",
+            "causation_id": "call-1",
+            "disposition": "SALE",
+            "phone_number": "5551234567",
+            "provider_call_id": "call-1",
+        })
     with pytest.raises(ValidationError):
-        SmsReceivedPayload(
-            correlation_id="corr-1",
-            causation_id="sms-1",
-            from_number="+15551234567",
-            body_preview="x" * 121,
-            provider_event_id="sms-1",
-            extra=True,
-        )
+        SmsReceivedPayload.model_validate({
+            "correlation_id": "corr-1",
+            "causation_id": "sms-1",
+            "from_number": "+15551234567",
+            "body_preview": "x" * 121,
+            "provider_event_id": "sms-1",
+            "extra": True,
+        })
 
 
 @pytest.mark.asyncio

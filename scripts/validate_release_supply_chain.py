@@ -8,16 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_BASE = (
-    "python:3.13.15-slim-bookworm@"
-    "sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1"
+    "python:3.14.7-slim-bookworm@"
+    "sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56"
 )
 TEST_BASE = (
-    "python:3.13.15-bookworm@"
-    "sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13"
+    "python:3.14.7-bookworm@"
+    "sha256:4121f1893084fd19c71df52b7a48565d47f5bf36173d2c2ce8bca626512ef3db"
 )
 FINAL_BASE = (
-    "gcr.io/distroless/python3-debian13:nonroot@"
-    "sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33"
+    "python:3.14.7-slim-bookworm@"
+    "sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56"
 )
 REQUIRED = (
     "requirements-runtime.in",
@@ -75,7 +75,9 @@ def direct_requirements(path: Path, errors: list[str]) -> dict[str, str]:
         line = raw.strip()
         if not line or line.startswith(("#", "-r ")):
             continue
-        match = re.fullmatch(r"([A-Za-z0-9_.-]+)(?:\[[A-Za-z0-9,_.-]+\])?==([^\s]+)", line)
+        match = re.fullmatch(
+            r"([A-Za-z0-9_.-]+)(?:\[[A-Za-z0-9,_.-]+\])?==([^\s]+)", line
+        )
         if match is None:
             errors.append(f"{path.name} direct requirement is not exact: {line}")
             continue
@@ -108,7 +110,14 @@ def main() -> int:
     for package, version in runtime_direct.items():
         if runtime_packages.get(package) != version:
             errors.append(f"runtime lock does not bind {package}=={version}")
-    for package in ("fastapi", "asyncpg", "redis", "nats-py", "temporalio", "prometheus-client"):
+    for package in (
+        "fastapi",
+        "asyncpg",
+        "redis",
+        "nats-py",
+        "temporalio",
+        "prometheus-client",
+    ):
         if package not in runtime_packages:
             errors.append(f"runtime lock is missing {package}")
     if {"pytest", "pytest-asyncio"} & set(runtime_packages):
@@ -122,9 +131,28 @@ def main() -> int:
         errors.append("connector production lock contains test tooling")
 
     dockerfile = (ROOT / "Dockerfile.runtime").read_text(encoding="utf-8")
-    require(dockerfile, f"ARG RUNTIME_BASE={RUNTIME_BASE}", "digest-pinned runtime base", errors)
+    require(
+        dockerfile,
+        f"ARG RUNTIME_BASE={RUNTIME_BASE}",
+        "digest-pinned runtime base",
+        errors,
+    )
     require(dockerfile, f"ARG TEST_BASE={TEST_BASE}", "digest-pinned test base", errors)
-    require(dockerfile, f"ARG FINAL_BASE={FINAL_BASE}", "digest-pinned final base", errors)
+    require(
+        dockerfile, f"ARG FINAL_BASE={FINAL_BASE}", "digest-pinned final base", errors
+    )
+    require(
+        dockerfile,
+        "FROM ${FINAL_BASE} AS patched-final-base",
+        "rebuilt patched final base stage",
+        errors,
+    )
+    for package_pin, label in (
+        ("libpcre2-8-0=10.42-1+deb12u2", "fixed PCRE2 runtime package"),
+        ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
+        ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
+    ):
+        require(dockerfile, package_pin, label, errors)
     require(dockerfile, "--require-hashes", "hashed dependency install", errors)
     for target in ("runtime", "worker", "connector-runtime", "test"):
         require(dockerfile, f" AS {target}", f"supported {target} target", errors)
@@ -166,8 +194,9 @@ def main() -> int:
         "only-fixed: true": "actionable vulnerability gate",
         "cosign sign --yes": "image signature",
         '--annotations "codestra.source_sha=$RELEASE_SOURCE_SHA"': "source annotation",
-        '--annotations "codestra.schema_head=0009_observability_incidents"': "schema annotation",
+        '--annotations "codestra.schema_head=0071_defer_unbound_tenant_rls"': "schema annotation",
         "cosign attest --yes": "SBOM attestation",
+        "--type slsaprovenance1": "signed SLSA provenance v1 attestation",
         "cosign sign-blob --yes": "manifest signature",
         "cosign verify-attestation": "SBOM attestation verification",
         "scripts/release_manifest.py verify": "manifest verification",
@@ -191,9 +220,9 @@ def main() -> int:
         "release-manifest final base-image identity",
         errors,
     )
-    release_schema = (
-        ROOT / "contracts/release-manifest.v1.schema.json"
-    ).read_text(encoding="utf-8")
+    release_schema = (ROOT / "contracts/release-manifest.v1.schema.json").read_text(
+        encoding="utf-8"
+    )
     require(
         release_schema,
         FINAL_BASE,

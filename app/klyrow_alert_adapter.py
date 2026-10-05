@@ -12,7 +12,7 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 
-from .config import ConfigurationError, Settings
+from app.core.config import ConfigurationError, Settings
 from .temporal_workflows import ActivityResult, CommandExecutionRequest
 
 
@@ -40,6 +40,8 @@ class KlyrowAlertAdapter:
     CLIENT_ID = "middleware-alert-delivery"
     AUDIENCE = "klyrow-email"
     SCOPES = "email.message.send email.message.read"
+    ACTIVE_RECIPIENT = "appolon1908@gmail.com"
+    LEGACY_READBACK_RECIPIENTS = frozenset({"appolon@codestra.co"})
     ALLOWED_BASE_URLS = frozenset(
         {
             "https://10.40.0.4:18000",
@@ -147,6 +149,8 @@ class KlyrowAlertAdapter:
     def _validate_payload(
         self,
         request: CommandExecutionRequest,
+        *,
+        allow_legacy_recipient: bool = False,
     ) -> dict[str, Any]:
         self._validate_identity(request)
         payload = request.payload
@@ -172,10 +176,24 @@ class KlyrowAlertAdapter:
             )
         if payload.get("from") != "alerts@codestra.co":
             raise KlyrowAlertAdapterError("alert sender is not approved")
-        if payload.get("to") != ["appolon@codestra.co"]:
-            raise KlyrowAlertAdapterError("alert recipient is not approved")
-        if payload.get("reply_to") != "appolon@codestra.co":
-            raise KlyrowAlertAdapterError("alert reply-to is not approved")
+        recipient = payload.get("to")
+        reply_to = payload.get("reply_to")
+        active_recipient = (
+            recipient == [self.ACTIVE_RECIPIENT]
+            and reply_to == self.ACTIVE_RECIPIENT
+        )
+        legacy_recipient = (
+            isinstance(recipient, list)
+            and len(recipient) == 1
+            and recipient[0] in self.LEGACY_READBACK_RECIPIENTS
+            and reply_to == recipient[0]
+        )
+        if not active_recipient and not (
+            allow_legacy_recipient and legacy_recipient
+        ):
+            raise KlyrowAlertAdapterError(
+                "alert recipient or reply-to is not approved"
+            )
         if payload.get("classification") != "operational-alert":
             raise KlyrowAlertAdapterError("alert classification is not approved")
         if payload.get("recipient_policy_id") != "codestra-observability-admin-v1":
@@ -221,8 +239,13 @@ class KlyrowAlertAdapter:
     def _require_active(
         self,
         request: CommandExecutionRequest,
+        *,
+        allow_legacy_recipient: bool = False,
     ) -> dict[str, Any]:
-        payload = self._validate_payload(request)
+        payload = self._validate_payload(
+            request,
+            allow_legacy_recipient=allow_legacy_recipient,
+        )
         if not self._explicit_bool("OBSERVABILITY_ALERT_EMAIL_DELIVERY"):
             raise KlyrowAlertAdapterError(
                 "OBSERVABILITY_ALERT_EMAIL_DELIVERY is disabled"
@@ -349,7 +372,25 @@ class KlyrowAlertAdapter:
         self,
         request: CommandExecutionRequest,
     ) -> ActivityResult:
-        payload = self._require_active(request)
+        payload = self._require_active(
+            request,
+            allow_legacy_recipient=True,
+        )
+        if payload["to"][0] in self.LEGACY_READBACK_RECIPIENTS:
+            reconciled = await self.readback(request)
+            if reconciled.status == "matched":
+                return ActivityResult(
+                    status="accepted",
+                    detail=(
+                        "Legacy alert payload was not resubmitted; "
+                        "provider read-back confirmed its prior acceptance"
+                    ),
+                    provider_operation_id=request.command_id,
+                )
+            raise KlyrowAlertAdapterError(
+                "legacy queued alert requires controlled reissue "
+                "to the active recipient"
+            )
         body = self._provider_document(request, payload)
         try:
             async with httpx.AsyncClient(
@@ -404,7 +445,10 @@ class KlyrowAlertAdapter:
         self,
         request: CommandExecutionRequest,
     ) -> ActivityResult:
-        payload = self._validate_payload(request)
+        payload = self._validate_payload(
+            request,
+            allow_legacy_recipient=True,
+        )
         path = self.MESSAGE_STATUS_PATH.format(
             message_id=quote(request.command_id, safe="")
         )

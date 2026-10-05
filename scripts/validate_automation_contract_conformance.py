@@ -102,10 +102,11 @@ def validate() -> tuple[int, int]:
     expected_raw = contract.get("endpoints")
     require(
         isinstance(expected_raw, list)
-        and expected_raw
+        and bool(expected_raw)
         and all(isinstance(item, str) for item in expected_raw),
         "automation endpoint contract is invalid",
     )
+    assert isinstance(expected_raw, list)
     expected = set(expected_raw)
     require(len(expected) == len(expected_raw), "automation contract contains duplicate endpoints")
 
@@ -116,6 +117,7 @@ def validate() -> tuple[int, int]:
     )
     automation = authority.get("automation")
     require(isinstance(automation, dict), "automation route authority is missing")
+    assert isinstance(automation, dict)
     require(
         automation.get("canonical_command_submit") == "POST /v2/automation/commands",
         "canonical automation command submit route drift",
@@ -139,6 +141,7 @@ def validate() -> tuple[int, int]:
     require(waiver_document.get("mode") == "strict_expected_gap", "waiver mode must be strict")
     raw_waivers = waiver_document.get("waivers")
     require(isinstance(raw_waivers, list), "waiver registry is invalid")
+    assert isinstance(raw_waivers, list)
     waivers: dict[str, dict[str, Any]] = {}
     today = date.today()
     for item in raw_waivers:

@@ -12,7 +12,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from architecture.site_architecture import architecture
+from architecture.site_architecture import architecture  # noqa: E402
 BASE_MANIFEST = ROOT / "config" / "integration-branches.json"
 
 HOST_RE = re.compile(

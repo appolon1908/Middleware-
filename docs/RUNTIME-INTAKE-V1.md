@@ -1,5 +1,11 @@
 # Middleware intake runtime v1
 
+> **Status (2026-09-30):** the canonical Alembic head is now
+> `0071_defer_unbound_tenant_rls` (`config/middleware-forward-release-authority.v1.json`,
+> `.github/workflows/release.yml`). References to `0057_platform_service_catalog` below
+> describe the signed evidence generation of 2026-09-08 and are retained as history; they
+> are not the current forward release or runtime requirement.
+
 This branch converts the reviewed middleware ingress contracts into executable FastAPI source without enabling any external delivery.
 
 ## Runtime surface
@@ -73,7 +79,7 @@ PostgreSQL is the correctness boundary. `middleware_inbox` has unique constraint
 
 Redis is a short lease guard against concurrent duplicate processing. PostgreSQL remains authoritative if Redis state expires.
 
-Apply every numbered migration through `0009_observability_incidents` before
+Apply every numbered migration through `0057_platform_service_catalog` before
 starting a non-test runtime.
 
 ## Outbox, JetStream, retry and DLQ
@@ -81,6 +87,8 @@ starting a non-test runtime.
 The same PostgreSQL transaction that accepts a new inbox event now creates its `nats-jetstream` outbox row. The store and worker implement `FOR UPDATE SKIP LOCKED`, bounded exponential retry, lease ownership, unknown-outcome quarantine, and dead-letter transition. JetStream publication uses a domain-separated `codestra.events.*` subject and a deterministic `Nats-Msg-Id`; the outbox is completed only after the server acknowledges the publish.
 
 `workers/run_outbox.py` registers only the NATS JetStream transport. Provider, Odoo, n8n, telephony, SMS, email, social, and crawler writes are not registered. Dispatch requires `SEND_EVENTS=true`, `OUTBOX_DISPATCH_ENABLED=true`, and a non-disabled `NATS_DISPATCH_MODE` together. Production additionally requires `PRODUCTION_ACTIVATION_ID`, an exact immutable release identity, TLS, and a mounted NATS service credential.
+
+Since the canonical configuration authority (`app/core/config.py`) merged both settings lineages, `SEND_EVENTS` gates only this JetStream outbox transport. The separate n8n broad-event pipeline is gated by its own first switch `BROAD_EVENT_SEND_ENABLED` together with `BROAD_EVENT_DELIVERY_ENABLED`, `PRODUCTION_N8N_ENABLED`, `N8N_PRODUCTION_WORKFLOWS_ENABLED` and a bounded `CONTROLLED_BROAD_EVENT_ACTIVATION` scope; the two gates never imply each other. Every deployed profile keeps all of them disabled. See `docs/architecture/canonical-core-migration.md`.
 
 Staging may exercise the event plane only with `NATS_DISPATCH_MODE=isolated`, stream `CODESTRA_STAGING_EVENTS`, and subjects below `codestra.staging.events.*`. It cannot use the production stream or subject namespace, and provider/business delivery flags remain disabled. `NATS_ALLOW_INSECURE_TEST_CONNECTION` exists only for a disposable localhost server in test/development; staging and production require TLS and a mounted service credential.
 

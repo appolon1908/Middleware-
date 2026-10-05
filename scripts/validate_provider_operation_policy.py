@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import NoReturn
 
 ROOT = Path(__file__).parents[1]
 POLICY = ROOT / "config" / "provider-operation-policy.json"
@@ -92,7 +93,7 @@ EXPECTED_ADAPTERS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise SystemExit(f"PROVIDER_OPERATION_POLICY=FAIL: {message}")
 
 
@@ -143,7 +144,9 @@ def validate(value: dict, identity: dict, safety_baseline: dict[str, str]) -> No
         )
         if exact_operation != EXPECTED_OPERATIONS.get(identifier):
             fail(f"operation authority mismatch: {identifier}")
-        identifiers.add(identifier); routes.add(route); callers.add(operation["caller"])
+        identifiers.add(identifier)
+        routes.add(route)
+        callers.add(operation["caller"])
         if operation["externalEffect"]:
             if operation["durability"] != "transactional_outbox":
                 fail(f"external effect bypasses transactional outbox: {identifier}")

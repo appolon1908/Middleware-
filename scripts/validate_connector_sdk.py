@@ -28,8 +28,6 @@ def load_json(path: Path) -> object:
 def main() -> int:
     errors: list[str] = []
     manifest_dir = ROOT / "connectors" / "manifests"
-    files = sorted(manifest_dir.glob("*.connector.json"))
-
     registry = ConnectorRegistry()
     try:
         records = registry.load_directory(
@@ -42,9 +40,10 @@ def main() -> int:
 
     errors.extend(registry.validate_global_invariants())
 
-    manifest_ids = {
-        record.manifest.connector_id for record in records
+    manifests_by_id = {
+        record.manifest.connector_id: record.manifest for record in records
     }
+    manifest_ids = set(manifests_by_id)
     adapter_registry_path = (
         ROOT / "config" / "adapter-registry.v2.json"
     )
@@ -63,11 +62,57 @@ def main() -> int:
                     "adapter registry adapters must be an array"
                 )
             else:
-                adapter_ids = {
-                    item.get("id")
-                    for item in adapters
-                    if isinstance(item, dict)
-                }
+                adapter_ids: set[str] = set()
+                for item in adapters:
+                    if not isinstance(item, dict):
+                        errors.append("adapter registry entry must be an object")
+                        continue
+                    adapter_id = item.get("id")
+                    if not isinstance(adapter_id, str) or not adapter_id:
+                        errors.append("adapter registry ID must be a non-empty string")
+                        continue
+                    if adapter_id in adapter_ids:
+                        errors.append(f"duplicate adapter registry ID: {adapter_id}")
+                        continue
+                    adapter_ids.add(adapter_id)
+
+                    manifest = manifests_by_id.get(adapter_id)
+                    if manifest is None:
+                        continue
+                    raw_prefixes = item.get("command_prefixes")
+                    if not isinstance(raw_prefixes, list) or not all(
+                        isinstance(prefix, str) and prefix
+                        for prefix in raw_prefixes
+                    ):
+                        errors.append(
+                            f"{adapter_id} adapter command prefixes are invalid"
+                        )
+                    else:
+                        expected_prefixes = {
+                            command.prefix for command in manifest.command_policies
+                        }
+                        observed_prefixes = set(raw_prefixes)
+                        if (
+                            len(observed_prefixes) != len(raw_prefixes)
+                            or observed_prefixes != expected_prefixes
+                        ):
+                            errors.append(
+                                f"{adapter_id} adapter command prefixes must exactly "
+                                "match its connector manifest: "
+                                f"manifest={sorted(expected_prefixes)} "
+                                f"registry={sorted(observed_prefixes)}"
+                            )
+                    expected_sources = {
+                        "cell": manifest.cell.value,
+                        "repository": manifest.repository,
+                    }
+                    for field, expected in expected_sources.items():
+                        if item.get(field) != expected:
+                            errors.append(
+                                f"{adapter_id} adapter {field} must match its "
+                                f"connector manifest: manifest={expected!r} "
+                                f"registry={item.get(field)!r}"
+                            )
                 if manifest_ids != adapter_ids:
                     errors.append(
                         "connector manifest IDs must exactly match "
@@ -297,8 +342,8 @@ def main() -> int:
             "CONNECTOR_SDK_VALIDATION=FAIL",
             file=sys.stderr,
         )
-        for error in errors:
-            print(f"ERROR={error}", file=sys.stderr)
+        for validation_error in errors:
+            print(f"ERROR={validation_error}", file=sys.stderr)
         return 1
 
     print(

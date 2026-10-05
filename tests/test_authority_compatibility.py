@@ -4,7 +4,7 @@ from uuid import UUID
 from app.commands import CommandService, MemoryCommandStore
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 from tests.test_commands import CommandTokenVerifier, command_payload, enabled_policy
 

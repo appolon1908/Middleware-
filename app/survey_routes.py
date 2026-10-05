@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from .service import PayloadTooLargeError, ReplayConflictError
+from .api_inputs import authorization_header, required_header
+from .core.header_authority import TENANT_ID, CORRELATION_ID, IDEMPOTENCY_KEY
 from .storage import ReplayConflict
 from .survey_intake import (
     INTAKE_PRODUCER_CLIENT_ID,
@@ -36,7 +38,7 @@ async def _read_limited_body(request: Request, maximum: int) -> bytes:
     return bytes(body)
 
 
-def register_survey_routes(app: FastAPI) -> None:
+def register_survey_routes(app: FastAPI | APIRouter) -> None:
     @app.post("/v1/intake/surveys/responses")
     async def submit_survey_response(request: Request) -> JSONResponse:
         from .security import RequestValidationError, authorize_tenant
@@ -46,18 +48,12 @@ def register_survey_routes(app: FastAPI) -> None:
         if content_type.split(";", 1)[0].strip().lower() != "application/json":
             raise RequestValidationError("Content-Type must be application/json")
 
-        tenant_id = request.headers.get("X-Tenant-ID", "")
-        correlation_id = request.headers.get("X-Correlation-ID", "")
-        idempotency_key = request.headers.get("Idempotency-Key", "")
-        if not tenant_id:
-            raise RequestValidationError("X-Tenant-ID is required")
-        if not correlation_id or len(correlation_id) > 180:
-            raise RequestValidationError("X-Correlation-ID must contain 1 to 180 characters")
-        if not idempotency_key or not 8 <= len(idempotency_key) <= 180:
-            raise RequestValidationError("Idempotency-Key must contain 8 to 180 characters")
+        tenant_id = required_header(request, TENANT_ID, minimum=1, maximum=128)
+        correlation_id = required_header(request, CORRELATION_ID, minimum=1, maximum=180)
+        idempotency_key = required_header(request, IDEMPOTENCY_KEY, minimum=8, maximum=180)
 
         claims = await active.tokens.verify(
-            request.headers.get("Authorization", ""),
+            authorization_header(request),
             expected_client_id=INTAKE_PRODUCER_CLIENT_ID,
             required_scope="surveys.write",
         )

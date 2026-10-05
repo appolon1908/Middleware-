@@ -1,5 +1,11 @@
 # Middleware production runtime certification
 
+> **Status (2026-09-30):** the canonical Alembic head is now
+> `0071_defer_unbound_tenant_rls` (`config/middleware-forward-release-authority.v1.json`,
+> `.github/workflows/release.yml`). References to `0057_platform_service_catalog` below
+> describe the signed evidence generation of 2026-09-08 and are retained as history; they
+> are not the current forward release or runtime requirement.
+
 This runbook defines the only repository-authorized path for certifying the
 Codestra Middleware runtime on Server 65 (`65.109.65.169`). It deploys an
 immutable, internal-only, read-only canary. It does not route public traffic or
@@ -7,7 +13,7 @@ enable a business/provider effect.
 
 ## Authority
 
-- Repository: `appolon1908-hue/Middleware-`
+- Repository: `appolon1908/Middleware-`
 - Source ref: protected `main`
 - Change authority: issue `#118`
 - Owner command: `/deploy-middleware-production-readonly v1`
@@ -16,7 +22,7 @@ enable a business/provider effect.
 - Root controller: `/usr/local/sbin/codestra-middleware-deploy`
 - Compose project: `codestra-middleware-production-canary`
 - Runtime service: `middleware-api-canary`
-- Migration head: `0009_observability_incidents`
+- Migration head: `0057_platform_service_catalog`
 
 The workflow rejects a non-owner actor, another issue, a stale default-branch
 SHA, an unsigned image, a mutable image reference, a failed release or
@@ -35,7 +41,7 @@ Before server access, the workflow requires:
    digest, release ID, migration head, SBOM, vulnerability report, and signer;
 6. Cosign verification of the image, SPDX attestation, and signed manifest;
 7. an exact digest reference under
-   `ghcr.io/appolon1908-hue/codestra-middleware`.
+   `ghcr.io/appolon1908/codestra-middleware`.
 
 ## Required GitHub production secrets
 
@@ -121,7 +127,7 @@ both independently prove:
 
 - exact source SHA, image digest, release run, and release ID;
 - backup and isolated restore `PASS`;
-- migration head `0009_observability_incidents`;
+- migration head `0057_platform_service_catalog`;
 - container `running` and `healthy`;
 - health, readiness, version, and capabilities `PASS`;
 - every external-effect capability false;

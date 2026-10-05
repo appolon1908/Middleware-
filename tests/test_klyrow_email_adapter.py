@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import json
 import ssl
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
 import httpx
 import pytest
 
-from app.config import ConfigurationError
-from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError
+from app.core.config import ConfigurationError
+from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError, KlyrowEmailUnknownOutcomeError
 from app.temporal_workflows import CommandExecutionRequest
 
 BASE_URL = "https://klyrow-email-api:18000"
@@ -26,9 +28,11 @@ ENV = {
 
 
 class StubSettings:
-    def __init__(self, *, app_env: str = "staging", email_enabled: bool = True) -> None:
+    def __init__(self, *, app_env: str = "staging", email_enabled: bool = True,
+                 source_sha: str = "a" * 40) -> None:
         self.app_env = app_env
         self.email_delivery_enabled = email_enabled
+        self.source_sha = source_sha
 
 
 def execution_request(**overrides: Any) -> CommandExecutionRequest:
@@ -138,6 +142,29 @@ def adapter(**kwargs: Any) -> KlyrowEmailAdapter:
     )
 
 
+def production_authorization(**updates: Any) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    value: dict[str, Any] = {
+        "schemaVersion": "1.0",
+        "tenantId": TENANT,
+        "policyVersion": 2,
+        "mode": "TRANSACTIONAL_PRODUCTION",
+        "authorizationState": "ACTIVE",
+        "killSwitchOpen": True,
+        "changeId": "CHG-EMAIL-001",
+        "category": "transactional",
+        "validFrom": (now - timedelta(minutes=5)).isoformat(),
+        "validUntil": (now + timedelta(hours=1)).isoformat(),
+        "provider": "klyrow-postal",
+        "environment": "production",
+        "approvedReleaseSha": "a" * 40,
+        "authorizationTimestamp": (now - timedelta(minutes=10)).isoformat(),
+        "activationTimestamp": (now - timedelta(minutes=5)).isoformat(),
+    }
+    value.update(updates)
+    return value
+
+
 @pytest.mark.asyncio
 async def test_execute_posts_the_provider_document_with_bearer_and_mtls_headers() -> None:
     seen: dict[str, Any] = {}
@@ -169,6 +196,43 @@ async def test_execute_is_refused_while_the_capability_is_closed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_production_requires_server_injected_authorization_bound_to_release() -> None:
+    missing = execution_request()
+    set_handler(routing_handler(message=httpx.Response(202, json=accepted(missing.command_id))))
+    with pytest.raises(KlyrowEmailAdapterError, match="authorization is required"):
+        await adapter(settings={"app_env": "production"}).execute(missing)
+
+    seen: dict[str, Any] = {}
+    command = execution_request(payload_overrides={
+        "metadata": {
+            "category": "transactional",
+            "productionAuthorization": production_authorization(),
+        }
+    })
+    set_handler(routing_handler(
+        message=httpx.Response(202, json=accepted(command.command_id)), seen=seen
+    ))
+    assert (await adapter(settings={"app_env": "production"}).execute(command)).status == "accepted"
+    body = json.loads(seen["requests"][0].read())
+    binding = body["metadata"]["productionAuthorization"]["commandBinding"]
+    assert binding["messageId"] == command.command_id
+    assert binding["correlationId"] == command.correlation_id
+    assert binding["sender"] == SENDER
+
+    mismatch = execution_request(payload_overrides={
+        "metadata": {
+            "category": "transactional",
+            "productionAuthorization": production_authorization(
+                approvedReleaseSha="b" * 40
+            ),
+        }
+    })
+    set_handler(routing_handler(message=httpx.Response(202, json=accepted(mismatch.command_id))))
+    with pytest.raises(KlyrowEmailAdapterError, match="release does not match"):
+        await adapter(settings={"app_env": "production"}).execute(mismatch)
+
+
+@pytest.mark.asyncio
 async def test_execute_rejects_commands_it_does_not_own() -> None:
     set_handler(routing_handler(message=httpx.Response(202, json={})))
     with pytest.raises(KlyrowEmailAdapterError, match="does not own"):
@@ -184,8 +248,8 @@ async def test_execute_rejects_commands_it_does_not_own() -> None:
     ("overrides", "match"),
     [
         ({"from": "not-an-address"}, "sender is not a valid"),
-        ({"to": []}, "1..1000 recipients"),
-        ({"to": ["a@example.com", "a@example.com"]}, "must be unique"),
+        ({"to": []}, "exactly one recipient"),
+        ({"to": ["a@example.com", "a@example.com"]}, "exactly one recipient"),
         ({"to": ["nope"]}, "not all valid addresses"),
         ({"content": {"subject": "empty"}}, "requires text, html, or templateId"),
         ({"channel": "sms"}, "channel must be email"),
@@ -204,7 +268,7 @@ async def test_payload_validation_is_fail_closed(
 async def test_recipient_ceiling_is_enforced() -> None:
     set_handler(routing_handler(message=httpx.Response(202, json={})))
     too_many = [f"user{index}@example.com" for index in range(1001)]
-    with pytest.raises(KlyrowEmailAdapterError, match="1..1000 recipients"):
+    with pytest.raises(KlyrowEmailAdapterError, match="exactly one recipient"):
         await adapter().execute(execution_request(payload_overrides={"to": too_many}))
 
 
@@ -214,7 +278,7 @@ async def test_a_response_that_does_not_bind_the_command_identity_is_rejected() 
     set_handler(
         routing_handler(message=httpx.Response(202, json={"message_id": "someone-else"}))
     )
-    with pytest.raises(KlyrowEmailAdapterError, match="did not bind the command identity"):
+    with pytest.raises(KlyrowEmailUnknownOutcomeError, match="did not bind the command identity"):
         await adapter().execute(command)
 
 
@@ -256,7 +320,7 @@ async def test_interrupted_write_stays_failed_when_readback_does_not_match() -> 
         )
 
     set_handler(handler)
-    with pytest.raises(KlyrowEmailAdapterError, match="submission failed"):
+    with pytest.raises(KlyrowEmailUnknownOutcomeError, match="submission failed"):
         await adapter().execute(command)
 
 

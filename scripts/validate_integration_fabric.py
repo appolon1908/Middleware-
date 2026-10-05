@@ -12,6 +12,11 @@ def load(path: str) -> dict:
         return json.load(handle)
 
 
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise ValueError(message)
+
+
 def validate() -> None:
     ownership = load("config/system-ownership.v2.json")
     capabilities = load("config/capabilities.v2.json")
@@ -22,72 +27,176 @@ def validate() -> None:
     event_alias = load("contracts/event-envelope.schema.json")
     catalog = load("contracts/platform/contract-catalog.v1.json")
 
-    assert ownership["schema_version"] == "2.0"
-    assert ownership["systems"]["middleware"]["owns"]
-    assert "direct_provider_write" in ownership["systems"]["n8n"]["forbidden"]
-    assert capabilities["default_policy"] == "DENY"
-    assert not any(capabilities["capabilities"].values())
-    assert command_registry["default_policy"] == "DENY"
+    require(
+        ownership["schema_version"] == "2.0",
+        'integration fabric invariant failed: ownership["schema_version"] == "2.0"',
+    )
+    require(
+        bool(ownership["systems"]["middleware"]["owns"]),
+        'integration fabric invariant failed: ownership["systems"]["middleware"]["owns"]',
+    )
+    require(
+        "direct_provider_write" in ownership["systems"]["n8n"]["forbidden"],
+        'integration fabric invariant failed: "direct_provider_write" in ownership["systems"]["n8n"]["forbidden"]',
+    )
+    require(
+        capabilities["default_policy"] == "DENY",
+        'integration fabric invariant failed: capabilities["default_policy"] == "DENY"',
+    )
+    require(
+        all(value is False for value in capabilities["capabilities"].values()),
+        'integration fabric invariant failed: not any(capabilities["capabilities"].values())',
+    )
+    require(
+        command_registry["default_policy"] == "DENY",
+        'integration fabric invariant failed: command_registry["default_policy"] == "DENY"',
+    )
     prefixes: set[str] = set()
     for policy in command_registry["commands"]:
-        assert policy["prefix"] not in prefixes
+        require(
+            policy["prefix"] not in prefixes,
+            'integration fabric invariant failed: policy["prefix"] not in prefixes',
+        )
         prefixes.add(policy["prefix"])
-        assert policy["required_capability"] in capabilities["capabilities"]
-        assert capabilities["capabilities"][policy["required_capability"]] is False
-        assert policy["readback_required"] is True
-        assert policy["unknown_outcome_requires_readback"] is True
+        require(
+            policy["required_capability"] in capabilities["capabilities"],
+            'integration fabric invariant failed: policy["required_capability"] in capabilities["capabilities"]',
+        )
+        require(
+            capabilities["capabilities"][policy["required_capability"]] is False,
+            'integration fabric invariant failed: capabilities["capabilities"][policy["required_capability"]] is False',
+        )
+        require(
+            policy["readback_required"] is True,
+            'integration fabric invariant failed: policy["readback_required"] is True',
+        )
+        require(
+            policy["unknown_outcome_requires_readback"] is True,
+            'integration fabric invariant failed: policy["unknown_outcome_requires_readback"] is True',
+        )
 
-    ids: set[str] = set()
+    adapter_prefixes: dict[str, set[str]] = {}
     for adapter in registry["adapters"]:
-        assert adapter["id"] not in ids
-        ids.add(adapter["id"])
-        assert adapter["direct_n8n"] is False
-        assert adapter["command_prefixes"]
-        assert adapter["repository"].startswith("appolon1908-hue/")
+        adapter_id = adapter.get("id")
+        require(
+            isinstance(adapter_id, str) and bool(adapter_id),
+            "integration fabric invariant failed: adapter ID is invalid",
+        )
+        require(
+            adapter_id not in adapter_prefixes,
+            'integration fabric invariant failed: adapter["id"] not in ids',
+        )
+        require(
+            adapter["direct_n8n"] is False,
+            'integration fabric invariant failed: adapter["direct_n8n"] is False',
+        )
+        command_prefixes = adapter.get("command_prefixes")
+        require(
+            isinstance(command_prefixes, list)
+            and bool(command_prefixes)
+            and all(
+                isinstance(prefix, str) and bool(prefix)
+                for prefix in command_prefixes
+            )
+            and len(command_prefixes) == len(set(command_prefixes)),
+            'integration fabric invariant failed: adapter["command_prefixes"]',
+        )
+        adapter_prefixes[adapter_id] = set(command_prefixes)
+        require(
+            adapter["repository"].startswith(("appolon1908/", "appolon1908/")),
+            'integration fabric invariant failed: adapter["repository"] must be a Codestra repository',
+        )
 
-    beyvra = next(adapter for adapter in registry["adapters"] if adapter["id"] == "beyvra-nonfinancial")
-    assert beyvra["forbidden_prefixes"]
-    assert "wallet." in beyvra["forbidden_prefixes"]
-    assert command["additionalProperties"] is False
-    assert event["additionalProperties"] is False
-    assert event_alias["$ref"] == (
-        "https://contracts.codestra.co/platform/event-envelope.v1.schema.json"
+    for policy in command_registry["commands"]:
+        connector_id = policy.get("connector_id")
+        require(
+            isinstance(connector_id, str) and connector_id in adapter_prefixes,
+            "command references an unknown adapter: " + str(connector_id),
+        )
+        require(
+            policy.get("prefix") in adapter_prefixes[connector_id],
+            "command prefix is not declared by adapter: "
+            + str(policy.get("prefix"))
+            + " -> "
+            + str(connector_id),
+        )
+
+    beyvra = next(
+        adapter
+        for adapter in registry["adapters"]
+        if adapter["id"] == "beyvra-nonfinancial"
     )
-    assert catalog["canonical"] == {
-        "event": "contracts/platform/event-envelope.v1.schema.json",
-        "command": "contracts/platform/command-envelope.v1.schema.json",
-        "api": "contracts/platform/integration-fabric-api.v2.yaml",
-    }
-    assert all(
-        projection["normalization_required"] is True
-        for projection in catalog["wire_projections"]
+    require(
+        bool(beyvra["forbidden_prefixes"]),
+        'integration fabric invariant failed: beyvra["forbidden_prefixes"]',
     )
-    assert set(command["required"]) == {
-        "command_id",
-        "command_type",
-        "command_version",
-        "target",
-        "tenant_id",
-        "requested_by",
-        "correlation_id",
-        "idempotency_key",
-        "capability",
-        "payload",
-    }
-    assert set(event["required"]) == {
-        "event_id",
-        "event_type",
-        "event_version",
-        "occurred_at",
-        "received_at",
-        "source",
-        "tenant_id",
-        "correlation_id",
-        "causation_id",
-        "idempotency_key",
-        "payload",
-        "metadata",
-    }
+    require(
+        "wallet." in beyvra["forbidden_prefixes"],
+        'integration fabric invariant failed: "wallet." in beyvra["forbidden_prefixes"]',
+    )
+    require(
+        command["additionalProperties"] is False,
+        'integration fabric invariant failed: command["additionalProperties"] is False',
+    )
+    require(
+        event["additionalProperties"] is False,
+        'integration fabric invariant failed: event["additionalProperties"] is False',
+    )
+    require(
+        event_alias["$ref"]
+        == ("https://contracts.codestra.co/platform/event-envelope.v1.schema.json"),
+        'integration fabric invariant failed: event_alias["$ref"] == (',
+    )
+    require(
+        catalog["canonical"]
+        == {
+            "event": "contracts/platform/event-envelope.v1.schema.json",
+            "command": "contracts/platform/command-envelope.v1.schema.json",
+            "api": "contracts/platform/integration-fabric-api.v2.yaml",
+        },
+        'integration fabric invariant failed: catalog["canonical"] == {',
+    )
+    require(
+        all(
+            projection["normalization_required"] is True
+            for projection in catalog["wire_projections"]
+        ),
+        "integration fabric invariant failed: all(",
+    )
+    require(
+        set(command["required"])
+        == {
+            "command_id",
+            "command_type",
+            "command_version",
+            "target",
+            "tenant_id",
+            "requested_by",
+            "correlation_id",
+            "idempotency_key",
+            "capability",
+            "payload",
+        },
+        'integration fabric invariant failed: set(command["required"]) == {',
+    )
+    require(
+        set(event["required"])
+        == {
+            "event_id",
+            "event_type",
+            "event_version",
+            "occurred_at",
+            "received_at",
+            "source",
+            "tenant_id",
+            "correlation_id",
+            "causation_id",
+            "idempotency_key",
+            "payload",
+            "metadata",
+        },
+        'integration fabric invariant failed: set(event["required"]) == {',
+    )
 
 
 if __name__ == "__main__":

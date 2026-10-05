@@ -196,7 +196,7 @@ class AutomationPolicy:
         clients: dict[str, AutomationClientPolicy] = {}
         for client_id, value in clients_raw.items():
             _require(
-                isinstance(client_id, str) and client_id and "*" not in client_id,
+                isinstance(client_id, str) and bool(client_id) and "*" not in client_id,
                 "invalid automation client ID",
             )
             _require(isinstance(value, dict), f"{client_id}: policy must be an object")
@@ -308,7 +308,7 @@ class AutomationPolicy:
             _require(
                 operation.method == operation.method.upper()
                 and operation.path.startswith("/v2/automation/")
-                and operation.scope,
+                and bool(operation.scope),
                 f"invalid operation: {operation.operation_id}",
             )
             if isinstance(operation.allowed_clients, tuple):
@@ -327,11 +327,12 @@ class AutomationPolicy:
                 f"ambiguous command prefix: {left}",
             )
 
-        observed_prefixes = {client_id: set() for client_id in self.clients}
+        observed_prefixes: dict[str, set[str]] = {client_id: set() for client_id in self.clients}
         declared_scopes = set().union(*(client.scopes for client in self.clients.values()))
         for family in self.command_families:
             client = self.clients.get(family.client_id)
-            _require(client is not None, f"unknown command client: {family.client_id}")
+            if client is None:
+                raise AutomationPolicyError(f"unknown command client: {family.client_id}")
             _require(
                 family.scope.startswith("automation.command.")
                 and not _is_generic(family.scope)

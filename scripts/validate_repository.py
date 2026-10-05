@@ -9,6 +9,7 @@ container scan, or application integration tests.
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
@@ -23,6 +24,7 @@ REQUIRED_FILES = (
     Path(".dockerignore"),
     Path("config/preproduction-safety.env.example"),
     Path("config/provider-operation-policy.json"),
+    Path("config/middleware-forward-release-authority.v1.json"),
 )
 
 FORBIDDEN_TOP_LEVEL_DIRECTORIES = {
@@ -273,6 +275,34 @@ def validate_workflow_pinning(errors: list[str]) -> None:
                 )
 
 
+def _migration_assignment(path: Path, name: str) -> str | tuple[str, ...] | None:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if not any(isinstance(target, ast.Name) and target.id == name for target in targets):
+            continue
+        if node.value is None:
+            raise ValueError(f"{name} assignment has no value")
+        value = ast.literal_eval(node.value)
+        if value is None or isinstance(value, str):
+            return value
+        if isinstance(value, (tuple, list)) and all(isinstance(item, str) for item in value):
+            return tuple(value)
+        raise ValueError(f"{name} must be a string, string sequence, or None")
+    raise ValueError(f"missing {name} assignment")
+
+
+def validate_production_migration_head(errors: list[str]) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts.production_migration_authority import validate_authority
+    try:
+        validate_authority(ROOT)
+    except (OSError, UnicodeError, KeyError, TypeError, ValueError, SyntaxError) as exc:
+        errors.append(str(exc))
+
+
 def main() -> int:
     errors: list[str] = []
     try:
@@ -286,6 +316,7 @@ def main() -> int:
     validate_file_contents(files, errors)
     validate_safety_baseline(errors)
     validate_workflow_pinning(errors)
+    validate_production_migration_head(errors)
 
     if errors:
         print("Middleware repository validation failed:", file=sys.stderr)

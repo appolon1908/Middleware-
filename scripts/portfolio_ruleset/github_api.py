@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import dataclasses
 import json
 import time
@@ -8,7 +10,10 @@ import urllib.parse
 import urllib.request
 from typing import Any, Iterable, Mapping
 
-from portfolio_ruleset.common import API_VERSION, RolloutError, TOKEN_ENV, require
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.common import API_VERSION, RolloutError, TOKEN_ENV, require
+else:
+    from portfolio_ruleset.common import API_VERSION, RolloutError, TOKEN_ENV, require
 
 
 @dataclasses.dataclass(frozen=True)
@@ -16,6 +21,24 @@ class Response:
     status: int
     payload: Any
     headers: Mapping[str, str]
+
+
+class FailClosedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Never forward a repository-administration token through a redirect."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        return None
+
+
+NO_REDIRECT_OPENER = urllib.request.build_opener(FailClosedRedirectHandler())
 
 
 class GitHubApi:
@@ -51,7 +74,7 @@ class GitHubApi:
                 },
             )
             try:
-                with urllib.request.urlopen(request, timeout=45) as response:
+                with NO_REDIRECT_OPENER.open(request, timeout=45) as response:
                     raw = response.read()
                     value = json.loads(raw.decode()) if raw else None
                     result = Response(

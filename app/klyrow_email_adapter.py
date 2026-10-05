@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import os
 import ssl
 import stat
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import quote, urlsplit
@@ -13,7 +16,7 @@ import httpx
 from pydantic import TypeAdapter, ValidationError
 from pydantic.networks import EmailStr
 
-from .config import ConfigurationError, Settings
+from app.core.config import ConfigurationError
 from .temporal_workflows import ActivityResult, CommandExecutionRequest
 
 EMAIL_ADDRESS = TypeAdapter(EmailStr)
@@ -21,6 +24,14 @@ EMAIL_ADDRESS = TypeAdapter(EmailStr)
 
 class KlyrowEmailAdapterError(RuntimeError):
     pass
+
+
+class KlyrowEmailUnknownOutcomeError(KlyrowEmailAdapterError):
+    """The request may have reached Klyrow; the outcome could not be confirmed.
+
+    Raised only after the send. It must be reconciled by read-back, never
+    re-sent as if nothing had happened.
+    """
 
 
 class KlyrowEmailAdapter:
@@ -59,7 +70,8 @@ class KlyrowEmailAdapter:
             "https://klyrow-email-api:18000",
         }
     )
-    MAX_RECIPIENTS = 1000
+    # Klyrow persists one durable lifecycle and provider identity per command.
+    MAX_RECIPIENTS = 1
     ACCEPTED_STATUSES = frozenset(
         {"accepted", "queued", "sending", "sent", "delivered"}
     )
@@ -77,7 +89,7 @@ class KlyrowEmailAdapter:
 
     def __init__(
         self,
-        settings: Settings,
+        settings: Any,
         env: Mapping[str, str] | None = None,
     ) -> None:
         self.settings = settings
@@ -195,7 +207,7 @@ class KlyrowEmailAdapter:
             or len(recipients) > self.MAX_RECIPIENTS
         ):
             raise KlyrowEmailAdapterError(
-                "Klyrow email command must carry 1..1000 recipients"
+                "Klyrow email command must carry exactly one recipient"
             )
         if not all(
             isinstance(value, str) and self._is_email(value) for value in recipients
@@ -235,7 +247,79 @@ class KlyrowEmailAdapter:
                 "email delivery is disabled by EMAIL_DELIVERY_ENABLED or its "
                 "umbrella switch EXTERNAL_DELIVERY_ENABLED"
             )
+        if self.settings.app_env == "production":
+            self._validate_production_authorization(request, payload)
         return payload
+
+    def _validate_production_authorization(
+        self,
+        request: CommandExecutionRequest,
+        payload: dict[str, Any],
+    ) -> None:
+        metadata = payload.get("metadata")
+        authority = (
+            metadata.get("productionAuthorization")
+            if isinstance(metadata, dict)
+            else None
+        )
+        if not isinstance(authority, dict):
+            raise KlyrowEmailAdapterError(
+                "Middleware production authorization is required"
+            )
+        category = str(
+            payload.get("metadata", {}).get("category") or "transactional"
+        ).lower()
+        required = {
+            "schemaVersion": "1.0",
+            "tenantId": request.tenant_id,
+            "authorizationState": "ACTIVE",
+            "killSwitchOpen": True,
+            "provider": "klyrow-postal",
+            "environment": "production",
+            "category": category,
+        }
+        if any(authority.get(key) != value for key, value in required.items()):
+            raise KlyrowEmailAdapterError(
+                "Middleware production authorization is invalid"
+            )
+        if authority.get("mode") not in {
+            "TRANSACTIONAL_CANARY",
+            "TRANSACTIONAL_PRODUCTION",
+        }:
+            raise KlyrowEmailAdapterError(
+                "Middleware production mode is not transactional"
+            )
+        if (
+            not isinstance(authority.get("policyVersion"), int)
+            or authority["policyVersion"] < 1
+            or not isinstance(authority.get("changeId"), str)
+            or len(authority["changeId"]) < 3
+        ):
+            raise KlyrowEmailAdapterError(
+                "Middleware production authorization identity is invalid"
+            )
+        source_sha = str(getattr(self.settings, "source_sha", "") or "")
+        if len(source_sha) != 40 or authority.get("approvedReleaseSha") != source_sha:
+            raise KlyrowEmailAdapterError(
+                "Middleware production authorization release does not match runtime"
+            )
+        try:
+            valid_from = datetime.fromisoformat(str(authority["validFrom"]))
+            valid_until = datetime.fromisoformat(str(authority["validUntil"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise KlyrowEmailAdapterError(
+                "Middleware production authorization window is invalid"
+            ) from exc
+        now = datetime.now(UTC)
+        if (
+            valid_from.tzinfo is None
+            or valid_until.tzinfo is None
+            or now < valid_from.astimezone(UTC)
+            or now >= valid_until.astimezone(UTC)
+        ):
+            raise KlyrowEmailAdapterError(
+                "Middleware production authorization is outside its window"
+            )
 
     async def _access_token(self) -> str:
         now = time.monotonic()
@@ -308,6 +392,25 @@ class KlyrowEmailAdapter:
         payload: dict[str, Any],
     ) -> dict[str, Any]:
         content = payload["content"]
+        metadata = dict(payload.get("metadata") or {})
+        authority = metadata.get("productionAuthorization")
+        if isinstance(authority, dict):
+            authority = dict(authority)
+            authority["commandBinding"] = {
+                "messageId": request.command_id,
+                "correlationId": request.correlation_id,
+                "idempotencyKeySha256": hashlib.sha256(
+                    request.idempotency_key.encode("utf-8")
+                ).hexdigest(),
+                "sender": str(payload["from"]).lower(),
+                "recipientsSha256": hashlib.sha256(
+                    json.dumps(
+                        [str(value).lower() for value in payload["to"]],
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest(),
+            }
+            metadata["productionAuthorization"] = authority
         document: dict[str, Any] = {
             "message_id": request.command_id,
             "tenant_id": request.tenant_id,
@@ -317,7 +420,7 @@ class KlyrowEmailAdapter:
             "text": content.get("text"),
             "html": content.get("html"),
             "stream": "transactional",
-            "metadata": payload.get("metadata") or {},
+            "metadata": metadata,
         }
         # Template rendering stays on the Klyrow side; Middleware forwards the
         # reference rather than expanding it.
@@ -367,7 +470,7 @@ class KlyrowEmailAdapter:
             try:
                 reconciled = await self.readback(request)
             except KlyrowEmailAdapterError as readback_error:
-                raise KlyrowEmailAdapterError(
+                raise KlyrowEmailUnknownOutcomeError(
                     "Klyrow email outcome remains unknown after read-back failed"
                 ) from readback_error
             if reconciled.status == "matched":
@@ -380,11 +483,11 @@ class KlyrowEmailAdapter:
                     provider_operation_id=request.command_id,
                     readback_evidence=reconciled.readback_evidence,
                 )
-            raise KlyrowEmailAdapterError(
+            raise KlyrowEmailUnknownOutcomeError(
                 "Klyrow email submission failed"
             ) from exc
         if self._provider_id(value) != request.command_id:
-            raise KlyrowEmailAdapterError(
+            raise KlyrowEmailUnknownOutcomeError(
                 "Klyrow response did not bind the command identity"
             )
         return ActivityResult(

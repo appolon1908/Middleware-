@@ -5,11 +5,18 @@ from pathlib import Path
 def test_certification_uses_parameterized_operation_and_exact_provider_route():
     assert certification.COMMAND_PATH == "/v1/commands"
     assert certification.OPERATION_TEMPLATE == "/v1/operations/{command_id}"
-    assert certification.OPERATION_PROBE.endswith("00000000-0000-0000-0000-000000000000")
+    assert certification.OPERATION_PROBE.endswith(
+        "00000000-0000-0000-0000-000000000000"
+    )
     assert certification.VICIDIAL_PATH == "/api/v1/vicidial/events"
     assert certification.OPERATION_PROBE != "/v1/operations"
-    assert "/v1/operations-dashboard/overview" in certification.OPERATIONS_DASHBOARD_PATHS
-    assert "/v1/operations-dashboard/tenants/{tenant_id}" in certification.OPERATIONS_DASHBOARD_PATHS
+    assert (
+        "/v1/operations-dashboard/overview" in certification.OPERATIONS_DASHBOARD_PATHS
+    )
+    assert (
+        "/v1/operations-dashboard/tenants/{tenant_id}"
+        in certification.OPERATIONS_DASHBOARD_PATHS
+    )
 
 
 def test_certification_rejects_unregistered_or_open_responses():
@@ -32,6 +39,7 @@ def test_dashboard_route_certification_is_explicit_for_the_new_image():
 def test_middleware_independently_enforces_complete_machine_identity_contract():
     security = Path("app/security.py").read_text()
     control_plane = Path("app/n8n_control_plane.py").read_text()
+    api_inputs = Path("app/api_inputs.py").read_text()
     for required in (
         'algorithms=["RS256"]',
         "audience=self.settings.audience",
@@ -49,8 +57,16 @@ def test_middleware_independently_enforces_complete_machine_identity_contract():
     assert 'expected_client_id="n8n-automation"' in control_plane
     assert 'required_scope="middleware.request.forward"' in control_plane
     assert 'required_scope="middleware.status.read"' in control_plane
-    assert 'request.headers.get("X-Correlation-ID") != command.correlation_id' in control_plane
-    assert 'request.headers.get("Idempotency-Key") != command.idempotency_key' in control_plane
+    assert "request.headers.getlist(name)" in api_inputs
+    assert "if len(values) != 1" in api_inputs
+    assert 'request.headers.getlist(AUTHORIZATION)' in api_inputs
+    assert "if len(values) > 1" in api_inputs
+    assert "correlation = required_header(" in control_plane
+    assert '"X-Correlation-ID"' in control_plane
+    assert "idempotency = required_header(" in control_plane
+    assert '"Idempotency-Key"' in control_plane
+    assert "if correlation != command.correlation_id" in control_plane
+    assert "if idempotency != command.idempotency_key" in control_plane
 
 
 def test_write_disabled_adapter_contract_is_certified():

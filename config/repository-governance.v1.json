@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "repository": "appolon1908-hue/Middleware-",
+  "repository": "appolon1908/Middleware-",
   "repository_profile": {
     "description": "Codestra durable integration and automation control plane",
     "topics": [
@@ -40,6 +40,7 @@
     "enforcement": "active",
     "require_pull_request": true,
     "required_approvals": 1,
+    "require_code_owner_review": true,
     "require_extra_approval_for_unattributed_changes": false,
     "reason_required_approvals": "the repository has a second collaborator with write access, so one independent human approval is required in addition to the exact-head CI, security, contract, rollback, and deployment gates.",
     "dismiss_stale_reviews": true,
@@ -82,42 +83,44 @@
   "environments": {
     "staging": {
       "wait_timer": 0,
-      "prevent_self_review": false,
-      "reviewers": [],
-      "deployment_branch_policy": {
-        "protected_branches": false,
-        "custom_branch_policies": true
-      },
-      "allowed_branches": [
+      "prevent_self_review": true,
+      "reviewers": [
         {
-          "name": "main",
-          "type": "branch"
+          "type": "User",
+          "id": 77101516
         }
       ],
-      "live_write_secrets_allowed": false
+      "deployment_branch_policy": {
+        "protected_branches": true,
+        "custom_branch_policies": false
+      },
+      "allowed_branches": [],
+      "live_write_secrets_allowed": false,
+      "can_admins_bypass": false
     },
     "production": {
       "wait_timer": 0,
-      "prevent_self_review": false,
-      "reviewers": [],
-      "deployment_branch_policy": {
-        "protected_branches": false,
-        "custom_branch_policies": true
-      },
-      "allowed_branches": [
+      "prevent_self_review": true,
+      "reviewers": [
         {
-          "name": "main",
-          "type": "branch"
+          "type": "User",
+          "id": 77101516
         }
       ],
-      "live_write_secrets_allowed": false
+      "deployment_branch_policy": {
+        "protected_branches": true,
+        "custom_branch_policies": false
+      },
+      "allowed_branches": [],
+      "live_write_secrets_allowed": false,
+      "can_admins_bypass": false
     }
   },
   "release_policy": {
     "live_writes_default": false,
     "odoo_write_default": false,
     "live_apply_authorized_default": false,
-    "production_release_requires_independent_human_approval": false,
+    "production_release_requires_independent_human_approval": true,
     "production_release_environment": "production"
   }
 }

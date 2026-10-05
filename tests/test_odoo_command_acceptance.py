@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import Mock
+from app.commands import CommandService
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 
 
@@ -50,7 +52,7 @@ def test_malformed_odoo_payload_is_rejected_before_submit(test_settings) -> None
         inbox=MemoryInboxStore(),
         replay=MemoryReplayGuard(),
         tokens=N8nTokenVerifier(),
-        commands=commands,
+        commands=Mock(spec=CommandService, wraps=commands),
     )
     body = {
         "command_id": str(uuid4()),
@@ -64,16 +66,17 @@ def test_malformed_odoo_payload_is_rejected_before_submit(test_settings) -> None
         "capability": "ODOO_WRITE",
         "payload": {"source_record_id": "source-only"},
     }
-    app = create_app(settings=test_settings, runtime=runtime)
+    # The deprecated /v1/integrations/n8n/commands alias exists only on the monolith.
+    app = create_app(settings=test_settings, runtime=runtime, legacy_monolith=True)
     with TestClient(app) as client:
         response = client.post(
             "/v1/integrations/n8n/commands",
             json=body,
             headers={
                 "Authorization": "Bearer middleware.request.forward",
-                "X-Tenant-ID": body["tenant_id"],
-                "X-Correlation-ID": body["correlation_id"],
-                "Idempotency-Key": body["idempotency_key"],
+                "X-Tenant-ID": str(body["tenant_id"]),
+                "X-Correlation-ID": str(body["correlation_id"]),
+                "Idempotency-Key": str(body["idempotency_key"]),
             },
         )
     assert response.status_code == 400, response.text

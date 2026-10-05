@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.commands import (
     CommandEnvelope,
+    CommandState,
     CommandPolicy,
     CommandPolicyRegistry,
     CommandService,
@@ -21,7 +22,7 @@ from app.commands import (
 from app.communications import CommunicationsService, MemoryCommunicationsStore
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.security import AuthenticationError, AuthorizationError
 from app.sms import sms_segments
 from app.storage import MemoryInboxStore
@@ -86,12 +87,14 @@ class CapturingCommandStore(MemoryCommandStore):
         command: CommandEnvelope,
         *,
         authenticated_client_id: str,
+        **kernel_kwargs,
     ):
         self.submitted.append(command.model_copy(deep=True))
         self.authenticated_client_ids.append(authenticated_client_id)
         return await super().submit(
             command,
             authenticated_client_id=authenticated_client_id,
+            **kernel_kwargs,
         )
 
 
@@ -207,7 +210,7 @@ def _sign(event: dict[str, Any]) -> dict[str, str]:
         "X-Codestra-Tenant-Id": event["tenant_id"],
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": "sha256=" + signature,
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
 
 
@@ -249,6 +252,8 @@ def test_sms_api_creates_one_canonical_telnexa_command_and_usage(test_settings) 
             headers=_headers(),
         )
         assert conflict.status_code == 409
+
+        assert runtime.commands is not None
 
         assert isinstance(runtime.commands.store, CapturingCommandStore)
         assert len(runtime.commands.store.submitted) == 1
@@ -338,6 +343,7 @@ def test_sms_schema_sender_scope_and_kill_switch_fail_closed(test_settings) -> N
         assert blocked.status_code == 403
     assert disabled.communications is not None
     assert disabled.communications.store.messages == {}
+    assert disabled.commands is not None
     assert isinstance(disabled.commands.store, CapturingCommandStore)
     assert disabled.commands.store._commands == {}
 
@@ -403,6 +409,7 @@ def test_sms_segments_suppression_tenant_isolation_and_cancel(test_settings) -> 
             headers=_headers(key="sms-cancel-operation"),
         )
         assert cancel_replay.status_code == 200
+        assert runtime.commands is not None
         operation = asyncio.run(
             runtime.commands.store.get("tenant-1", UUID(created["operationId"]))
         )
@@ -531,14 +538,16 @@ def test_sms_unknown_outcome_is_indeterminate_without_duplicate_command(
         command_id = UUID(created["operationId"])
 
         async def make_uncertain() -> None:
-            for state, reason in (
+            assert runtime.commands is not None
+            transitions: tuple[tuple[CommandState, str], ...] = (
                 ("queued", "workflow accepted durable intent"),
                 ("dispatching", "Telnexa submission started"),
                 (
                     "reconciliation_required",
                     "Telnexa timed out after possible acceptance",
                 ),
-            ):
+            )
+            for state, reason in transitions:
                 await runtime.commands.store.transition(
                     "tenant-1",
                     command_id,
@@ -561,5 +570,6 @@ def test_sms_unknown_outcome_is_indeterminate_without_duplicate_command(
         )
         assert replay.status_code == 200
         assert replay.json()["messageId"] == created["messageId"]
+        assert runtime.commands is not None
         assert isinstance(runtime.commands.store, CapturingCommandStore)
         assert len(runtime.commands.store.submitted) == 1

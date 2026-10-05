@@ -14,14 +14,8 @@ concurrency:
 
 jobs:
   apply:
-    if: >-
-      github.repository == 'appolon1908-hue/Middleware-' &&
-      github.event.issue.number == 68 &&
-      github.event.issue.pull_request == null &&
-      github.event.comment.user.login == 'appolon1908-hue' &&
-      github.event.comment.user.id == 275410064 &&
-      github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/apply-repository-governance w0-live-v1'
+    # RUNTIME_MUTATION_DISABLED=true: live repository administration is outside release preparation.
+    if: ${{ false }}
     name: Apply and verify repository governance
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -73,7 +67,7 @@ jobs:
             printf -- '- Exact source SHA: `%s`\n' "$GOVERNANCE_SHA"
             printf -- '- Main protected: `YES`\n'
             printf -- '- Ruleset: `middleware-main-production-authority`\n'
-            printf -- '- Required checks: `10`\n'
+            printf -- '- Required checks: `11`\n'
             printf -- '- Environments: `staging`, `production`\n'
             printf -- '- Runtime/deployment/live-write changes: `NONE`\n'
           } >> "$GITHUB_STEP_SUMMARY"

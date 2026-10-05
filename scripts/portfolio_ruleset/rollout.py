@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import datetime as dt
 import hashlib
 import json
@@ -7,8 +9,14 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
-from portfolio_ruleset.common import RolloutError, normalize_ruleset_payload, require
-from portfolio_ruleset.github_api import GitHubApi
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.common import RolloutError, normalize_ruleset_payload, require
+else:
+    from portfolio_ruleset.common import RolloutError, normalize_ruleset_payload, require
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.github_api import GitHubApi
+else:
+    from portfolio_ruleset.github_api import GitHubApi
 
 
 def select_active_repositories(
@@ -56,9 +64,11 @@ def verify_repository(
     api: GitHubApi, full_name: str, desired: Mapping[str, Any]
 ) -> tuple[int, dict[str, Any]]:
     match = find_named_ruleset(api.list_rulesets(full_name), str(desired["name"]), full_name)
-    require(match is not None, f"{full_name}: expected ruleset is missing")
+    if match is None:
+        raise RolloutError(f"{full_name}: expected ruleset is missing")
     ruleset_id = match.get("id")
-    require(isinstance(ruleset_id, int), f"{full_name}: ruleset ID is invalid")
+    if not isinstance(ruleset_id, int):
+        raise RolloutError(f"{full_name}: ruleset ID is invalid")
     observed = normalize_ruleset_payload(api.get_ruleset(full_name, ruleset_id))
     expected = normalize_ruleset_payload(desired)
     require(observed == expected, f"{full_name}: live ruleset does not match policy")
@@ -111,7 +121,10 @@ def execute(
     desired: Mapping[str, Any],
 ) -> dict[str, Any]:
     if mode == "apply":
-        from portfolio_ruleset.common import CONFIRMATION
+        if TYPE_CHECKING:
+            from scripts.portfolio_ruleset.common import CONFIRMATION
+        else:
+            from portfolio_ruleset.common import CONFIRMATION
 
         require(confirmation == CONFIRMATION, "exact apply confirmation is required")
     api = GitHubApi(token)

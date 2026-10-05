@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from .api_inputs import authorization_header, optional_header, required_header
+from .core.header_authority import TENANT_ID, CORRELATION_ID, IDEMPOTENCY_KEY
+
 import hashlib
 import re
 import uuid
@@ -13,7 +16,7 @@ from pydantic import ValidationError
 
 from .commands import CommandError
 from .commands import MemoryCommandStore, PostgresCommandStore
-from .config import Settings
+from app.core.config import Settings
 from .control_plane_auth import caller_for_authorization
 from .models import EventEnvelope
 from .observability_alert_contract import (
@@ -24,24 +27,27 @@ from .observability_alert_contract import (
     OPERATOR_CLIENT_ID,
     AlertDeliveryEvent,
     AlertPolicy,
+    AlertOperationView,
     AlertSubmissionResponse,
     AlertmanagerWebhook,
     activation_enabled,
     load_policy,
     require_alert_operation,
 )
+from .observability_projection import ObservabilityOdooProjection
 from .observability_incidents import (
     AlertmanagerStatusSnapshot,
     IncidentConflict,
     IncidentMutationRequest,
     IncidentService,
+    IncidentStore,
     IncidentState,
     MemoryIncidentStore,
     PostgresIncidentStore,
     decode_cursor,
     encode_cursor,
 )
-from .runtime import Runtime, build_runtime
+from app.core.runtime import RuntimeContainer as Runtime, build_runtime_container as build_runtime
 from .security import (
     AuthorizationError,
     RequestValidationError,
@@ -52,6 +58,17 @@ from .storage import StorageError, canonical_payload_sha256
 
 
 SOURCE_DEPLOYMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{2,127}$")
+NATIVE_RECEIVERS = frozenset(
+    {
+        "middleware-default",
+        "middleware-heartbeat",
+        "middleware-critical",
+        "middleware-high",
+        "middleware-warning",
+        "middleware-informational",
+    }
+)
+NATIVE_MAX_ALERTS = 100
 
 
 async def read_bounded_json(request: Request, *, maximum: int) -> bytes:
@@ -62,7 +79,9 @@ async def read_bounded_json(request: Request, *, maximum: int) -> bytes:
     if declared:
         try:
             if int(declared) > maximum:
-                raise RequestValidationError("request body exceeds the configured limit")
+                raise RequestValidationError(
+                    "request body exceeds the configured limit"
+                )
         except ValueError as exc:
             raise RequestValidationError("Content-Length is invalid") from exc
     body = bytearray()
@@ -81,14 +100,17 @@ async def authorize(
     expected_client_id: str,
     scope_kind: Literal["command", "status"],
     policy: AlertPolicy,
+    correlation_fallback: str = "",
 ) -> tuple[str, str]:
-    tenant_id = request.headers.get("X-Tenant-ID", "").strip()
-    correlation_id = request.headers.get("X-Correlation-ID", "").strip()
+    tenant_id = optional_header(request, TENANT_ID, minimum=1, maximum=128) or ""
+    correlation_id = (
+        optional_header(request, CORRELATION_ID, minimum=1, maximum=180) or correlation_fallback
+    )
     if tenant_id != policy.tenant_id:
         raise AuthorizationError("observability tenant does not match the fixed policy")
     if not correlation_id or len(correlation_id) > 180:
         raise RequestValidationError("X-Correlation-ID is required")
-    authorization = request.headers.get("Authorization", "")
+    authorization = authorization_header(request)
     caller = caller_for_authorization(authorization)
     if caller.client_id != expected_client_id:
         raise AuthorizationError("caller is not authorized for observability alerts")
@@ -120,7 +142,10 @@ def problem(
     status_code: int,
     code: str,
 ) -> JSONResponse:
-    correlation_id = request.headers.get("X-Correlation-ID", "")
+    correlation_id = (
+        optional_header(request, CORRELATION_ID, minimum=1, maximum=180)
+        or getattr(request.state, "correlation_id", "")
+    )
     headers = {"X-Correlation-ID": correlation_id} if correlation_id else None
     return JSONResponse(
         status_code=status_code,
@@ -151,6 +176,7 @@ def create_app(
         if active.commands is None:
             raise StorageError("command ledger is unavailable")
         active.commands.policies.capabilities[COMMAND_CAPABILITY] = delivery_enabled
+        incident_store: IncidentStore
         if isinstance(active.commands.store, MemoryCommandStore):
             incident_store = MemoryIncidentStore(active.commands)
         elif isinstance(active.commands.store, PostgresCommandStore):
@@ -162,6 +188,9 @@ def create_app(
             commands=active.commands,
             policy=active_policy,
             delivery_enabled=delivery_enabled,
+        )
+        app.state.odoo_projection = ObservabilityOdooProjection(
+            getattr(incident_store, "pool", None)
         )
         app.state.runtime = active
         try:
@@ -178,6 +207,18 @@ def create_app(
         redoc_url=None,
     )
     app.state.metrics = {"ingested": 0, "duplicates": 0, "status_sync": 0}
+
+    async def project_incident(request: Request, incident) -> None:
+        projection = request.app.state.odoo_projection
+        # Memory-only alert runtimes deliberately have no Odoo queue. Keep
+        # local incident behavior usable while production Postgres runtimes
+        # fail closed if their durable projection queue is unavailable.
+        if not projection.enabled:
+            return
+        try:
+            await projection.enqueue_incident(incident)
+        except Exception as exc:
+            raise StorageError("observability Odoo projection queue unavailable") from exc
 
     @app.exception_handler(SecurityError)
     async def security_error(request: Request, exc: SecurityError) -> JSONResponse:
@@ -204,14 +245,17 @@ def create_app(
         )
 
     @app.get("/health")
+    @app.get("/platform/v1/health")
     async def health() -> dict[str, str]:
         return {"status": "healthy", "service": "middleware-observability-alerts"}
 
     @app.head("/health")
+    @app.head("/platform/v1/health")
     async def health_head() -> Response:
         return Response(status_code=200)
 
     @app.get("/readiness")
+    @app.get("/platform/v1/readiness")
     async def readiness(request: Request) -> JSONResponse:
         report = await request.app.state.runtime.readiness()
         return JSONResponse(
@@ -255,23 +299,39 @@ def create_app(
                 f'codestra_observability_incident_events_total{{result="duplicate"}} {values["duplicates"]}',
                 "# HELP codestra_observability_status_sync_total Alertmanager status records accepted.",
                 "# TYPE codestra_observability_status_sync_total counter",
-                f'codestra_observability_status_sync_total {values["status_sync"]}',
+                f"codestra_observability_status_sync_total {values['status_sync']}",
                 "",
             )
         )
         return Response(content=body, media_type="text/plain; version=0.0.4")
 
+    @app.post("/internal/v1/alerts/alertmanager")
     @app.post("/v1/integrations/alertmanager/events")
     @app.post("/v1/observability/alerts", deprecated=True)
     async def submit_alerts(request: Request) -> JSONResponse:
+        native_header = request.headers.get("X-Alertmanager-Native-Webhook", "")
+        if native_header not in {"", "v4"}:
+            raise RequestValidationError("unsupported native Alertmanager webhook mode")
+        native = native_header == "v4"
+        if native:
+            request.state.correlation_id = (
+                optional_header(request, CORRELATION_ID, minimum=1, maximum=180)
+                or "alertmanager-native-" + uuid.uuid4().hex
+            )
         actor, correlation_id = await authorize(
             request,
             expected_client_id=ALERTMANAGER_CLIENT_ID,
             scope_kind="command",
             policy=active_policy,
+            correlation_fallback=getattr(request.state, "correlation_id", "")
+            if native
+            else "",
         )
-        supplied_idempotency = request.headers.get("Idempotency-Key", "").strip()
-        if not IDEMPOTENCY_RE.fullmatch(supplied_idempotency):
+        request.state.correlation_id = correlation_id
+        supplied_idempotency = optional_header(request, IDEMPOTENCY_KEY, minimum=1, maximum=180) or ""
+        if (supplied_idempotency or not native) and not IDEMPOTENCY_RE.fullmatch(
+            supplied_idempotency
+        ):
             raise RequestValidationError("Idempotency-Key is required and malformed")
         raw = await read_bounded_json(request, maximum=active_policy.max_body_bytes)
         deployment = source_deployment(request)
@@ -279,10 +339,36 @@ def create_app(
             webhook = AlertmanagerWebhook.model_validate_json(raw)
         except ValidationError as exc:
             raise RequestValidationError("Alertmanager payload is invalid") from exc
-        if webhook.receiver != active_policy.receiver:
+        allowed_receivers = {active_policy.receiver}
+        if native:
+            allowed_receivers.update(NATIVE_RECEIVERS)
+        if webhook.receiver not in allowed_receivers:
             raise AuthorizationError("Alertmanager receiver is not approved")
-        if len(webhook.alerts) > active_policy.max_alerts_per_request:
+        maximum_alerts = (
+            NATIVE_MAX_ALERTS if native else active_policy.max_alerts_per_request
+        )
+        if len(webhook.alerts) > maximum_alerts:
             raise RequestValidationError("too many alerts in one request")
+        if native:
+            # Normalize the principal Alertmanager vocabulary at the authenticated
+            # boundary. Tenant, workload, scope, metadata and delivery policy
+            # checks remain identical to the explicit transport.
+            for label_map in [webhook.group_labels, webhook.common_labels] + [
+                item.labels for item in webhook.alerts
+            ]:
+                if label_map.get("severity") == "informational":
+                    label_map["severity"] = "info"
+            if not supplied_idempotency:
+                supplied_idempotency = (
+                    "alertmanager-native-v1:"
+                    + canonical_payload_sha256(
+                        {
+                            "tenant_id": active_policy.tenant_id,
+                            "source_deployment": deployment,
+                            "webhook": webhook.model_dump(mode="json", by_alias=True),
+                        }
+                    )
+                )
 
         for alert in webhook.alerts:
             if alert.labels["environment"] not in active_policy.allowed_environments:
@@ -291,15 +377,32 @@ def create_app(
                 raise AuthorizationError("alert severity is not approved")
 
         operations = []
+        failures = []
         for alert in webhook.alerts:
-            result = await request.app.state.runtime.incidents.ingest(
-                group_key=webhook.group_key,
-                alert=alert,
-                actor_id=actor,
-                correlation_id=correlation_id,
-                source_deployment=deployment,
-                request_idempotency_key=supplied_idempotency,
-            )
+            try:
+                result = await request.app.state.runtime.incidents.ingest(
+                    group_key=webhook.group_key,
+                    alert=alert,
+                    actor_id=actor,
+                    correlation_id=correlation_id,
+                    source_deployment=deployment,
+                    request_idempotency_key=supplied_idempotency,
+                )
+                await project_incident(request, result.incident)
+            except (IncidentConflict, CommandError, StorageError) as exc:
+                if not native or len(webhook.alerts) == 1:
+                    raise
+                # Native Alertmanager retries the complete webhook on non-2xx.
+                # Report per-alert failure instead so one conflicting transition
+                # cannot cause already-persisted siblings to be replayed forever.
+                failures.append(
+                    {
+                        "alert_fingerprint": alert.fingerprint,
+                        "code": getattr(exc, "code", exc.__class__.__name__),
+                        "retryable": bool(getattr(exc, "retryable", False)),
+                    }
+                )
+                continue
             metric = "duplicates" if result.duplicate else "ingested"
             request.app.state.metrics[metric] += 1
             operation = result.operation
@@ -329,12 +432,15 @@ def create_app(
             policy_id=active_policy.policy_id,
             recipient_policy_id=active_policy.recipient_policy_id,
             sender_policy_id=active_policy.sender_policy_id,
-            operations=operations,
+            operations=[AlertOperationView.model_validate(item) for item in operations],
         )
-        duplicate = all(item["duplicate"] for item in operations)
+        duplicate = bool(operations) and all(item["duplicate"] for item in operations)
+        content = response.model_dump(mode="json")
+        if native and failures:
+            content["failures"] = failures
         return JSONResponse(
-            status_code=200 if duplicate else 202,
-            content=response.model_dump(mode="json"),
+            status_code=207 if native and failures else (200 if duplicate else 202),
+            content=content,
             headers={"X-Correlation-ID": correlation_id},
         )
 
@@ -390,14 +496,16 @@ def create_app(
             scope_kind="command",
             policy=active_policy,
         )
-        supplied_idempotency = request.headers.get("Idempotency-Key", "").strip()
+        supplied_idempotency = optional_header(request, IDEMPOTENCY_KEY, minimum=1, maximum=180) or ""
         if not IDEMPOTENCY_RE.fullmatch(supplied_idempotency):
             raise RequestValidationError("Idempotency-Key is required and malformed")
         raw = await read_bounded_json(request, maximum=active_policy.max_body_bytes)
         try:
             snapshot = AlertmanagerStatusSnapshot.model_validate_json(raw)
         except ValidationError as exc:
-            raise RequestValidationError("Alertmanager status payload is invalid") from exc
+            raise RequestValidationError(
+                "Alertmanager status payload is invalid"
+            ) from exc
         deployment = source_deployment(request)
         if snapshot.source_deployment != deployment:
             raise RequestValidationError(
@@ -430,10 +538,9 @@ def create_app(
                     }
                 )
                 continue
+            await project_incident(request, incident)
             value = incident.model_dump(mode="json")
-            value["result_status"] = (
-                "duplicate" if incident.duplicate else "applied"
-            )
+            value["result_status"] = "duplicate" if incident.duplicate else "applied"
             items.append(value)
             request.app.state.metrics["status_sync"] += 1
         if len(snapshot.items) == 1 and failures:
@@ -541,10 +648,12 @@ def create_app(
             scope_kind="status",
             policy=active_policy,
         )
-        rows = await request.app.state.runtime.incidents.store.list_notification_attempts(
-            active_policy.tenant_id,
-            incident_id,
-            limit=limit,
+        rows = (
+            await request.app.state.runtime.incidents.store.list_notification_attempts(
+                active_policy.tenant_id,
+                incident_id,
+                limit=limit,
+            )
         )
         return JSONResponse(
             content={"items": [item.model_dump(mode="json") for item in rows]},
@@ -562,7 +671,7 @@ def create_app(
             scope_kind="command",
             policy=active_policy,
         )
-        supplied_idempotency = request.headers.get("Idempotency-Key", "").strip()
+        supplied_idempotency = optional_header(request, IDEMPOTENCY_KEY, minimum=1, maximum=180) or ""
         if not IDEMPOTENCY_RE.fullmatch(supplied_idempotency):
             raise RequestValidationError("Idempotency-Key is required and malformed")
         raw = await read_bounded_json(request, maximum=16_384)
@@ -580,6 +689,7 @@ def create_app(
             expected_version=mutation.expected_version,
             reason=mutation.reason,
         )
+        await project_incident(request, incident)
         return JSONResponse(
             content=incident.model_dump(mode="json"),
             headers={"X-Correlation-ID": correlation_id},
@@ -598,9 +708,7 @@ def create_app(
         return await mutate_incident(incident_id, request, "resolve")
 
     @app.post("/v1/observability/incidents/{incident_id}/reopen")
-    async def reopen_incident(
-        incident_id: uuid.UUID, request: Request
-    ) -> JSONResponse:
+    async def reopen_incident(incident_id: uuid.UUID, request: Request) -> JSONResponse:
         return await mutate_incident(incident_id, request, "reopen")
 
     @app.post("/v1/observability/alert-delivery-events")
@@ -611,7 +719,7 @@ def create_app(
             scope_kind="command",
             policy=active_policy,
         )
-        supplied_idempotency = request.headers.get("Idempotency-Key", "").strip()
+        supplied_idempotency = optional_header(request, IDEMPOTENCY_KEY, minimum=1, maximum=180) or ""
         if not IDEMPOTENCY_RE.fullmatch(supplied_idempotency):
             raise RequestValidationError("Idempotency-Key is required and malformed")
         raw = await read_bounded_json(request, maximum=65_536)

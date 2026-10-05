@@ -12,7 +12,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from architecture.site_architecture import architecture
+from architecture.site_architecture import architecture  # noqa: E402
 BASE_MANIFEST = ROOT / "config" / "integration-branches.json"
 BASE_CONNECTIVITY = ROOT / "config" / "connectivity-map.json"
 
@@ -175,7 +175,7 @@ def main() -> int:
         errors.append("runtime status overrides reference unknown base branches")
 
     combined = base_branches | set(new_branches)
-    effective_status = dict(base_status)
+    effective_status: dict[Any, Any] = dict(base_status)
     effective_status.update(EXPECTED_OVERRIDES)
     effective_status.update(new_status)
 

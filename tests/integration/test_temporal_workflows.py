@@ -52,6 +52,10 @@ class DeterministicActivities:
         self.execute_attempts = 0
         self.readback_attempts = 0
         self.execute_outcome_unknown = False
+        self.execute_outcome_retryable = False
+        self.execute_status = "accepted"
+        self.execute_provider_operation_id = "provider-op-1"
+        self.readback_evidence: dict[str, Any] | None = None
 
     @activity.defn(name="reconcile_operation")
     async def reconcile_operation(
@@ -139,13 +143,23 @@ class DeterministicActivities:
         request: CommandExecutionRequest,
     ) -> ActivityResult:
         self.execute_attempts += 1
+        if self.execute_outcome_retryable:
+            # The shape real adapters raise: a *retryable* ProviderAdapterError
+            # after a request that may have reached the provider.
+            raise ApplicationError(
+                "provider connection reset after the request was sent",
+                type="ProviderAdapterError",
+            )
         if self.execute_outcome_unknown:
             raise ApplicationError(
                 "provider timed out after possible acceptance",
                 non_retryable=True,
                 type="UncertainProviderOutcome",
             )
-        return ActivityResult("accepted", "provider accepted", "provider-op-1")
+        return ActivityResult(
+            self.execute_status, "provider result",
+            self.execute_provider_operation_id,
+        )
 
     @activity.defn(name="readback_command")
     async def readback_command(
@@ -153,7 +167,10 @@ class DeterministicActivities:
         request: CommandExecutionRequest,
     ) -> ActivityResult:
         self.readback_attempts += 1
-        return ActivityResult(self.readback_status, "provider state observed")
+        return ActivityResult(
+            self.readback_status, "provider state observed",
+            self.execute_provider_operation_id, self.readback_evidence,
+        )
 
     def registered(self) -> list[Any]:
         return [
@@ -271,6 +288,82 @@ async def test_critical_workflows_retry_wait_compensate_and_require_approval() -
                 "completed",
             ]
 
+            for action in ("originate", "hangup"):
+                activities.command_transitions.clear()
+                activities.execute_status = "dispatch_unknown"
+                readbacks_before = activities.readback_attempts
+                dispatch_unknown = await environment.client.execute_workflow(
+                    CommandExecutionWorkflow.run,
+                    CommandExecutionRequest(
+                        command_id="00000000-0000-4000-8000-000000000099",
+                        command_type=f"telephony-internal.calls.{action}",
+                        command_version="1.0",
+                        target="vicidial-restricted",
+                        tenant_id="tenant-test",
+                        requested_by="subject-appolon",
+                        correlation_id="calling-correlation-unknown",
+                        idempotency_key="calling-idempotency-unknown",
+                        capability="INTERNAL_TELEPHONY_CALLS",
+                        payload={},
+                        authenticated_client_id="odoo-integration",
+                    ),
+                    id=f"test-calling-{action}-dispatch-unknown",
+                    task_queue=TASK_QUEUE,
+                )
+                assert dispatch_unknown.status == "reconciliation_required"
+                assert activities.command_transitions == [
+                    "queued", "dispatching", "reconciliation_required",
+                ]
+                assert activities.readback_attempts == readbacks_before
+            activities.execute_status = "accepted"
+
+            activities.command_transitions.clear()
+            activities.readback_status = "matched"
+            activities.execute_provider_operation_id = "accepted-asterisk-id"
+            activities.readback_evidence = {
+                "operation_id": "00000000-0000-4000-8000-000000000098",
+                "correlation_id": "calling-correlation-provider-mismatch",
+                "dispatch_state": "accepted",
+                "asterisk_uniqueid": "different-asterisk-id",
+                "linkedid": "different-asterisk-id", "call_id": "call-98",
+                "call_state": "completed", "answered_at": "2026-09-05T20:00:02Z",
+                "ended_at": "2026-09-05T20:00:07Z", "terminal": True,
+                "evidence": {"sequence": 3}, "tenant_id": "tenant-test",
+                "subject": "subject-appolon", "employee_id": "employee-appolon",
+                "username": "appolon", "extension": "6901", "campaign": "TEST_SYN",
+                "authorization_reference": "AUTH-TEST-1",
+                "created_at": "2026-09-05T20:00:00Z", "duration_seconds": 7,
+                "talk_duration_seconds": 5, "hangup_cause": "normal",
+                "hangup_cause_code": 16, "internal_only": True,
+                "external_dialing": False, "recording": False,
+            }
+            provider_mismatch = await environment.client.execute_workflow(
+                CommandExecutionWorkflow.run,
+                CommandExecutionRequest(
+                    command_id="00000000-0000-4000-8000-000000000098",
+                    command_type="telephony-internal.calls.originate",
+                    command_version="1.0", target="vicidial-restricted",
+                    tenant_id="tenant-test", requested_by="subject-appolon",
+                    correlation_id="calling-correlation-provider-mismatch",
+                    idempotency_key="calling-idempotency-provider-mismatch",
+                    capability="INTERNAL_TELEPHONY_CALLS",
+                    payload={
+                        "actor": {"subject": "subject-appolon",
+                                  "employee_id": "employee-appolon",
+                                  "extension": "6901", "campaign_id": "TEST_SYN"},
+                        "authorization_reference": "AUTH-TEST-1",
+                    },
+                    authenticated_client_id="odoo-integration",
+                ),
+                id="test-calling-provider-identity-mismatch",
+                task_queue=TASK_QUEUE,
+            )
+            assert provider_mismatch.status == "reconciliation_required"
+            assert activities.command_transitions[-1] == "reconciliation_required"
+            assert "completed" not in activities.command_transitions
+            activities.execute_provider_operation_id = "provider-op-1"
+            activities.readback_evidence = None
+
             activities.command_transitions.clear()
             activities.readback_status = "mismatch"
             mismatch = await environment.client.execute_workflow(
@@ -350,7 +443,7 @@ async def test_critical_workflows_retry_wait_compensate_and_require_approval() -
                     tenant_id="tenant-test",
                     requested_by="user-1",
                     correlation_id="sms-correlation-1",
-                    idempotency_key="sms-idempotency-1",
+                    idempotency_key="test-sms-2",
                     capability="SMS_DELIVERY",
                     payload={"message_id": "message-2"},
                     authenticated_client_id="test-client",
@@ -366,3 +459,39 @@ async def test_critical_workflows_retry_wait_compensate_and_require_approval() -
             ]
             assert activities.execute_attempts == execute_attempts_before + 1
             assert activities.readback_attempts == readback_attempts_before
+
+            # A retryable adapter error must not re-run the provider effect:
+            # execute_command is single-attempt and an unknown outcome is
+            # parked for read-back/reconciliation, never resent by Temporal.
+            activities.command_transitions.clear()
+            activities.execute_outcome_unknown = False
+            activities.execute_outcome_retryable = True
+            execute_attempts_before = activities.execute_attempts
+            readback_attempts_before = activities.readback_attempts
+            retryable_unknown = await environment.client.execute_workflow(
+                CommandExecutionWorkflow.run,
+                CommandExecutionRequest(
+                    command_id="00000000-0000-4000-8000-000000000004",
+                    command_type="sms.message.submit.v1",
+                    command_version="1.0",
+                    target="telnexa-sms",
+                    tenant_id="tenant-test",
+                    requested_by="user-1",
+                    correlation_id="sms-correlation-retryable",
+                    idempotency_key="test-sms-retryable-1",
+                    capability="SMS_DELIVERY",
+                    payload={"message_id": "message-3"},
+                    authenticated_client_id="test-client",
+                ),
+                id="test-sms-command-retryable-unknown-outcome",
+                task_queue=TASK_QUEUE,
+            )
+            assert retryable_unknown.status == "reconciliation_required"
+            assert activities.command_transitions == [
+                "queued",
+                "dispatching",
+                "reconciliation_required",
+            ]
+            assert activities.execute_attempts == execute_attempts_before + 1
+            assert activities.readback_attempts == readback_attempts_before
+            activities.execute_outcome_retryable = False

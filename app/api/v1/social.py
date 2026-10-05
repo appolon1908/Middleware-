@@ -1,0 +1,718 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timezone
+from typing import Any
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from app.api_inputs import optional_header
+from app.core.header_authority import CORRELATION_ID, REQUEST_ID
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.social_auth import SocialPrincipal, require_social_permission, require_social_principal
+from app.db.session import bind_transaction_tenant, get_session, resolve_tenant_id
+from app.social.adapters import HootsuiteProviderAdapter, PostlyProviderAdapter
+from app.social.domain import Capability, JobType
+from app.social.providers import SocialError, SocialProviderRegistry
+from app.social.production import ProductionCanaryPolicy, require_provider_health
+from app.social.service import SocialPublishingService
+from app.social.sql_repository import SqlSocialRepository
+from app.social import metrics
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class MediaReference(StrictModel):
+    asset_id: UUID
+
+
+class Content(StrictModel):
+    text: str = Field(min_length=1, max_length=10000)
+    media: list[MediaReference] = Field(default_factory=list, max_length=50)
+
+
+class Schedule(StrictModel):
+    publish_at: datetime
+
+
+class CreateSocialPost(StrictModel):
+    id: UUID | None = None
+    tenant_id: UUID
+    campaign_id: UUID | None = None
+    accounts: list[UUID] = Field(min_length=1, max_length=50)
+    content: Content
+    schedule: Schedule | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class UpdateSocialPost(StrictModel):
+    content: Content | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class RegisterMediaAsset(StrictModel):
+    tenant_id: UUID
+    media_type: str = Field(pattern=r"^(video|image|audio|document|other)$")
+    content_type: str = Field(min_length=3, max_length=255)
+    storage_reference: str = Field(min_length=1, max_length=2048)
+    checksum_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CreateCampaign(StrictModel):
+    tenant_id: UUID
+    name: str = Field(min_length=1, max_length=255)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+registry = SocialProviderRegistry()
+registry.register(PostlyProviderAdapter())
+registry.register(HootsuiteProviderAdapter())
+service = SocialPublishingService(registry)
+campaign_store: dict[UUID, dict[str, Any]] = {}
+router = APIRouter(prefix="/api/v1/social", tags=["social"])
+
+
+def _error(exc: SocialError) -> HTTPException:
+    return HTTPException(
+        exc.status_code,
+        {"code": exc.code, "message": exc.safe_message, "retryable": exc.retryable},
+    )
+
+
+def _require(permission: str, principal: SocialPrincipal) -> None:
+    require_social_permission(principal, permission)
+
+
+def _ids(request: Request) -> tuple[str, str]:
+    return (
+        optional_header(request, CORRELATION_ID, minimum=1, maximum=180) or str(uuid4()),
+        optional_header(request, REQUEST_ID, minimum=1, maximum=180) or str(uuid4()),
+    )
+
+
+def _post(post: Any) -> dict[str, Any]:
+    return {
+        "id": post.id,
+        "tenant_id": post.tenant_id,
+        "campaign_id": post.campaign_id,
+        "accounts": post.account_ids,
+        "content": post.content,
+        "schedule": {"publish_at": post.publish_at} if post.publish_at else None,
+        "provider": post.provider,
+        "status": post.status,
+        "created_at": post.created_at,
+        "updated_at": post.updated_at,
+    }
+
+
+def _media_asset(asset: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": asset["id"],
+        "tenant_id": asset["tenant_id"],
+        "media_type": asset["media_type"],
+        "content_type": asset["content_type"],
+        "storage_reference": asset["storage_reference"],
+        "checksum_sha256": asset["checksum_sha256"],
+        "metadata": dict(asset["metadata"]),
+        "created_at": asset["created_at"],
+    }
+
+
+@router.get("/providers")
+async def providers(
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> list[dict[str, Any]]:
+    _require("social.read", principal)
+    return [
+        {"provider": item.name, "capabilities": sorted(item.get_capabilities())}
+        for item in registry.providers()
+    ]
+
+
+@router.get("/providers/{provider}")
+async def provider(
+    provider: str, principal: SocialPrincipal = Depends(require_social_principal)
+) -> dict[str, Any]:
+    _require("social.read", principal)
+    try:
+        adapter = registry.get(provider)
+        result = await adapter.health_check()
+        result["capabilities"] = sorted(adapter.get_capabilities())
+        return result
+    except SocialError as exc:
+        raise _error(exc) from exc
+
+
+@router.get("/accounts")
+async def accounts(
+    session: AsyncSession = Depends(get_session),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> list[dict[str, Any]]:
+    _require("social.accounts.read", principal)
+    if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
+        return await SqlSocialRepository(session).list_accounts()
+    return [
+        {
+            "id": item.id,
+            "provider": item.provider,
+            "network": item.network,
+            "external_profile_name": item.external_profile_name,
+            "external_profile_id": item.external_profile_id,
+            "connection_state": item.connection_state,
+            "capabilities": sorted(item.capabilities),
+            "last_sync_at": item.last_sync_at,
+        }
+        for item in service.repository.accounts.values()
+    ]
+
+
+@router.get("/accounts/{account_id}")
+async def account(
+    account_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.accounts.read", principal)
+    if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
+        rows = await SqlSocialRepository(session).list_accounts(account_id)
+        if not rows:
+            raise HTTPException(
+                404,
+                {
+                    "code": "SOCIAL_ACCOUNT_NOT_FOUND",
+                    "message": "Social account was not found",
+                },
+            )
+        return rows[0]
+    try:
+        item = service.repository.accounts[account_id]
+    except KeyError as exc:
+        raise HTTPException(
+            404,
+            {
+                "code": "SOCIAL_ACCOUNT_NOT_FOUND",
+                "message": "Social account was not found",
+            },
+        ) from exc
+    return {
+        "id": item.id,
+        "provider": item.provider,
+        "network": item.network,
+        "external_profile_name": item.external_profile_name,
+        "external_profile_id": item.external_profile_id,
+        "connection_state": item.connection_state,
+        "capabilities": sorted(item.capabilities),
+        "last_sync_at": item.last_sync_at,
+    }
+
+
+@router.post("/posts", status_code=202)
+async def create_post(
+    body: CreateSocialPost,
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=1, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.write", principal)
+    await bind_transaction_tenant(session, principal.tenant_ids, str(body.tenant_id))
+    correlation_id, request_id = _ids(request)
+    try:
+        if settings.social_sql_repository_enabled:
+            if not settings.social_integration_enabled:
+                raise SocialError(
+                    "SOCIAL_PROVIDER_DISABLED",
+                    "Social integration is disabled",
+                    status_code=503,
+                )
+            provider_name = service.resolve_provider()
+            registry.require(provider_name, Capability.POST_CREATE)
+            repository = SqlSocialRepository(session)
+            post_id, job_id, created = await repository.create_post_intent(
+                tenant_id=body.tenant_id,
+                provider=provider_name,
+                account_ids=tuple(body.accounts),
+                content=body.content.model_dump(mode="json"),
+                campaign_id=body.campaign_id,
+                publish_at=body.schedule.publish_at if body.schedule else None,
+                metadata=body.metadata,
+                idempotency_key=idempotency_key,
+                correlation_id=correlation_id,
+                request_id=request_id,
+                post_id=body.id,
+            )
+            post = await repository.get_post(post_id)
+            metrics.publish_requests.labels(
+                provider_name.value, "other", "queued"
+            ).inc()
+            response.headers["X-Correlation-ID"] = correlation_id
+            return {
+                "post": _post(post),
+                "job_id": job_id,
+                "idempotent_replay": not created,
+            }
+        post, job, created = await service.create_post(
+            tenant_id=body.tenant_id,
+            account_ids=tuple(body.accounts),
+            content=body.content.model_dump(mode="json"),
+            campaign_id=body.campaign_id,
+            publish_at=body.schedule.publish_at if body.schedule else None,
+            metadata=body.metadata,
+            idempotency_key=idempotency_key,
+            correlation_id=correlation_id,
+            request_id=request_id,
+            post_id=body.id,
+        )
+    except SocialError as exc:
+        raise _error(exc) from exc
+    response.headers["X-Correlation-ID"] = correlation_id
+    return {"post": _post(post), "job_id": job.id, "idempotent_replay": not created}
+
+
+@router.get("/posts/{post_id}")
+async def get_post(
+    post_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.read", principal)
+    try:
+        if settings.social_sql_repository_enabled:
+            await bind_transaction_tenant(session, principal.tenant_ids)
+            return _post(await SqlSocialRepository(session).get_post(post_id))
+        return _post(service.repository.posts[post_id])
+    except (KeyError, SocialError) as exc:
+        raise HTTPException(
+            404,
+            {"code": "SOCIAL_POST_NOT_FOUND", "message": "Social post was not found"},
+        ) from exc
+
+
+@router.patch("/posts/{post_id}")
+async def update_post(
+    post_id: UUID,
+    body: UpdateSocialPost,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.write", principal)
+    if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
+        correlation_id, request_id = _ids(request)
+        try:
+            return _post(
+                await SqlSocialRepository(session).update_post(
+                    post_id,
+                    content=body.content.model_dump(mode="json")
+                    if body.content is not None
+                    else None,
+                    metadata=body.metadata,
+                    correlation_id=correlation_id,
+                    request_id=request_id,
+                )
+            )
+        except SocialError as exc:
+            raise _error(exc) from exc
+    try:
+        post = service.repository.posts[post_id]
+    except KeyError as exc:
+        raise HTTPException(
+            404,
+            {"code": "SOCIAL_POST_NOT_FOUND", "message": "Social post was not found"},
+        ) from exc
+    if post.status not in {"DRAFT", "QUEUED", "SCHEDULED"}:
+        raise HTTPException(
+            409,
+            {
+                "code": "SOCIAL_POST_NOT_EDITABLE",
+                "message": "Social post cannot be edited in its current state",
+            },
+        )
+    if body.content is not None:
+        post.content = body.content.model_dump(mode="json")
+    if body.metadata is not None:
+        post.metadata = body.metadata
+    post.updated_at = datetime.now(timezone.utc)
+    return _post(post)
+
+
+@router.post("/media", status_code=201)
+async def register_media(
+    body: RegisterMediaAsset,
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=16, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    """Register media under Middleware authority without provider delivery."""
+    _require("social.write", principal)
+    if not settings.social_sql_repository_enabled:
+        raise HTTPException(
+            503,
+            {
+                "code": "SOCIAL_DURABLE_STORE_REQUIRED",
+                "message": "Durable social media registration is not enabled",
+            },
+        )
+    await bind_transaction_tenant(session, principal.tenant_ids, str(body.tenant_id))
+    correlation_id, request_id = _ids(request)
+    try:
+        asset, created = await SqlSocialRepository(session).create_media_asset(
+            tenant_id=body.tenant_id,
+            media_type=body.media_type,
+            content_type=body.content_type,
+            storage_reference=body.storage_reference,
+            checksum_sha256=body.checksum_sha256.lower(),
+            metadata=body.metadata,
+            idempotency_key=idempotency_key,
+            correlation_id=correlation_id,
+            request_id=request_id,
+        )
+    except SocialError as exc:
+        raise _error(exc) from exc
+    response.headers["X-Correlation-ID"] = correlation_id
+    return {
+        "asset": _media_asset(asset),
+        "idempotent_replay": not created,
+        "provider_delivery": "disabled",
+    }
+
+
+@router.get("/media/{asset_id}")
+async def get_media(
+    asset_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.read", principal)
+    if not settings.social_sql_repository_enabled:
+        raise HTTPException(
+            503,
+            {
+                "code": "SOCIAL_DURABLE_STORE_REQUIRED",
+                "message": "Durable social media registration is not enabled",
+            },
+        )
+    await bind_transaction_tenant(session, principal.tenant_ids)
+    try:
+        return _media_asset(await SqlSocialRepository(session).get_media_asset(asset_id))
+    except SocialError as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/campaigns", status_code=201)
+async def create_campaign(
+    body: CreateCampaign, principal: SocialPrincipal = Depends(require_social_principal)
+) -> dict[str, Any]:
+    _require("social.write", principal)
+    resolve_tenant_id(principal.tenant_ids, str(body.tenant_id))
+    campaign_id = uuid4()
+    campaign_store[campaign_id] = {
+        "id": campaign_id,
+        "tenant_id": body.tenant_id,
+        "name": body.name,
+        "status": "DRAFT",
+        "metadata": body.metadata,
+        "created_at": datetime.now(timezone.utc),
+    }
+    return campaign_store[campaign_id]
+
+
+@router.get("/campaigns/{campaign_id}")
+async def get_campaign(
+    campaign_id: UUID, principal: SocialPrincipal = Depends(require_social_principal)
+) -> dict[str, Any]:
+    _require("social.read", principal)
+    try:
+        item = campaign_store[campaign_id]
+        resolve_tenant_id(principal.tenant_ids, str(item["tenant_id"]))
+        return item
+    except KeyError as exc:
+        raise HTTPException(
+            404,
+            {
+                "code": "SOCIAL_CAMPAIGN_NOT_FOUND",
+                "message": "Social campaign was not found",
+            },
+        ) from exc
+
+
+@router.get("/analytics")
+async def analytics(
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    _require("social.analytics.read", principal)
+    return {"items": [], "sync_enabled": False}
+
+
+async def _command(
+    post_id: UUID,
+    action: JobType,
+    request: Request,
+    idempotency_key: str,
+    permission: str,
+    principal: SocialPrincipal,
+    session: AsyncSession,
+    *,
+    dry_run: bool = False,
+    content_approved: bool = False,
+) -> dict[str, Any]:
+    _require(permission, principal)
+    if settings.social_sql_repository_enabled:
+        await bind_transaction_tenant(session, principal.tenant_ids)
+    correlation_id, request_id = _ids(request)
+    try:
+        if dry_run and (
+            action is not JobType.PUBLISH
+            or not settings.social_production_mode
+            or not settings.social_sql_repository_enabled
+        ):
+            raise SocialError(
+                "SOCIAL_PRODUCTION_CANARY_DISABLED",
+                "Production dry-run requires SQL-backed production canary mode",
+                status_code=403,
+            )
+        if settings.social_sql_repository_enabled:
+            if not settings.social_integration_enabled:
+                raise SocialError(
+                    "SOCIAL_PROVIDER_DISABLED",
+                    "Social integration is disabled",
+                    status_code=503,
+                )
+            repository = SqlSocialRepository(session)
+            post = await repository.get_post(post_id)
+            capability = {
+                JobType.PUBLISH: Capability.POST_PUBLISH,
+                JobType.SCHEDULE: Capability.POST_SCHEDULE,
+                JobType.CANCEL: Capability.POST_CANCEL,
+                JobType.DELETE: Capability.POST_DELETE,
+            }[action]
+            registry.require(post.provider, capability)
+            if action is JobType.PUBLISH and not settings.social_publish_enabled:
+                raise SocialError(
+                    "SOCIAL_PROVIDER_DISABLED",
+                    "Social publishing is disabled",
+                    status_code=403,
+                )
+            if action is JobType.PUBLISH and settings.social_production_mode:
+                try:
+                    production_context = await repository.production_publish_context(
+                        post, content_approved=content_approved
+                    )
+                    metrics.production_account_connected.labels(
+                        post.provider.value, "other"
+                    ).set(
+                        1 if production_context.connection_state == "connected" else 0
+                    )
+                    ProductionCanaryPolicy(settings).validate(production_context)
+                    require_provider_health(
+                        await registry.get(post.provider).health_check()
+                    )
+                except SocialError as exc:
+                    metrics.production_canary_denied.labels(exc.code).inc()
+                    if exc.code == "SOCIAL_PROVIDER_FAILOVER_FORBIDDEN":
+                        metrics.provider_failover_attempt.labels(
+                            post.provider.value, "forbidden"
+                        ).inc()
+                    if exc.code == "SOCIAL_DUAL_PUBLISH_FORBIDDEN":
+                        metrics.dual_publish_attempt.labels(post.provider.value).inc()
+                    raise
+                metrics.production_publish_requests.labels(
+                    post.provider.value, "other", "dry_run" if dry_run else "accepted"
+                ).inc()
+                if dry_run:
+                    await repository.audit_production_dry_run(
+                        post,
+                        production_context,
+                        correlation_id=correlation_id,
+                        request_id=request_id,
+                        idempotency_key=idempotency_key,
+                    )
+                    return {
+                        "post_id": post_id,
+                        "provider": post.provider,
+                        "account_id": production_context.account_id,
+                        "dry_run": True,
+                        "validation": "PASS",
+                        "external_side_effect": False,
+                    }
+            job_id, created = await repository.enqueue_command(
+                post=post,
+                action=action,
+                idempotency_key=idempotency_key,
+                correlation_id=correlation_id,
+                request_id=request_id,
+                production_context=production_context
+                if action is JobType.PUBLISH and settings.social_production_mode
+                else None,
+            )
+            if not created:
+                metrics.duplicate_prevention.labels(
+                    post.provider.value, action.value
+                ).inc()
+            return {
+                "post_id": post_id,
+                "job_id": job_id,
+                "status": "QUEUED",
+                "idempotent_replay": not created,
+            }
+        job, created = await service.command(
+            post_id, action, idempotency_key, correlation_id, request_id
+        )
+    except SocialError as exc:
+        raise _error(exc) from exc
+    return {
+        "post_id": post_id,
+        "job_id": job.id,
+        "status": job.state.upper(),
+        "idempotent_replay": not created,
+    }
+
+
+@router.post("/posts/{post_id}/schedule", status_code=202)
+async def schedule(
+    post_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=1, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    return await _command(
+        post_id,
+        JobType.SCHEDULE,
+        request,
+        idempotency_key,
+        "social.schedule",
+        principal,
+        session,
+    )
+
+
+@router.post("/posts/{post_id}/publish", status_code=202)
+async def publish(
+    post_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=1, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+    dry_run: bool = False,
+    x_social_content_approved: bool = Header(False),
+) -> dict[str, Any]:
+    return await _command(
+        post_id,
+        JobType.PUBLISH,
+        request,
+        idempotency_key,
+        "social.publish",
+        principal,
+        session,
+        dry_run=dry_run,
+        content_approved=x_social_content_approved,
+    )
+
+
+@router.post("/posts/{post_id}/cancel", status_code=202)
+async def cancel(
+    post_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=1, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    return await _command(
+        post_id,
+        JobType.CANCEL,
+        request,
+        idempotency_key,
+        "social.cancel",
+        principal,
+        session,
+    )
+
+
+@router.delete("/posts/{post_id}", status_code=202)
+async def delete(
+    post_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(min_length=1, max_length=255),
+    principal: SocialPrincipal = Depends(require_social_principal),
+) -> dict[str, Any]:
+    return await _command(
+        post_id,
+        JobType.DELETE,
+        request,
+        idempotency_key,
+        "social.delete",
+        principal,
+        session,
+    )
+
+
+@router.post("/webhooks/{provider}", status_code=202)
+async def webhook(
+    provider: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    body = await request.body()
+    correlation_id, _ = _ids(request)
+    try:
+        adapter = registry.require(provider, capability=Capability.WEBHOOK_EVENTS)
+        await adapter.verify_webhook(body, request.headers)
+        metrics.webhooks_received.labels(provider, "verified").inc()
+        payload = json.loads(body)
+        event_id = str(payload.get("id", ""))
+        if not event_id:
+            raise SocialError(
+                "SOCIAL_WEBHOOK_INVALID",
+                "Webhook event ID is required",
+                status_code=422,
+            )
+        if (
+            not settings.social_sql_repository_enabled
+            and event_id in service.repository.webhook_ids
+        ):
+            return {"accepted": True, "duplicate": True}
+        event = await adapter.normalize_webhook(payload, correlation_id)
+        if settings.social_sql_repository_enabled:
+            created = await SqlSocialRepository(session).persist_webhook(
+                provider=event.provider,
+                provider_event_id=event_id,
+                payload_hash=hashlib.sha256(body).hexdigest(),
+                correlation_id=correlation_id,
+                event=event,
+                safe_payload=event.payload,
+            )
+            if not created:
+                return {"accepted": True, "duplicate": True}
+        else:
+            service.repository.webhook_ids.add(event_id)
+        return {
+            "accepted": True,
+            "duplicate": False,
+            "event_id": event.event_id,
+            "event_type": event.event_type,
+            "occurred_at": datetime.now(timezone.utc),
+        }
+    except (SocialError, json.JSONDecodeError) as exc:
+        if isinstance(exc, SocialError):
+            metrics.webhooks_rejected.labels(provider, exc.code).inc()
+            raise _error(exc) from exc
+        metrics.webhooks_rejected.labels(provider, "malformed_json").inc()
+        raise HTTPException(
+            422,
+            {"code": "SOCIAL_WEBHOOK_INVALID", "message": "Webhook payload is invalid"},
+        ) from exc

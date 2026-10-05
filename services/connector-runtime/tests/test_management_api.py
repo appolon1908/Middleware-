@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import hashlib
 import hmac
 import json
@@ -62,7 +61,7 @@ def _manifest() -> dict[str, object]:
     suffix = uuid.uuid4().hex[:10]
     raw["connector_id"] = f"api-test-{suffix}"
     raw["display_name"] = f"API Test {suffix}"
-    raw["repository"] = f"appolon1908-hue/api-test-{suffix}"
+    raw["repository"] = f"appolon1908/api-test-{suffix}"
     raw["runtime_binding"]["base_url"] = f"https://api-test-{suffix}.internal.invalid"
     raw["authentication"]["scopes"] = [
         f"connector.api-test-{suffix}.command",

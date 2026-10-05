@@ -10,15 +10,18 @@ disabled. The same read-back is repeated after the synthetic requests.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
+import re
+import socket
 import sys
 import time
 import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,9 +35,35 @@ LOCAL_DISABLED_FLAGS = (
     "LIVE_EMAIL_DELIVERY",
     "LIVE_PSTN_DIALING",
 )
+GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
+SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
+IMAGE_DIGEST = re.compile(
+    r"^(?:[a-z0-9][a-z0-9._:/-]*@)?sha256:[0-9a-f]{64}$"
+)
+DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+TENANT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+RELEASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
-def fail(message: str) -> None:
+class FailClosedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects so protected credentials never cross authorities."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> None:
+        return None
+
+
+NO_REDIRECT_OPENER = urllib.request.build_opener(FailClosedRedirectHandler())
+
+
+def fail(message: str) -> NoReturn:
     print(f"FAIL: {message}", file=sys.stderr)
     raise SystemExit(1)
 
@@ -54,7 +83,7 @@ def request(
         headers=headers or {},
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as response:
+        with NO_REDIRECT_OPENER.open(req, timeout=15) as response:
             return response.status, response.read(8192).decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read(8192).decode("utf-8", "replace")
@@ -101,28 +130,84 @@ def canonical_production_hosts() -> set[str]:
     return hosts
 
 
+def validate_dns_hostname(value: str, *, label: str) -> str:
+    """Return one canonical DNS hostname, rejecting IP literals and ambiguity."""
+
+    if not isinstance(value, str) or value != value.strip():
+        fail(f"{label} must be a canonical DNS hostname")
+    hostname = value.lower()
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        # Protected tokens must never be sent to caller-selected IPv4 or IPv6
+        # literals; the approved staging endpoint is a reviewed DNS identity.
+        fail(f"{label} must not be an IPv4 or IPv6 address")
+    try:
+        numeric_answers = socket.getaddrinfo(
+            hostname,
+            443,
+            family=socket.AF_UNSPEC,
+            type=socket.SOCK_STREAM,
+            flags=socket.AI_NUMERICHOST,
+        )
+    except socket.gaierror:
+        numeric_answers = []
+    if numeric_answers:
+        # libc accepts legacy IPv4 text such as hexadecimal, octal, and
+        # abbreviated components even though ipaddress intentionally does not.
+        # AI_NUMERICHOST performs no DNS lookup and closes that parser gap.
+        fail(f"{label} must not use a legacy numeric address spelling")
+    labels = hostname.split(".")
+    if (
+        len(hostname) > 253
+        or len(labels) < 2
+        or all(item.isdigit() for item in labels)
+        or any(DNS_LABEL.fullmatch(item) is None for item in labels)
+    ):
+        fail(f"{label} must be a canonical DNS hostname")
+    return hostname
+
+
 def validate_base_url(
     value: str,
     *,
+    approved_host: str,
     denied_hosts: set[str] | None = None,
 ) -> str:
-    parsed = urlparse(value)
-    if parsed.scheme != "https" or not parsed.netloc or parsed.hostname is None:
+    try:
+        parsed = urlparse(value)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        fail("base_url is malformed")
+    if parsed.scheme != "https" or not parsed.netloc or hostname is None:
         fail("base_url must be an HTTPS staging Caddy endpoint")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         fail("base_url must not contain credentials, query, or fragment")
     if parsed.path not in {"", "/"}:
         fail("base_url must not contain a path")
-    if parsed.hostname.lower() in (denied_hosts or canonical_production_hosts()):
+    if port not in {None, 443}:
+        fail("base_url must use the standard HTTPS port")
+    normalized_host = validate_dns_hostname(hostname, label="base_url host")
+    normalized_approved_host = validate_dns_hostname(
+        approved_host,
+        label="approved staging host",
+    )
+    if normalized_host != normalized_approved_host:
+        fail("base_url host does not match the protected staging authority")
+    production_hosts = {
+        validate_dns_hostname(item, label="production gateway host")
+        for item in (denied_hosts or canonical_production_hosts())
+    }
+    if normalized_host in production_hosts:
         fail("base_url resolves to a committed production gateway host")
-    return value.rstrip("/")
+    return f"https://{normalized_host}"
 
 
 def _immutable_digest(value: Any) -> bool:
-    if not isinstance(value, str) or not value.strip():
-        return False
-    normalized = value.strip().lower()
-    return normalized.startswith("sha256:") or "@sha256:" in normalized
+    return isinstance(value, str) and IMAGE_DIGEST.fullmatch(value) is not None
 
 
 def validate_runtime_evidence(
@@ -131,6 +216,8 @@ def validate_runtime_evidence(
     *,
     expected_source_sha: str,
 ) -> dict[str, Any]:
+    if GIT_SHA.fullmatch(expected_source_sha) is None:
+        fail("expected source SHA must be canonical lowercase 40-hex")
     if version.get("service") != "middleware-api":
         fail("version read-back is not Middleware")
     if version.get("environment") != "staging":
@@ -140,11 +227,34 @@ def validate_runtime_evidence(
             "version source mismatch: "
             f"expected {expected_source_sha}, got {version.get('source_sha')!r}"
         )
+    if version.get("git_sha") != expected_source_sha:
+        fail("version git_sha differs from the dispatched protected-main SHA")
     image_digest = version.get("image_digest")
     if not _immutable_digest(image_digest):
         fail("version read-back does not expose an immutable image digest")
     if not isinstance(version.get("schema_head"), str) or not version["schema_head"]:
         fail("version read-back does not expose a schema head")
+    if version.get("schema_version") != version["schema_head"]:
+        fail("version schema identity fields are inconsistent")
+    if (
+        not isinstance(version.get("build_time"), str)
+        or not version["build_time"]
+        or version.get("build_timestamp") != version["build_time"]
+    ):
+        fail("version build identity fields are inconsistent")
+    configuration_checksum = version.get("configuration_checksum")
+    if (
+        not isinstance(configuration_checksum, str)
+        or SHA256.fullmatch(configuration_checksum) is None
+    ):
+        fail("version read-back does not expose a canonical configuration checksum")
+    release_id = version.get("release_id")
+    if (
+        not isinstance(release_id, str)
+        or RELEASE_ID.fullmatch(release_id) is None
+        or release_id.lower() == "unknown"
+    ):
+        fail("version read-back does not expose a canonical release ID")
     runtime_profile_id = version.get("runtime_profile_id")
     if not isinstance(runtime_profile_id, str) or runtime_profile_id in {
         "",
@@ -222,6 +332,8 @@ def validate_runtime_evidence(
         "source_sha": expected_source_sha,
         "image_digest": image_digest,
         "schema_head": version["schema_head"],
+        "release_id": release_id,
+        "configuration_checksum": configuration_checksum,
         "runtime_profile_id": runtime_profile_id,
         "safety": safety,
     }
@@ -256,7 +368,14 @@ def require_stable_runtime(
     before: dict[str, Any],
     after: dict[str, Any],
 ) -> None:
-    for key in ("source_sha", "image_digest", "schema_head", "runtime_profile_id"):
+    for key in (
+        "source_sha",
+        "image_digest",
+        "schema_head",
+        "release_id",
+        "configuration_checksum",
+        "runtime_profile_id",
+    ):
         if after.get(key) != before.get(key):
             fail(f"runtime {key} changed during certification")
     if after.get("safety") != before.get("safety"):
@@ -279,14 +398,21 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    expected_source_sha = args.expected_source_sha.strip().lower()
-    if len(expected_source_sha) != 40 or any(
-        char not in "0123456789abcdef" for char in expected_source_sha
-    ):
+    expected_source_sha = args.expected_source_sha
+    if GIT_SHA.fullmatch(expected_source_sha) is None:
         fail("--expected-source-sha must be a full 40-character Git SHA")
+    if TENANT_ID.fullmatch(args.tenant) is None:
+        fail("--tenant must be a bounded API-safe identifier")
+    if args.token_env != "STAGING_SDK_INTAKE_TOKEN":
+        fail("--token-env must name the dedicated staging intake token")
+    if args.safety_token_env != "STAGING_RUNTIME_SAFETY_TOKEN":
+        fail("--safety-token-env must name the dedicated staging safety token")
 
     for flag in LOCAL_DISABLED_FLAGS:
         require_disabled(flag)
+
+    approved_host = os.environ.get("STAGING_INTAKE_APPROVED_HOST", "")
+    base = validate_base_url(args.base_url, approved_host=approved_host)
 
     token = os.environ.get(args.token_env, "").strip()
     if not token:
@@ -295,7 +421,6 @@ def main() -> int:
     if not safety_token:
         fail(f"missing staging safety token in {args.safety_token_env}")
 
-    base = validate_base_url(args.base_url)
     before = read_runtime_evidence(
         base,
         safety_token=safety_token,

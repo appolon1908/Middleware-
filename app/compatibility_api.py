@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -14,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .capability_resolution import effective_capability_enabled
 from .commands import CommandConflict, OperationMutationRequest
 from .control_api import ControlMutation, _auth, _detail, _list, _mutate, _pool, _safe_inbox, _safe_outbox
-from .operations import OperationApiState, _context, _decode_cursor, _encode_cursor, _mutation_context, _operation_json
+from .operations import OperationApiState, _context, _decode_cursor, _encode_cursor, _event_position, _mutation_context, _operation_json, _operation_position, _timestamp
 from .security import RequestValidationError
 
 router = APIRouter(prefix="/api/v1", tags=["canonical-compatibility"])
@@ -29,14 +28,8 @@ async def operations_list(
     command_type: str | None = Query(None, min_length=1, max_length=180),
 ):
     from .operations import _PERSISTED_BY_API_STATE
-    from datetime import datetime
-
     service, tenant = await _context(request)
-    decoded = _decode_cursor(cursor, "operations")
-    try:
-        position = (datetime.fromisoformat(decoded[0]), UUID(decoded[1])) if decoded else None
-    except (TypeError, ValueError) as exc:
-        raise RequestValidationError("cursor is malformed") from exc
+    position = _operation_position(_decode_cursor(cursor, "operations"))
     rows = await service.list_operations(
         tenant,
         limit=limit + 1,
@@ -133,11 +126,7 @@ async def policy_decision(body: PolicyDecision, request: Request):
 @router.get("/reconciliation/operations")
 async def reconciliation_list(request: Request, limit: int = Query(50, ge=1, le=100), cursor: str | None = None):
     tenant = await _auth(request)
-    decoded = _decode_cursor(cursor, "reconciliation")
-    try:
-        position = (datetime.fromisoformat(decoded[0]), int(decoded[1])) if decoded else None
-    except (TypeError, ValueError) as exc:
-        raise RequestValidationError("cursor is malformed") from exc
+    position = _event_position(_decode_cursor(cursor, "reconciliation"))
     async with _pool(request).acquire() as conn:
         rows = await conn.fetch(
             """SELECT * FROM middleware_outbox WHERE tenant_id=$1
@@ -236,10 +225,12 @@ async def reconciliation_resolve(record_id: int, body: ReconciliationResolution,
 async def quarantine_list(request: Request, limit: int = Query(50, ge=1, le=100), cursor: str | None = None):
     tenant = await _auth(request)
     decoded = _decode_cursor(cursor, "quarantine")
-    try:
-        position = (datetime.fromisoformat(decoded[0]), str(decoded[1])) if decoded else None
-    except (TypeError, ValueError) as exc:
-        raise RequestValidationError("cursor is malformed") from exc
+    position = None
+    if decoded is not None:
+        event_id = decoded[1]
+        if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
+            raise RequestValidationError("cursor is malformed")
+        position = (_timestamp(decoded[0]), event_id)
     async with _pool(request).acquire() as conn:
         rows = await conn.fetch(
             """SELECT * FROM middleware_inbox WHERE tenant_id=$1 AND quarantined_at IS NOT NULL

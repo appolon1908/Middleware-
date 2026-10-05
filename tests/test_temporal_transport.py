@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 from typing import Any
+from unittest.mock import Mock
+from temporalio.client import Client
 from uuid import uuid4
 
 import pytest
@@ -78,8 +80,9 @@ class RecordingTemporalClient:
 
 @pytest.mark.asyncio
 async def test_command_dispatch_uses_deterministic_exactly_once_workflow_identity() -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")
     record = command_record()
 
     await dispatcher.dispatch(record)
@@ -98,8 +101,9 @@ async def test_command_dispatch_uses_deterministic_exactly_once_workflow_identit
 
 @pytest.mark.asyncio
 async def test_reconciliation_dispatch_uses_supported_dedicated_workflow_request() -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(
         client,
         "codestra-test-critical",
         reconciliation_command_id_lookup=trusted_reconciliation_command_id,
@@ -125,8 +129,9 @@ async def test_reconciliation_dispatch_uses_supported_dedicated_workflow_request
 
 @pytest.mark.asyncio
 async def test_reconciliation_dispatch_requires_durable_outbox_identity_lookup() -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")
 
     with pytest.raises(TemporalTransportError, match="identity verification"):
         await dispatcher.dispatch(reconciliation_record())
@@ -135,7 +140,8 @@ async def test_reconciliation_dispatch_requires_durable_outbox_identity_lookup()
 
 @pytest.mark.asyncio
 async def test_reconciliation_dispatch_rejects_payload_command_identity_mismatch() -> None:
-    client = RecordingTemporalClient()
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
     record = reconciliation_record()
     trusted_command_id = str(record.payload["command_id"])
     tampered = replace(
@@ -146,7 +152,7 @@ async def test_reconciliation_dispatch_rejects_payload_command_identity_mismatch
     async def lookup(_record: OutboxRecord) -> str | None:
         return trusted_command_id
 
-    dispatcher = TemporalCommandDispatcher(  # type: ignore[arg-type]
+    dispatcher = TemporalCommandDispatcher(
         client,
         "codestra-test-critical",
         reconciliation_command_id_lookup=lookup,
@@ -173,8 +179,9 @@ async def test_reconciliation_dispatch_fails_closed_on_invalid_intent(
     idempotency_key: str | None,
     message: str,
 ) -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")
     record = reconciliation_record()
     payload = {**record.payload, **payload_update}
     record = replace(
@@ -190,8 +197,9 @@ async def test_reconciliation_dispatch_fails_closed_on_invalid_intent(
 
 @pytest.mark.asyncio
 async def test_command_dispatch_rejects_cross_tenant_outbox_payload() -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")
     record = command_record()
     record.payload["tenant_id"] = "different-tenant"
     with pytest.raises(TemporalTransportError):
@@ -201,8 +209,9 @@ async def test_command_dispatch_rejects_cross_tenant_outbox_payload() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_dispatch_resumes_from_durable_queued_state() -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")
     record = command_record()
     retry_key = "operation-retry:" + "a" * 64
     payload = {**record.payload, "idempotency_key": retry_key}
@@ -215,8 +224,9 @@ async def test_retry_dispatch_resumes_from_durable_queued_state() -> None:
 
 @pytest.mark.asyncio
 async def test_command_dispatch_rejects_missing_authenticated_client_provenance() -> None:
-    client = RecordingTemporalClient()
-    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")  # type: ignore[arg-type]
+    client = Mock(spec=Client, wraps=RecordingTemporalClient())
+    client.calls = client._mock_wraps.calls
+    dispatcher = TemporalCommandDispatcher(client, "codestra-test-critical")
     record = command_record()
     del record.payload[AUTHENTICATED_CLIENT_ID_KEY]
     with pytest.raises(TemporalTransportError, match="client provenance"):

@@ -14,6 +14,7 @@ from app.commands import (
     CommandPolicy,
     CommandPolicyRegistry,
     CommandService,
+    CommandState,
     MemoryCommandStore,
     command_digest,
     decode_readback_evidence,
@@ -22,7 +23,7 @@ from app.commands import (
 from app.main import create_app
 from app.provider_canary import provider_evidence_digest
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 
 
@@ -35,7 +36,7 @@ def command_payload(**updates: Any) -> dict[str, Any]:
         "tenant_id": "tenant-1",
         "requested_by": "user-123",
         "correlation_id": "correlation-123",
-        "idempotency_key": "idempotency-123",
+        "idempotency_key": "idempotency-123",  # gitleaks:allow test fixture
         "capability": "ODOO_WRITE",
         "payload": {"contact_id": "contact-1"},
     }
@@ -123,13 +124,38 @@ async def test_memory_command_ledger_persists_redacted_readback_evidence() -> No
             reason="invalid early proof",
             readback_evidence={"status": "delivered"},
         )
-    for state in ("queued", "dispatching", "accepted", "readback_pending"):
+    states: tuple[CommandState, ...] = (
+        "queued",
+        "dispatching",
+        "accepted",
+        "readback_pending",
+    )
+    for state in states:
         await store.transition(
             command.tenant_id,
             command.command_id,
             new_state=state,
             actor_id="temporal:test",
             reason=f"transition to {state}",
+        )
+    observation = {"provider_reference": "provider-operation-1", "status": "ringing"}
+    awaiting = await store.transition(
+        command.tenant_id,
+        command.command_id,
+        new_state="reconciliation_required",
+        actor_id="temporal:test",
+        reason="validated provider observation remains nonterminal",
+        provider_operation_id="provider-operation-1",
+        readback_evidence=observation,
+    )
+    assert awaiting.readback_evidence == observation
+    assert awaiting.readback_evidence_sha256 == provider_evidence_digest(observation)
+    store = MemoryCommandStore()
+    await store.submit(command, authenticated_client_id="test-client")
+    for state in states:
+        await store.transition(
+            command.tenant_id, command.command_id, new_state=state,
+            actor_id="temporal:test", reason=f"transition to {state}",
         )
     evidence = {"provider_reference": "provider-operation-1", "status": "matched"}
     completed = await store.transition(
@@ -277,3 +303,76 @@ def test_command_api_accepts_duplicate_and_serves_tenant_scoped_status(
         )
         assert invalid.status_code == 400
         assert invalid.json()["error"]["code"] == "invalid_request"
+
+
+@pytest.mark.parametrize(
+    ("name", "second"),
+    (
+        ("Authorization", "Bearer duplicate-token"),
+        ("X-Tenant-ID", "tenant-2"),
+        ("X-Correlation-ID", "correlation-duplicate"),
+        ("Idempotency-Key", "idempotency-duplicate"),
+    ),
+)
+def test_command_api_rejects_duplicate_security_headers(
+    test_settings,
+    name: str,
+    second: str,
+) -> None:
+    command_store = MemoryCommandStore()
+    runtime = Runtime(
+        settings=test_settings,
+        inbox=MemoryInboxStore(),
+        replay=MemoryReplayGuard(),
+        tokens=CommandTokenVerifier(),
+        commands=CommandService(command_store, enabled_policy()),
+    )
+    body = command_payload()
+    request_headers = [
+        ("Authorization", "Bearer legacy-command-token"),
+        ("X-Tenant-ID", body["tenant_id"]),
+        ("X-Correlation-ID", body["correlation_id"]),
+        ("Idempotency-Key", body["idempotency_key"]),
+        (name, second),
+    ]
+    app = create_app(settings=test_settings, runtime=runtime)
+
+    with TestClient(app) as client:
+        response = client.post("/v1/commands", json=body, headers=request_headers)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert not command_store._commands
+
+
+def test_command_api_authentication_precedes_storage_disclosure(test_settings) -> None:
+    runtime = Runtime(
+        settings=test_settings,
+        inbox=MemoryInboxStore(),
+        replay=MemoryReplayGuard(),
+        tokens=CommandTokenVerifier(),
+    )
+    body = command_payload()
+    request_headers = {
+        "Authorization": "Bearer invalid",
+        "X-Tenant-ID": body["tenant_id"],
+        "X-Correlation-ID": body["correlation_id"],
+        "Idempotency-Key": body["idempotency_key"],
+    }
+    app = create_app(settings=test_settings, runtime=runtime)
+
+    with TestClient(app) as client:
+        unauthorized = client.post(
+            "/v1/commands", json=body, headers=request_headers,
+        )
+        unavailable = client.post(
+            "/v1/commands",
+            json=body,
+            headers={
+                **request_headers,
+                "Authorization": "Bearer legacy-command-token",
+            },
+        )
+
+    assert unauthorized.status_code == 401
+    assert unavailable.status_code == 503

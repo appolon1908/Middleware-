@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.provider_canary import (
+from app.provider_canary import (  # noqa: E402
     canonical_fingerprint,
     provider_evidence_digest,
     validate_provider_canary_evidence,

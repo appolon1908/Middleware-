@@ -18,11 +18,12 @@ CONTROLLER_PATH = ROOT / "deploy/production/server/codestra-middleware-deploy"
 BACKUP_PATH = ROOT / "deploy/production/server/codestra-middleware-backup"
 INSTALL_PATH = ROOT / "deploy/production/server/install-restricted-command.sh"
 WORKFLOW_PATH = ROOT / ".github/workflows/production-runtime-certification.yml"
+STARTUP_PATH = ROOT / "scripts/start_integration_api.py"
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 IMAGE_REFERENCE = re.compile(
-    r"^ghcr\.io/appolon1908-hue/codestra-middleware@sha256:[0-9a-f]{64}$"
+    r"^ghcr\.io/appolon1908/codestra-middleware@sha256:[0-9a-f]{64}$"
 )
 RELEASE_ID = re.compile(r"^[0-9a-f]{12}-[0-9a-f]{12}$")
 
@@ -36,6 +37,61 @@ def require(condition: bool, message: str) -> None:
         raise ValidationError(message)
 
 
+def validate_runtime_workflow(workflow: str) -> None:
+    """Require the repository-local runtime workflow to remain inert.
+
+    Middleware supplies signed source/image evidence.  It is not a runtime
+    mutation authority, so retaining the historical certification procedure is
+    safe only while its sole job is unconditionally disabled.
+    """
+    require(
+        workflow.count("\njobs:\n") == 1,
+        "runtime workflow must define one jobs section",
+    )
+    jobs_section = workflow.partition("\njobs:\n")[2]
+    jobs = re.findall(r"(?m)^  ([A-Za-z0-9_-]+):\s*$", jobs_section)
+    require(
+        jobs == ["certify"],
+        "runtime workflow must contain only the disabled certify job",
+    )
+    require(
+        re.search(r"(?m)^    if:\s*\$\{\{\s*false\s*\}\}\s*$", workflow) is not None,
+        "runtime workflow certify job must remain unconditionally disabled",
+    )
+    for item in (
+        "RUNTIME_MUTATION_DISABLED=true",
+        "Infustruction-repo is the sole infrastructure runtime authority.",
+        "environment: middleware-runtime-certification",
+        "MIDDLEWARE_DEPLOY_HOST",
+        "MIDDLEWARE_DEPLOY_SSH_KEY",
+        "MIDDLEWARE_DEPLOY_HOST_KEY",
+        "StrictHostKeyChecking=yes",
+        "UserKnownHostsFile=",
+        "ssh_options=(",
+        "scp_options=(",
+        '-p "$DEPLOY_PORT"',
+        '-P "$DEPLOY_PORT"',
+        'scp "${scp_options[@]}" "$BUNDLE_ARCHIVE"',
+        'scp "${scp_options[@]}" "$remote:$evidence_remote"',
+        "codestra-middleware-deploy",
+    ):
+        require(item in workflow, f"workflow requirement missing: {item}")
+    for item in (
+        "ssh-keyscan",
+        "appleboy/ssh-action",
+        "StrictHostKeyChecking=no",
+        'scp "${ssh_options[@]}"',
+    ):
+        require(item not in workflow, f"workflow contains unsafe SSH behavior: {item}")
+    uses = re.findall(r"(?m)^\s*-?\s*uses:\s*([^\s#]+)", workflow)
+    require(bool(uses), "workflow must use pinned actions")
+    for action in uses:
+        require(
+            re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", action) is not None,
+            f"action is not commit-pinned: {action}",
+        )
+
+
 def load_contract() -> dict[str, object]:
     value = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     require(isinstance(value, dict), "contract must be an object")
@@ -44,7 +100,13 @@ def load_contract() -> dict[str, object]:
 
 
 def validate_source(root: Path = ROOT) -> None:
-    global CONTRACT_PATH, COMPOSE_PATH, CONTROLLER_PATH, BACKUP_PATH, INSTALL_PATH, WORKFLOW_PATH
+    global \
+        CONTRACT_PATH, \
+        COMPOSE_PATH, \
+        CONTROLLER_PATH, \
+        BACKUP_PATH, \
+        INSTALL_PATH, \
+        WORKFLOW_PATH
     if root != ROOT:
         CONTRACT_PATH = root / "deploy/production/server-command-contract.v1.json"
         COMPOSE_PATH = root / "deploy/production/compose.canary.yaml"
@@ -66,15 +128,29 @@ def validate_source(root: Path = ROOT) -> None:
     deployment = contract.get("deployment")
     safety = contract.get("safety")
     response = contract.get("response")
-    require(isinstance(deployment, dict), "deployment contract section missing")
-    require(isinstance(safety, dict), "safety contract section missing")
-    require(isinstance(response, dict), "response contract section missing")
-    require(deployment.get("command") == "/usr/local/sbin/codestra-middleware-deploy", "command authority drift")
-    require(deployment.get("expected_host") == "65.109.65.169", "server authority drift")
-    require(deployment.get("restricted_user") == "middleware-deploy", "restricted user drift")
+    if not isinstance(deployment, dict):
+        raise ValidationError("deployment contract section missing")
+    if not isinstance(safety, dict):
+        raise ValidationError("safety contract section missing")
+    if not isinstance(response, dict):
+        raise ValidationError("response contract section missing")
+    require(
+        deployment.get("command") == "/usr/local/sbin/codestra-middleware-deploy",
+        "command authority drift",
+    )
+    require(
+        deployment.get("expected_host") == "65.109.65.169", "server authority drift"
+    )
+    require(
+        deployment.get("restricted_user") == "middleware-deploy",
+        "restricted user drift",
+    )
     require(deployment.get("mode") == "READ_ONLY_CANARY", "deployment mode drift")
     require(deployment.get("source_ref") == "refs/heads/main", "source ref drift")
-    require(deployment.get("schema_head") == "0009_observability_incidents", "schema head drift")
+    require(
+        deployment.get("schema_head") == "0071_defer_unbound_tenant_rls",
+        "schema head drift",
+    )
     for key in (
         "broad_compose_down_allowed",
         "business_writes_enabled",
@@ -89,8 +165,14 @@ def validate_source(root: Path = ROOT) -> None:
         "unrestricted_sudo_allowed",
     ):
         require(safety.get(key) is False, f"unsafe contract setting: {key}")
-    require(safety.get("service_scoped_compose_only") is True, "service-scoped Compose is required")
-    require(safety.get("production_dialing") == "DISABLED", "production dialing must be disabled")
+    require(
+        safety.get("service_scoped_compose_only") is True,
+        "service-scoped Compose is required",
+    )
+    require(
+        safety.get("production_dialing") == "DISABLED",
+        "production dialing must be disabled",
+    )
 
     compose = COMPOSE_PATH.read_text(encoding="utf-8")
     for item in (
@@ -115,7 +197,15 @@ def validate_source(root: Path = ROOT) -> None:
         r"/var/run/docker\.sock",
         r"image:\s*[^\n]*:latest(?:\s|$)",
     ):
-        require(re.search(pattern, compose, re.IGNORECASE) is None, f"unsafe compose pattern: {pattern}")
+        require(
+            re.search(pattern, compose, re.IGNORECASE) is None,
+            f"unsafe compose pattern: {pattern}",
+        )
+
+    startup = STARTUP_PATH.read_text(encoding="utf-8")
+    for item in ("validate_runtime(SERVICE_INTEGRATION_API)", "os.execv", '"--workers={workers}"'):
+        require(item in startup, f"startup validation authority missing: {item}")
+    require("app.entrypoints.integration_api:app" not in compose, "canary must not bypass startup validation with direct uvicorn")
 
     controller = CONTROLLER_PATH.read_text(encoding="utf-8")
     for item in (
@@ -133,7 +223,14 @@ def validate_source(root: Path = ROOT) -> None:
         "ROLLBACK_STATUS=PASS",
         "EXTERNAL_EFFECTS_ENABLED=NONE",
         "CALLS_PLACED=0",
+        "RUNTIME_SCHEMA_VERIFIED=PASS",
+        "FROM public.alembic_version",
+        "actual_alembic_head_mismatch",
+        "FROM public.middleware_automation_schema_migrations",
+        "automation_schema_head_mismatch",
+        "platform_schema_incomplete",
         "GATEWAY_EXPOSURE=NONE",
+        '"service": "middleware-integration-api"',
     ):
         require(item in controller, f"controller requirement missing: {item}")
     forbidden_shell = (
@@ -150,50 +247,24 @@ def validate_source(root: Path = ROOT) -> None:
     )
     lowered_controller = controller.lower()
     for item in forbidden_shell:
-        require(item not in lowered_controller, f"controller contains forbidden operation: {item}")
+        require(
+            item not in lowered_controller,
+            f"controller contains forbidden operation: {item}",
+        )
 
     backup = BACKUP_PATH.read_text(encoding="utf-8")
     for item in ("pg_dump", "pg_restore", "createdb", "dropdb", "RESTORE_STATUS=PASS"):
         require(item in backup, f"backup/restore requirement missing: {item}")
 
     install = INSTALL_PATH.read_text(encoding="utf-8")
-    require("SSH_CONFIGURATION_CHANGED=NO" in install, "installer must report no SSH changes")
+    require(
+        "SSH_CONFIGURATION_CHANGED=NO" in install,
+        "installer must report no SSH changes",
+    )
     for item in ("authorized_keys", "sshd_config", "ssh-keygen"):
         require(item not in install.lower(), f"installer contains SSH mutation: {item}")
 
-    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-    for item in (
-        "github.event.issue.number == 118",
-        "github.event.comment.user.login == 'appolon1908-hue'",
-        "github.event.comment.user.id == 275410064",
-        "github.event.comment.author_association == 'OWNER'",
-        "github.event.comment.body == '/deploy-middleware-production-readonly v1'",
-        "environment: middleware-runtime-certification",
-        "MIDDLEWARE_DEPLOY_HOST",
-        "MIDDLEWARE_DEPLOY_SSH_KEY",
-        "MIDDLEWARE_DEPLOY_HOST_KEY",
-        "StrictHostKeyChecking=yes",
-        "UserKnownHostsFile=",
-        "ssh_options=(",
-        "scp_options=(",
-        '-p "$DEPLOY_PORT"',
-        '-P "$DEPLOY_PORT"',
-        'scp "${scp_options[@]}" "$BUNDLE_ARCHIVE"',
-        'scp "${scp_options[@]}" "$remote:$evidence_remote"',
-        "codestra-middleware-deploy",
-    ):
-        require(item in workflow, f"workflow requirement missing: {item}")
-    for item in (
-        "ssh-keyscan",
-        "appleboy/ssh-action",
-        "StrictHostKeyChecking=no",
-        'scp "${ssh_options[@]}"',
-    ):
-        require(item not in workflow, f"workflow contains unsafe SSH behavior: {item}")
-    uses = re.findall(r"(?m)^\s*-?\s*uses:\s*([^\s#]+)", workflow)
-    require(uses, "workflow must use pinned actions")
-    for action in uses:
-        require(re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", action) is not None, f"action is not commit-pinned: {action}")
+    validate_runtime_workflow(WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
 def parse_response(path: Path) -> dict[str, str]:
@@ -203,9 +274,14 @@ def parse_response(path: Path) -> dict[str, str]:
             continue
         require("=" in raw, f"invalid response line {number}")
         key, value = raw.split("=", 1)
-        require(re.fullmatch(r"[A-Z][A-Z0-9_]*", key) is not None, f"invalid response key: {key}")
+        require(
+            re.fullmatch(r"[A-Z][A-Z0-9_]*", key) is not None,
+            f"invalid response key: {key}",
+        )
         require(key not in values, f"duplicate response key: {key}")
-        require("\n" not in value and "\r" not in value, f"invalid response value: {key}")
+        require(
+            "\n" not in value and "\r" not in value, f"invalid response value: {key}"
+        )
         values[key] = value
     return values
 
@@ -219,8 +295,14 @@ def validate_response(
     release_id: str,
 ) -> dict[str, str]:
     require(SHA40.fullmatch(source_sha) is not None, "expected source SHA invalid")
-    require(IMAGE_REFERENCE.fullmatch(image_reference) is not None, "expected image reference invalid")
-    require(re.fullmatch(r"[1-9][0-9]{5,19}", release_run_id) is not None, "expected release run ID invalid")
+    require(
+        IMAGE_REFERENCE.fullmatch(image_reference) is not None,
+        "expected image reference invalid",
+    )
+    require(
+        re.fullmatch(r"[1-9][0-9]{5,19}", release_run_id) is not None,
+        "expected release run ID invalid",
+    )
     require(RELEASE_ID.fullmatch(release_id) is not None, "expected release ID invalid")
     values = parse_response(path)
     contract = load_contract()
@@ -241,18 +323,33 @@ def validate_response(
         "RELEASE_ID": release_id,
         "VERSION_SOURCE_SHA": source_sha,
         "VERSION_IMAGE_DIGEST": image_reference.rsplit("@", 1)[1],
-        "VERSION_SCHEMA_HEAD": "0009_observability_incidents",
+        "VERSION_SCHEMA_HEAD": "0071_defer_unbound_tenant_rls",
     }
     for key, expected in expected_dynamic.items():
         require(values.get(key) == expected, f"response dynamic value mismatch: {key}")
-    require(DIGEST.fullmatch(values["BACKUP_SHA256"]) is not None, "backup digest invalid")
-    require(re.fullmatch(r"[0-9a-f]{64}", values["CONFIGURATION_CHECKSUM"]) is not None, "configuration checksum invalid")
+    require(
+        DIGEST.fullmatch(values["BACKUP_SHA256"]) is not None, "backup digest invalid"
+    )
+    require(
+        re.fullmatch(r"[0-9a-f]{64}", values["CONFIGURATION_CHECKSUM"]) is not None,
+        "configuration checksum invalid",
+    )
     require(values["ROLLBACK_RTO_SECONDS"].isdigit(), "rollback RTO invalid")
-    require(values["OBSERVATION_SECONDS"].isdigit() and int(values["OBSERVATION_SECONDS"]) >= 30, "observation window invalid")
+    require(
+        values["OBSERVATION_SECONDS"].isdigit()
+        and int(values["OBSERVATION_SECONDS"]) >= 30,
+        "observation window invalid",
+    )
     evidence_path = values["EVIDENCE_BUNDLE_PATH"]
-    require(evidence_path.startswith("/home/middleware-deploy/incoming/"), "unsafe evidence path")
+    require(
+        evidence_path.startswith("/home/middleware-deploy/incoming/"),
+        "unsafe evidence path",
+    )
     require(".." not in evidence_path, "unsafe evidence traversal")
-    require(DIGEST.fullmatch(values["EVIDENCE_BUNDLE_SHA256"]) is not None, "evidence digest invalid")
+    require(
+        DIGEST.fullmatch(values["EVIDENCE_BUNDLE_SHA256"]) is not None,
+        "evidence digest invalid",
+    )
     return values
 
 
@@ -261,8 +358,14 @@ def _safe_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]:
     require(0 < len(members) <= 1000, "evidence archive member count invalid")
     for member in members:
         relative = PurePosixPath(member.name)
-        require(not relative.is_absolute() and ".." not in relative.parts, "unsafe evidence path")
-        require(member.isdir() or member.isfile(), "evidence links and special files are forbidden")
+        require(
+            not relative.is_absolute() and ".." not in relative.parts,
+            "unsafe evidence path",
+        )
+        require(
+            member.isdir() or member.isfile(),
+            "evidence links and special files are forbidden",
+        )
     return members
 
 
@@ -280,15 +383,24 @@ def validate_evidence(
     require(actual == expected_sha256, "evidence archive checksum mismatch")
     with tarfile.open(archive_path, "r:gz") as archive:
         members = _safe_members(archive)
-        result_members = [item for item in members if PurePosixPath(item.name).name == "result.json"]
+        result_members = [
+            item for item in members if PurePosixPath(item.name).name == "result.json"
+        ]
         require(len(result_members) == 1, "evidence result.json missing or duplicated")
         handle = archive.extractfile(result_members[0])
-        require(handle is not None, "evidence result.json unreadable")
+        if handle is None:
+            raise ValidationError("evidence result.json unreadable")
         value = json.load(handle)
-    require(value.get("schema_version") == "1.0" and value.get("result") == "PASS", "evidence result is not PASS")
+    require(
+        value.get("schema_version") == "1.0" and value.get("result") == "PASS",
+        "evidence result is not PASS",
+    )
     require(value.get("source_sha") == source_sha, "evidence source SHA mismatch")
     require(value.get("image_reference") == image_reference, "evidence image mismatch")
-    require(str(value.get("release_run_id")) == release_run_id, "evidence release run mismatch")
+    require(
+        str(value.get("release_run_id")) == release_run_id,
+        "evidence release run mismatch",
+    )
     require(value.get("release_id") == release_id, "evidence release ID mismatch")
     runtime = value.get("runtime")
     rollback = value.get("rollback")
@@ -296,11 +408,30 @@ def validate_evidence(
     require(isinstance(runtime, Mapping), "evidence runtime section missing")
     require(isinstance(rollback, Mapping), "evidence rollback section missing")
     require(isinstance(backup, Mapping), "evidence backup section missing")
-    require(runtime.get("health") == runtime.get("readiness") == runtime.get("version") == runtime.get("capabilities") == "PASS", "runtime evidence incomplete")
-    require(runtime.get("external_effects_enabled") == "NONE", "external effects were enabled")
-    require(runtime.get("business_writes_enabled") is False and runtime.get("calls_placed") == 0, "runtime effect counters invalid")
-    require(runtime.get("gateway_exposure") == "NONE", "gateway exposure is not isolated")
-    require(backup.get("status") == "PASS" and backup.get("restore_rehearsal") == "PASS", "backup/restore evidence incomplete")
+    require(
+        runtime.get("health")
+        == runtime.get("readiness")
+        == runtime.get("version")
+        == runtime.get("capabilities")
+        == "PASS",
+        "runtime evidence incomplete",
+    )
+    require(
+        runtime.get("external_effects_enabled") == "NONE",
+        "external effects were enabled",
+    )
+    require(
+        runtime.get("business_writes_enabled") is False
+        and runtime.get("calls_placed") == 0,
+        "runtime effect counters invalid",
+    )
+    require(
+        runtime.get("gateway_exposure") == "NONE", "gateway exposure is not isolated"
+    )
+    require(
+        backup.get("status") == "PASS" and backup.get("restore_rehearsal") == "PASS",
+        "backup/restore evidence incomplete",
+    )
     require(rollback.get("status") == "PASS", "rollback evidence incomplete")
     require(value.get("data_integrity") == "PASS", "data integrity evidence incomplete")
 

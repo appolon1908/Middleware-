@@ -5,6 +5,7 @@ import importlib.util
 import json
 import unittest
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,10 @@ SPEC.loader.exec_module(VALIDATOR)
 
 
 class ProviderOperationPolicyTests(unittest.TestCase):
+    policy: dict[str, Any]
+    identity: dict[str, Any]
+    safety: dict[str, str]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.policy = json.loads(VALIDATOR.POLICY.read_text(encoding="utf-8"))
@@ -29,7 +34,12 @@ class ProviderOperationPolicyTests(unittest.TestCase):
             for name, value in [line.split("=", 1)]
         }
 
-    def assert_rejected(self, policy=None, identity=None, safety=None) -> None:
+    def assert_rejected(
+        self,
+        policy: dict[str, Any] | None = None,
+        identity: dict[str, Any] | None = None,
+        safety: dict[str, str] | None = None,
+    ) -> None:
         with self.assertRaises(SystemExit):
             VALIDATOR.validate(
                 copy.deepcopy(policy if policy is not None else self.policy),

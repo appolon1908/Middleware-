@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 
 
@@ -70,7 +71,7 @@ def headers(**updates: str) -> dict[str, str]:
         "Authorization": "Bearer intake-token",
         "X-Tenant-ID": "tenant-1",
         "X-Correlation-ID": "lead-correlation-001",
-        "Idempotency-Key": "lead-idempotency-001",
+        "Idempotency-Key": "lead-idempotency-001",  # gitleaks:allow test fixture
         "Content-Type": "application/json",
     }
     value.update(updates)
@@ -151,6 +152,67 @@ def test_lead_intake_enforces_auth_tenant_and_required_headers(test_settings) ->
         assert missing.json()["error"]["code"] == "invalid_request"
 
 
+def test_lead_intake_rejects_duplicate_security_headers(test_settings) -> None:
+    with client_for(test_settings) as client:
+        for name, second in (
+            ("Authorization", "Bearer duplicate-token"),
+            ("Content-Type", "application/problem+json"),
+            ("X-Tenant-ID", "tenant-2"),
+            ("X-Correlation-ID", "lead-correlation-duplicate"),
+            ("Idempotency-Key", "lead-idempotency-duplicate"),
+        ):
+            request_headers = list(headers().items()) + [(name, second)]
+            response = client.post(
+                "/v1/intake/leads",
+                content=json.dumps(lead_payload()),
+                headers=request_headers,
+            )
+            assert response.status_code == 400, name
+            assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_lead_intake_rejects_ambiguous_content_length(test_settings) -> None:
+    request_headers = list(headers().items()) + [
+        ("Content-Length", "1"),
+        ("Content-Length", "2"),
+    ]
+    with client_for(test_settings) as client:
+        response = client.post(
+            "/v1/intake/leads",
+            content=json.dumps(lead_payload()),
+            headers=request_headers,
+        )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+
+    oversized_integer_headers = {
+        **headers(),
+        "Content-Length": "9" * 5_000,
+    }
+    with client_for(test_settings) as client:
+        response = client.post(
+            "/v1/intake/leads",
+            content=json.dumps(lead_payload()),
+            headers=oversized_integer_headers,
+        )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_lead_intake_authentication_precedes_header_validation(test_settings) -> None:
+    invalid_headers = headers(
+        Authorization="Bearer wrong-token",
+        **{"X-Tenant-ID": "t" * 129},
+    )
+    with client_for(test_settings) as client:
+        response = client.post(
+            "/v1/intake/leads",
+            json=lead_payload(),
+            headers=invalid_headers,
+        )
+    assert response.status_code == 401
+
+
 def test_lead_intake_rejects_invalid_contract(test_settings) -> None:
     with client_for(test_settings) as client:
         invalid = client.post(
@@ -164,7 +226,7 @@ def test_lead_intake_rejects_invalid_contract(test_settings) -> None:
         invalid_source = client.post(
             "/v1/intake/leads",
             json=lead_payload(source="unknown-source"),
-            headers=headers(**{"Idempotency-Key": "lead-idempotency-002"}),
+            headers=headers(**{"Idempotency-Key": "lead-idempotency-002"}),  # gitleaks:allow test fixture
         )
         assert invalid_source.status_code == 400
 
@@ -173,7 +235,7 @@ def test_lead_intake_rejects_invalid_contract(test_settings) -> None:
         missing_timestamp = client.post(
             "/v1/intake/leads",
             json=missing_submitted_at,
-            headers=headers(**{"Idempotency-Key": "lead-idempotency-003"}),
+            headers=headers(**{"Idempotency-Key": "lead-idempotency-003"}),  # gitleaks:allow test fixture
         )
         assert missing_timestamp.status_code == 400
 

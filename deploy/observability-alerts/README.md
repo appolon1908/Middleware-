@@ -7,7 +7,7 @@ The production request path is:
 ```text
 Prometheus -> Alertmanager -> Middleware alert API -> durable command/outbox
            -> Temporal command worker -> Klyrow alert adapter -> Klyrow API
-           -> alerts@codestra.co -> appolon@codestra.co
+           -> alerts@codestra.co -> appolon1908@gmail.com
 ```
 
 This repository defines desired state only. `observability-alert-api` has no
@@ -19,8 +19,9 @@ tenant, scope, correlation ID, transport idempotency key, and
 
 ## Durable incident lifecycle
 
-Apply numbered migrations through `0009_observability_incidents` before starting
-this service. One PostgreSQL transaction records the incident projection,
+Apply numbered migrations through the canonical head
+`0067_service_catalog_monitoring_state` before starting this service (the
+incident lifecycle tables were introduced in `0059_integrated_monitoring`). One PostgreSQL transaction records the incident projection,
 immutable timeline event, immutable audit evidence, durable command/outbox, and
 notification intent. Alert transition identity is derived from Alertmanager's
 group key, fingerprint, state, and start time. It is independent of the HTTP
@@ -68,3 +69,10 @@ all writers, export and checksum every incident table, prove the export can be
 read in an isolated disposable database, then execute
 `migrations/rollback/0009_observability_incidents.down.sql`. Never run the
 rollback against a live writer or without retained evidence.
+
+
+## Recipient cutover procedure
+
+Before deploying a recipient-policy change, query the durable command ledger for non-terminal `observability.alert.email.send.v1` commands containing the prior recipient. The deploy gate must stop if any are queued but not submitted. Reissue those alerts as new commands with new idempotency identities and the active fixed-recipient policy.
+
+The adapter accepts the retired recipient only during provider read-back. It never submits or resubmits a legacy-recipient payload. A legacy command with no matching provider record fails closed with `controlled reissue` instead of silently dropping the alert or sending to the retired inbox.

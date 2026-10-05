@@ -1,0 +1,47 @@
+name: Single-lane agent governance
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: [self-hosted, Linux, X64, ubuntu-24.04, middleware-ci]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Materialize exact branch refs
+        shell: bash
+        env:
+          CODESTRA_CI_REMOTE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          CODESTRA_CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          test -n "$branch"
+          test -n "$CODESTRA_CI_REMOTE_HEAD"
+          git cat-file -e "${CODESTRA_CI_REMOTE_HEAD}^{commit}"
+          git update-ref "refs/remotes/origin/$branch" "$CODESTRA_CI_REMOTE_HEAD"
+          if [ -n "${GITHUB_BASE_REF:-}" ] && [ -n "${CODESTRA_CI_BASE_SHA:-}" ]; then
+            git cat-file -e "${CODESTRA_CI_BASE_SHA}^{commit}"
+            git update-ref "refs/remotes/origin/$GITHUB_BASE_REF" "$CODESTRA_CI_BASE_SHA"
+          fi
+          git branch -f "$branch" "$CODESTRA_CI_REMOTE_HEAD"
+          git checkout "$branch"
+          git branch --set-upstream-to="origin/$branch" "$branch"
+          test "$(git rev-parse HEAD)" = "$CODESTRA_CI_REMOTE_HEAD"
+      - name: Validate single-lane authority
+        shell: bash
+        env:
+          CODESTRA_CI_REMOTE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          chmod +x scripts/agent_preflight.sh
+          branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          ./scripts/agent_preflight.sh --ci --branch "$branch"

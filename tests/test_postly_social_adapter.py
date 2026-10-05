@@ -6,7 +6,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.config import ConfigurationError
+from app.core.config import ConfigurationError
 from app.postly_social_adapter import (
     PostlySocialAdapter,
     PostlySocialAdapterError,

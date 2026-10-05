@@ -8,6 +8,7 @@ from .security import RequestValidationError
 from .service import EVENT_TYPE_422_RESPONSE, PayloadTooLargeError, accept_webhook
 
 router = APIRouter(tags=["provider-webhooks"])
+odoo_event_router = APIRouter(tags=["odoo-events"])
 
 
 def _connector_key(route: WebhookRoute) -> str:
@@ -92,6 +93,24 @@ async def _accept(request: Request, route: WebhookRoute):
         content=result.model_dump(mode="json"),
         headers={"X-Correlation-ID": result.correlation_id},
     )
+
+
+@odoo_event_router.post(
+    "/api/v1/odoo/events",
+    operation_id="ingress_odoo_event",
+    responses={422: EVENT_TYPE_422_RESPONSE},
+)
+async def odoo_event(request: Request):
+    """Accept the exact Odoo event contract with its bound service identity."""
+
+    route = next(
+        item
+        for item in WEBHOOK_ROUTES
+        if item.path == "/api/v1/odoo/events"
+        and item.producer_client_id == "odoo-integration"
+        and item.required_scope == "odoo.events.publish"
+    )
+    return await _accept(request, route)
 
 
 @router.post(

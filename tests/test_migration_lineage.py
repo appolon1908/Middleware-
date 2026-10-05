@@ -43,9 +43,29 @@ def test_repository_alembic_graph_is_complete_and_acyclic() -> None:
         "20260828_0002",
         "20260828_0003",
         "20260828_0004",
+        "20260925_0005",
     }
     assert graph["20260828_0001"] == ()
     assert graph["20260828_0004"] == ("20260828_0003",)
+    assert graph["20260925_0005"] == ("20260828_0004",)
+
+
+def test_connector_runtime_readiness_and_ci_require_the_single_graph_head() -> None:
+    import re
+
+    module = _load_module()
+    graph = module.discover_repository_graph(ROOT)
+    parents = {parent for downs in graph.values() for parent in downs}
+    heads = set(graph) - parents
+    assert len(heads) == 1, heads
+    (head,) = heads
+    # Readiness compares the database head for equality, so a stale default
+    # reports a correctly migrated database as not ready.
+    config = (ROOT / "services/connector-runtime/src/codestra_connector_runtime/api/config.py").read_text(encoding="utf-8")
+    assert re.search(r'readiness_requires_migration: str = "([^"]+)"', config).group(1) == head
+    workflow = (ROOT / ".github/workflows/connector-runtime-api-ci.yml").read_text(encoding="utf-8")
+    pinned = re.findall(r"test \"\$\(alembic current \| awk '\{print \$1\}'\)\" = \"([^\"]+)\"", workflow)
+    assert pinned and set(pinned) == {head}, pinned
 
 
 def test_runtime_manifest_exactly_matches_reviewed_alembic_source() -> None:
@@ -56,10 +76,10 @@ def test_runtime_manifest_exactly_matches_reviewed_alembic_source() -> None:
 
 def test_known_database_revision_is_accepted() -> None:
     module = _load_module()
-    report = module.validate_observed_revisions(["20260828_0004"], root=ROOT)
+    report = module.validate_observed_revisions(["20260925_0005"], root=ROOT)
     assert report.alembic_table_present is True
-    assert report.database_revisions == ("20260828_0004",)
-    assert "20260828_0004" in report.authority_revisions
+    assert report.database_revisions == ("20260925_0005",)
+    assert "20260925_0005" in report.authority_revisions
 
 
 def test_unknown_staging_revision_fails_closed() -> None:
@@ -99,7 +119,7 @@ async def test_database_with_unknown_revision_is_rejected() -> None:
 def test_runtime_migration_is_self_contained_and_checks_before_sql_execution() -> None:
     source = (ROOT / "scripts" / "migrate_runtime.py").read_text(encoding="utf-8")
     assert "from migration_lineage" not in source
-    assert "config" in source and "migration-lineage.v1.json" in source
+    assert "from scripts.production_migration_authority import validate_authority" in source
     lineage_check = source.index("await verify_database_lineage")
     migration_loop = source.index("for migration in migrations")
     execute_migration = source.index("await conn.execute")

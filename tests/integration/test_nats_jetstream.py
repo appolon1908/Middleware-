@@ -12,7 +12,7 @@ import pytest_asyncio
 from nats.js.api import StorageType, StreamConfig
 from nats.js.errors import NotFoundError
 
-from app.config import Settings
+from app.core.config import Settings
 from app.nats_transport import NatsJetStreamPublisher
 from app.storage import NATS_JETSTREAM_DESTINATION, OutboxRecord
 

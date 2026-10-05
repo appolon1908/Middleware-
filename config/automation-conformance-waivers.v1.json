@@ -3,19 +3,5 @@
   "contract": "contracts/automation/n8n-control-plane.v2.json",
   "mode": "strict_expected_gap",
   "rule": "Every missing contract route must have exactly one active waiver. Implemented routes must not retain a waiver.",
-  "waivers": [
-    {"operation":"POST /v2/automation/jobs/claim","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"GET /v2/automation/jobs/{job_id}","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/jobs/{job_id}/heartbeat","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/jobs/{job_id}/steps","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/jobs/{job_id}/complete","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/jobs/{job_id}/fail","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/commands","finding":"W1/W2","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"GET /v2/automation/commands/{command_id}","finding":"W2","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/approvals","finding":"W7","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"GET /v2/automation/approvals/{approval_id}","finding":"W7","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/dead-letters/{dead_letter_id}/replay","finding":"W7","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"POST /v2/automation/jobs/reconcile","finding":"W4","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"},
-    {"operation":"GET /v2/automation/capabilities/{capability}","finding":"W3","owner":"middleware-automation-v2","reason":"Accepted W0 baseline gap; removed in the implementation PR that adds this route and its invariant tests.","expires_on":"2026-12-31"}
-  ]
+  "waivers": []
 }

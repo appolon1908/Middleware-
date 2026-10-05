@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -10,7 +9,7 @@ from jsonschema import Draft202012Validator
 from app.contracts import ROUTE_BY_PATH, WEBHOOK_ROUTES
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime, _asyncpg_dsn
 from app.runtime_safety import runtime_safety_readback
 from app.storage import MemoryInboxStore
 
@@ -20,11 +19,11 @@ from .conftest import FakeTokenVerifier, make_event, signed_headers
 def test_all_contract_routes_are_registered(test_settings, runtime) -> None:
     app = create_app(settings=test_settings, runtime=runtime)
     registered = {
-        route.path
-        for route in app.routes
-        if getattr(route, "methods", None)
-        and "POST" in route.methods
-        and route.path.startswith("/api/v1/")
+        path
+        for path, operations in app.openapi()["paths"].items()
+        if "post" in operations
+        and path.startswith("/api/v1/")
+        and operations["post"]["operationId"].startswith("ingress_")
     }
     assert registered == {item.path for item in WEBHOOK_ROUTES}
 
@@ -53,7 +52,9 @@ def test_accept_and_idempotent_duplicate(test_settings, runtime) -> None:
         assert second.json()["duplicate"] is True
 
 
-def test_accepts_sdk_call_disposition_event_on_vicidial_route(test_settings, runtime) -> None:
+def test_accepts_sdk_call_disposition_event_on_vicidial_route(
+    test_settings, runtime
+) -> None:
     path = "/api/v1/vicidial/events"
     route = ROUTE_BY_PATH[path]
     event = make_event(
@@ -86,7 +87,9 @@ def test_accepts_sdk_call_disposition_event_on_vicidial_route(test_settings, run
     assert response.status_code == 202, response.text
 
 
-def test_accepts_sdk_sms_received_event_on_telnexa_route(test_settings, runtime) -> None:
+def test_accepts_sdk_sms_received_event_on_telnexa_route(
+    test_settings, runtime
+) -> None:
     path = "/api/v1/telnexa/events"
     route = ROUTE_BY_PATH[path]
     event = make_event(
@@ -117,7 +120,9 @@ def test_accepts_sdk_sms_received_event_on_telnexa_route(test_settings, runtime)
     assert response.status_code == 202, response.text
 
 
-def test_semantically_identical_reformatted_retry_is_duplicate(test_settings, runtime) -> None:
+def test_semantically_identical_reformatted_retry_is_duplicate(
+    test_settings, runtime
+) -> None:
     path = "/api/v1/odoo/events"
     route = ROUTE_BY_PATH[path]
     event = make_event(
@@ -143,7 +148,17 @@ def test_semantically_identical_reformatted_retry_is_duplicate(test_settings, ru
         pretty = json.dumps(event, indent=2, sort_keys=False).encode()
         timestamp = str(int(time.time()))
         body_sha = hashlib.sha256(pretty).hexdigest()
-        canonical = "\n".join(("v1", "POST", path, timestamp, event["event_id"], route.producer_client_id, body_sha)).encode()
+        canonical = "\n".join(
+            (
+                "v1",
+                "POST",
+                path,
+                timestamp,
+                event["event_id"],
+                route.producer_client_id,
+                body_sha,
+            )
+        ).encode()
         signature = hmac.new(SECRET, canonical, hashlib.sha256).hexdigest()
         retry_headers = dict(headers)
         retry_headers["X-Codestra-Timestamp"] = timestamp
@@ -182,7 +197,9 @@ def test_same_event_id_with_changed_payload_conflicts(test_settings, runtime) ->
         assert response.json()["error"]["code"] == "idempotency_conflict"
 
 
-def test_invalid_signature_is_rejected_with_canonical_error(test_settings, runtime) -> None:
+def test_invalid_signature_is_rejected_with_canonical_error(
+    test_settings, runtime
+) -> None:
     path = "/api/v1/vicidial/events"
     route = ROUTE_BY_PATH[path]
     event = make_event(
@@ -285,7 +302,7 @@ def test_actor_schema_fails_closed(test_settings, runtime) -> None:
 
 
 def test_oversized_body_is_rejected_before_buffering(test_settings, runtime) -> None:
-    limited = replace(test_settings, max_request_body_bytes=1024)
+    limited = test_settings.replace(max_request_body_bytes=1024)
     runtime.settings = limited
     path = "/api/v1/postly/events"
     route = ROUTE_BY_PATH[path]
@@ -327,9 +344,13 @@ def test_health_ready_version(test_settings, runtime) -> None:
             "command_store": "not_configured",
             "communications_store": "not_configured",
             "incident_store": "not_configured",
+            "automation_store": "not_configured",
         }
         assert "checked_at" in readiness.json()
-        assert client.get("/readiness").json()["components"] == readiness.json()["components"]
+        assert (
+            client.get("/readiness").json()["components"]
+            == readiness.json()["components"]
+        )
         dependencies = client.get("/dependencies")
         assert dependencies.status_code == 200
         assert dependencies.json()["dependencies"] == readiness.json()["components"]
@@ -337,10 +358,15 @@ def test_health_ready_version(test_settings, runtime) -> None:
         assert version["service"] == "middleware-api"
         assert version["environment"] == "test"
         assert version["runtime_profile_id"] == "local-unlocked"
-        assert version["schema_head"] == "0009_observability_incidents"
+        assert version["schema_head"] == "0071_defer_unbound_tenant_rls"
         assert version["git_sha"] == version["source_sha"]
         assert version["schema_version"] == version["schema_head"]
-        assert {"release_id", "image_digest", "build_timestamp", "configuration_checksum"} <= set(version)
+        assert {
+            "release_id",
+            "image_digest",
+            "build_timestamp",
+            "configuration_checksum",
+        } <= set(version)
         capabilities = client.get("/capabilities")
         assert capabilities.status_code == 200
         assert capabilities.json()["capabilities"]["PRODUCTION_DIALING"] is False
@@ -356,11 +382,7 @@ def test_runtime_safety_readback_is_authenticated_and_schema_valid(
         denied = client.get("/v1/runtime/safety")
         accepted = client.get(
             "/v1/runtime/safety",
-            headers={
-                "Authorization": (
-                    "Bearer valid-monitoring-readonly-health.read"
-                )
-            },
+            headers={"Authorization": ("Bearer valid-monitoring-readonly-health.read")},
         )
 
     assert denied.status_code == 401
@@ -392,8 +414,7 @@ def test_runtime_safety_readback_proves_fail_closed_staging(
     test_settings,
     runtime,
 ) -> None:
-    staging = replace(
-        test_settings,
+    staging = test_settings.replace(
         app_env="staging",
         runtime_profile_id="codestra-middleware-staging-v1",
         source_sha="a" * 40,
@@ -406,11 +427,7 @@ def test_runtime_safety_readback_proves_fail_closed_staging(
     with TestClient(app) as client:
         response = client.get(
             "/v1/runtime/safety",
-            headers={
-                "Authorization": (
-                    "Bearer valid-monitoring-readonly-health.read"
-                )
-            },
+            headers={"Authorization": ("Bearer valid-monitoring-readonly-health.read")},
         )
 
     assert response.status_code == 200
@@ -429,13 +446,7 @@ def test_runtime_safety_readback_proves_fail_closed_staging(
 def test_runtime_safety_aggregate_summaries_include_umbrella_controls(
     test_settings,
 ) -> None:
-    enabled = replace(
-        test_settings,
-        umbrella_controls={
-            **test_settings.umbrella_controls,
-            "EXTERNAL_DELIVERY_ENABLED": True,
-        },
-    )
+    enabled = test_settings.replace(umbrella_external_delivery_enabled=True)
 
     value = runtime_safety_readback(enabled)
 
@@ -479,6 +490,21 @@ def test_readiness_reports_named_failure_without_dependency_details(
 
     assert response.status_code == 503
     value = response.json()
-    assert value["status"] == "not_ready"
+    assert value["status"] == "not-ready"
     assert value["components"]["replay_guard"] == "not_ready"
-    assert "redis" not in response.text.lower()
+    assert value["dependencies"]["redis"] == "unavailable"
+    assert value["reason"] == "components_not_ready:replay_guard"
+    # Dependency *states* are named; addresses and credentials never are.
+    assert "localhost" not in response.text.lower()
+    assert "://" not in response.text
+
+
+def test_asyncpg_dsn_normalizes_sqlalchemy_asyncpg_scheme() -> None:
+    assert (
+        _asyncpg_dsn("postgresql+asyncpg://user:secret@db:5432/middleware")
+        == "postgresql://user:secret@db:5432/middleware"
+    )
+    assert (
+        _asyncpg_dsn("postgresql://user:secret@db:5432/middleware")
+        == "postgresql://user:secret@db:5432/middleware"
+    )

@@ -17,7 +17,7 @@ class RolloutError(RuntimeError):
     """The policy, API preflight, mutation, or verification failed."""
 
 
-def require(condition: bool, message: str) -> None:
+def require(condition: object, message: str) -> None:
     if not condition:
         raise RolloutError(message)
 
@@ -31,11 +31,14 @@ def load_json(path: Path) -> Any:
 
 def normalize_ruleset_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     conditions = payload.get("conditions")
-    require(isinstance(conditions, Mapping), "ruleset conditions are missing")
+    if not isinstance(conditions, Mapping):
+        raise RolloutError("ruleset conditions are missing")
     ref_name = conditions.get("ref_name")
-    require(isinstance(ref_name, Mapping), "ruleset ref_name conditions are missing")
+    if not isinstance(ref_name, Mapping):
+        raise RolloutError("ruleset ref_name conditions are missing")
     rules = payload.get("rules")
-    require(isinstance(rules, list), "ruleset rules are missing")
+    if not isinstance(rules, list):
+        raise RolloutError("ruleset rules are missing")
 
     normalized_rules: list[dict[str, Any]] = []
     for rule in rules:
@@ -108,12 +111,12 @@ def load_policy() -> tuple[dict[str, Any], dict[str, Any]]:
     portfolio = load_json(PORTFOLIO_PATH)
     require(isinstance(portfolio, dict), "portfolio policy must be an object")
     require(portfolio.get("schema_version") == "1.0", "unsupported portfolio schema")
-    require(portfolio.get("owner") == "appolon1908-hue", "portfolio owner drift")
+    require(portfolio.get("owner") == "appolon1908", "portfolio owner drift")
     known = portfolio.get("known_active_repositories")
+    if not isinstance(known, list):
+        raise RolloutError("known repository inventory is invalid")
     require(
-        isinstance(known, list)
-        and known
-        and all(isinstance(item, str) and item for item in known),
+        known and all(isinstance(item, str) and item for item in known),
         "known repository inventory is invalid",
     )
     require(len(known) == len(set(known)), "known repository inventory has duplicates")

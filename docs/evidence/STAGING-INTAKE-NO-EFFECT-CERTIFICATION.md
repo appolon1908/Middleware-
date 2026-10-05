@@ -17,12 +17,23 @@ uses the protected `intake-staging-certification` environment.
 Neither token belongs in workflow inputs, issue comments, commits, logs, or
 artifacts.
 
+## Required protected variable
+
+- `STAGING_INTAKE_APPROVED_HOST`: the exact reviewed DNS hostname of the
+  isolated staging Caddy endpoint. It must not be an IPv4/IPv6 literal or the
+  production gateway. The workflow refuses to send either bearer token when
+  the requested base URL does not match this protected authority exactly.
+
 ## Fail-closed sequence
 
 1. Check out and prove the exact protected-main workflow SHA.
-2. Reject the committed production gateway host and malformed base URLs.
-3. Read `/version` and require the exact dispatched source SHA, an immutable
-   image digest, schema head, staging environment, and locked runtime profile.
+2. Require the exact protected staging hostname and standard HTTPS port; reject
+   arbitrary hosts, credentials, IPv4/IPv6 literals, the committed production
+   gateway, and malformed base URLs before loading a bearer token into a
+   request.
+3. Read `/version` and require consistent source/git SHA, immutable image,
+   schema, build, release, and configuration identities plus the staging
+   environment and locked runtime profile.
 4. Read authenticated `/v1/runtime/safety` and require durable persistence,
    disabled outbox/NATS/Temporal dispatch, every external effect and umbrella
    control false, production dialing disabled, no production activation, and
@@ -31,7 +42,7 @@ artifacts.
    exact duplicate replay, changed-content conflict, and anonymous survey
    acceptance.
 6. Repeat the exact version/safety read-back and reject any source, digest,
-   schema, profile, or control movement during the run.
+   schema, release, configuration, profile, or control movement during the run.
 
 ## Non-authorization boundary
 

@@ -25,7 +25,9 @@ env:
 
 jobs:
   certify-no-effect:
-    if: github.ref == 'refs/heads/main'
+    # RUNTIME_MUTATION_DISABLED=true
+    # This job contacts staging APIs; repository preparation does not authorize it.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     environment: intake-staging-certification
     timeout-minutes: 10
@@ -44,9 +46,11 @@ jobs:
 
       - name: Require protected staging identities
         env:
+          APPROVED_HOST: ${{ vars.STAGING_INTAKE_APPROVED_HOST }}
           INTAKE_TOKEN: ${{ secrets.STAGING_SDK_INTAKE_TOKEN }}
           SAFETY_TOKEN: ${{ secrets.STAGING_RUNTIME_SAFETY_TOKEN }}
         run: |
+          test -n "$APPROVED_HOST"
           test -n "$INTAKE_TOKEN"
           test -n "$SAFETY_TOKEN"
 
@@ -54,6 +58,7 @@ jobs:
         env:
           STAGING_SDK_INTAKE_TOKEN: ${{ secrets.STAGING_SDK_INTAKE_TOKEN }}
           STAGING_RUNTIME_SAFETY_TOKEN: ${{ secrets.STAGING_RUNTIME_SAFETY_TOKEN }}
+          STAGING_INTAKE_APPROVED_HOST: ${{ vars.STAGING_INTAKE_APPROVED_HOST }}
           BASE_URL: ${{ inputs.base_url }}
           TENANT_ID: ${{ inputs.tenant_id }}
           EXPECTED_SOURCE_SHA: ${{ github.sha }}

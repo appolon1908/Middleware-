@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.commands import CommandEnvelope, CommandService, MemoryCommandStore
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 from tests.test_commands import CommandTokenVerifier, command_payload, enabled_policy
 
@@ -25,7 +25,8 @@ def test_operation_reads_are_tenant_scoped_paginated_and_redacted(test_settings)
     store = MemoryCommandStore()
     commands = [CommandEnvelope.model_validate(command_payload(command_id=str(uuid4()), idempotency_key=f"idempotency-{index}")) for index in range(3)]
     import asyncio
-    for command in commands: asyncio.run(store.submit(command, authenticated_client_id="test-client"))
+    for command in commands:
+        asyncio.run(store.submit(command, authenticated_client_id="test-client"))
     asyncio.run(store.transition("tenant-1", commands[0].command_id, new_state="queued", actor_id="worker", reason="queued"))
     asyncio.run(store.transition("tenant-1", commands[0].command_id, new_state="dispatching", actor_id="worker", reason="dispatch"))
     store._events[("tenant-1", commands[0].command_id)][-1].safe_metadata.update({"access_token": "never-return", "nested": {"password": "never-return"}})

@@ -7,7 +7,7 @@ from prometheus_client.parser import text_string_to_metric_families
 
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import MemoryInboxStore
 
 

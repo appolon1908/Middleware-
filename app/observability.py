@@ -11,7 +11,7 @@ from typing import Any
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
-from .config import Settings
+from app.core.config import Settings
 from .intake_observability import IntakeMetrics, collect_intake_backlog
 
 

@@ -5,11 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Connection, RowMapping, text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 

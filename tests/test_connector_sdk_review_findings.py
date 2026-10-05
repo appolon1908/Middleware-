@@ -9,7 +9,6 @@ import json
 import time
 import unittest
 import uuid
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -125,7 +124,7 @@ class ConnectorSdkReviewFindingTests(unittest.TestCase):
         candidate = copy.deepcopy(self.raw("klyrow-email"))
         candidate["connector_id"] = "duplicate-email"
         candidate["display_name"] = "Duplicate Email"
-        candidate["repository"] = "appolon1908-hue/duplicate-email"
+        candidate["repository"] = "appolon1908/duplicate-email"
         service = ConnectorCatalogService(registry)
 
         with self.assertRaises(ConnectorVersionConflictError):
@@ -193,7 +192,7 @@ class ConnectorSdkReviewFindingTests(unittest.TestCase):
         result = processor.process("klyrow-email", "postal-events", request)
         self.assertIsInstance(result, WebhookProcessResult)
         self.assertEqual(result.decision, ReplayDecision.EXACT_REPLAY)
-        self.assertIsNotNone(result.cloud_event)
+        assert result.cloud_event is not None
         self.assertEqual(result.cloud_event.id, "evt-recoverable")
 
     def test_webhook_requires_declared_inbound_event_direction(self) -> None:

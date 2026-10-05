@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
 from collections.abc import Mapping
 from typing import Any, Protocol
 from uuid import UUID
 
+import asyncpg
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
@@ -16,6 +18,7 @@ from .commands import (
     CommandNotFound,
     PostgresCommandStore,
     authenticated_command_digest,
+    verify_readback_evidence_digest,
 )
 from .klyrow_alert_adapter import KlyrowAlertAdapter, KlyrowAlertAdapterError
 from .odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError
@@ -30,12 +33,20 @@ from .telnexa_provider_adapter import (
     TelnexaSmsAdapter,
 )
 from .provider_canary import provider_evidence_digest
+from .calling_contract import (
+    HANGUP, ORIGINATE, TARGET, CallLifecycleEvidence, validate_call_evidence,
+)
+from .vicidial_internal_call_adapter import (
+    VicidialInternalCallAdapter, VicidialInternalCallError,
+    VicidialInternalCallPreDispatchRejected, VicidialInternalCallUnknown,
+)
 from .temporal_workflows import (
     ActivityResult,
     CommandExecutionRequest,
     CommandTransitionRequest,
     DeadLetterReplayRequest,
     DelayedCallbackRequest,
+    OriginalCallCompletionRequest,
     ProvisioningStepRequest,
     ReconciliationRequest,
 )
@@ -104,6 +115,7 @@ class CommandLedgerWorkflowActivities:
         telnexa_sms: TelnexaSmsAdapter | None = None,
         klyrow_email: KlyrowEmailAdapter | None = None,
         postly_social: PostlySocialAdapter | None = None,
+        vicidial_internal: VicidialInternalCallAdapter | None = None,
     ) -> None:
         self.store = store
         self.odoo = odoo
@@ -111,12 +123,29 @@ class CommandLedgerWorkflowActivities:
         self.telnexa_sms = telnexa_sms
         self.klyrow_email = klyrow_email
         self.postly_social = postly_social
+        self.vicidial_internal = vicidial_internal
 
     @activity.defn(name="record_command_transition")
     async def record_command_transition(
         self,
         request: CommandTransitionRequest,
     ) -> ActivityResult:
+        if (request.readback_evidence is not None
+                and request.new_state == "reconciliation_required"):
+            try:
+                observed = CallLifecycleEvidence.model_validate(
+                    request.readback_evidence
+                )
+            except (TypeError, ValueError) as exc:
+                raise ApplicationError(
+                    "nonterminal calling evidence failed the bounded contract",
+                    non_retryable=True, type="CommandTransitionRejected",
+                ) from exc
+            if observed.terminal:
+                raise ApplicationError(
+                    "terminal calling evidence cannot be stored as nonterminal",
+                    non_retryable=True, type="CommandTransitionRejected",
+                )
         try:
             operation = await self.store.transition(
                 request.tenant_id,
@@ -151,6 +180,9 @@ class CommandLedgerWorkflowActivities:
             return self.klyrow_email
         if request.target == "postly-social" and self.postly_social is not None:
             return self.postly_social
+        if (request.target == TARGET and request.command_type in {ORIGINATE, HANGUP}
+                and self.vicidial_internal is not None):
+            return self.vicidial_internal
         raise ApplicationError(
             "no production provider adapter is activated for this command",
             non_retryable=True,
@@ -162,9 +194,37 @@ class CommandLedgerWorkflowActivities:
         self,
         request: CommandExecutionRequest,
     ) -> ActivityResult:
+        if request.target == TARGET:
+            request = await self._load_durable_execution_request(request)
         adapter = self._adapter(request)
+        if request.target == TARGET:
+            claimed = await self._claim_call_dispatch(request)
+            if not claimed:
+                cancelled = await self._load_committed_call_cancellation(request)
+                if cancelled is not None:
+                    return cancelled
+                # A previous process may have sent the mutation. Readback is
+                # the only safe continuation; never originate/hang up again.
+                return await adapter.readback(request)
         try:
             return await adapter.execute(request)
+        except VicidialInternalCallPreDispatchRejected:
+            # Do not acknowledge the proven no-send outcome until the same
+            # activity has durably cancelled the claimed attempt. If this
+            # transaction fails, Temporal observes an activity failure rather
+            # than a transient status that could be lost before cancellation.
+            for attempt in range(3):
+                try:
+                    return await self.record_call_pre_dispatch_rejection(request)
+                except (asyncpg.PostgresConnectionError, asyncpg.InterfaceError,
+                        asyncpg.SerializationError, asyncpg.DeadlockDetectedError,
+                        asyncpg.CannotConnectNowError, ConnectionError, TimeoutError):
+                    if attempt == 2:
+                        raise
+                    # Retain the proven rejection in this owning activity;
+                    # retry only the idempotent transaction, never the adapter.
+                    await asyncio.sleep(0.1 * (2 ** attempt))
+            raise RuntimeError("pre-dispatch rejection persistence did not complete")
         except PostlySocialUnknownOutcomeError as exc:
             # Postly has no idempotency key. Retrying an ambiguous publish
             # could put a second post on a real account, so this outcome must
@@ -174,17 +234,81 @@ class CommandLedgerWorkflowActivities:
                 non_retryable=True,
                 type="ProviderOutcomeUnknown",
             ) from exc
+        except VicidialInternalCallUnknown as exc:
+            raise ApplicationError(
+                str(exc), non_retryable=True, type="ProviderOutcomeUnknown",
+            ) from exc
         except (
             OdooProviderAdapterError,
             KlyrowAlertAdapterError,
             TelnexaProviderAdapterError,
             KlyrowEmailAdapterError,
             PostlySocialAdapterError,
+            VicidialInternalCallError,
         ) as exc:
             raise ApplicationError(
                 str(exc),
                 type="ProviderAdapterError",
             ) from exc
+
+    @activity.defn(name="record_call_pre_dispatch_rejection")
+    async def record_call_pre_dispatch_rejection(
+        self, request: CommandExecutionRequest,
+    ) -> ActivityResult:
+        """Atomically persist the claimed, conclusively unsent call outcome."""
+        durable = await self._load_durable_execution_request(request)
+        if durable.command_type != ORIGINATE or durable.target != TARGET:
+            raise ApplicationError(
+                "pre-dispatch rejection is restricted to bounded originate",
+                non_retryable=True, type="CommandExecutionRejected",
+            )
+        async with self.store.pool.acquire() as conn:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    "SELECT state FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+                    durable.tenant_id, durable.command_id,
+                )
+                attempt = await conn.fetchrow(
+                    "SELECT id, state, result_payload, error_code FROM middleware_command_attempts "
+                    "WHERE tenant_id=$1 AND command_id=$2 ORDER BY attempt_number DESC LIMIT 1 FOR UPDATE",
+                    durable.tenant_id, durable.command_id,
+                )
+                if (row is not None and attempt is not None
+                        and row["state"] == "cancelled"
+                        and attempt["state"] == "failed"
+                        and attempt["error_code"] == "pre_dispatch_rejected"
+                        and self._is_dispatch_claim(attempt["result_payload"])):
+                    return ActivityResult(
+                        "cancelled", "bounded originate rejected before transport",
+                    )
+                if (row is None or attempt is None or row["state"] != "dispatching"
+                        or not self._is_dispatch_claim(attempt["result_payload"])):
+                    raise ApplicationError(
+                        "pre-dispatch rejection does not own the durable dispatch claim",
+                        non_retryable=True, type="CommandExecutionRejected",
+                    )
+                await conn.execute(
+                    "UPDATE middleware_commands SET state='cancelled', resource_version=resource_version+1, "
+                    "cancelled_at=now(), cancellation_reason=$3, updated_at=now() "
+                    "WHERE tenant_id=$1 AND command_id=$2",
+                    durable.tenant_id, durable.command_id,
+                    "bounded originate rejected before transport",
+                )
+                await conn.execute(
+                    "UPDATE middleware_command_attempts SET state='failed', "
+                    "error_code='pre_dispatch_rejected', error_detail=$2, finished_at=now() WHERE id=$1",
+                    attempt["id"],
+                    "bounded originate rejected before transport",
+                )
+                await conn.execute(
+                    "INSERT INTO middleware_command_audit "
+                    "(tenant_id,command_id,previous_state,new_state,actor_id,reason,metadata) "
+                    "VALUES ($1,$2,'dispatching','cancelled',$3,$4,'{\"external_effect\":false}'::jsonb)",
+                    durable.tenant_id, durable.command_id,
+                    "temporal:codestra.calling-dispatch.v1",
+                    "bounded originate rejected before transport",
+                )
+        return ActivityResult("cancelled", "bounded originate rejected before transport")
 
     @activity.defn(name="readback_command")
     async def readback_command(
@@ -200,11 +324,112 @@ class CommandLedgerWorkflowActivities:
             TelnexaProviderAdapterError,
             KlyrowEmailAdapterError,
             PostlySocialAdapterError,
+            VicidialInternalCallError,
         ) as exc:
             raise ApplicationError(
                 str(exc),
                 type="ProviderReadbackError",
             ) from exc
+
+    @activity.defn(name="recover_call_execution")
+    async def recover_call_execution(
+        self, request: CommandExecutionRequest,
+    ) -> ActivityResult:
+        """Read committed no-send proof after a lost activity acknowledgement."""
+        durable = await self._load_durable_execution_request(request)
+        if durable.target != TARGET or durable.command_type != ORIGINATE:
+            raise ApplicationError(
+                "execution recovery is restricted to bounded originate",
+                non_retryable=True, type="CommandExecutionRejected",
+            )
+        return (await self._load_committed_call_cancellation(durable)
+                or ActivityResult("reconciliation_required", "no committed no-send proof"))
+
+    async def _load_durable_execution_request(
+        self, request: CommandExecutionRequest,
+    ) -> CommandExecutionRequest:
+        try:
+            operation_id = UUID(request.command_id)
+        except ValueError as exc:
+            raise ApplicationError("command identity is invalid", non_retryable=True,
+                                   type="CommandExecutionRejected") from exc
+        async with self.store.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
+                request.tenant_id, request.command_id,
+            )
+        if row is None:
+            raise ApplicationError("durable command was not found", non_retryable=True,
+                                   type="CommandExecutionRejected")
+        durable, digest = self._validated_reconciliation_command(
+            row,
+            ReconciliationRequest(request.command_id, request.tenant_id, "dispatch validation"),
+            operation_id,
+        )
+        if durable != request or not hmac.compare_digest(
+            digest, authenticated_command_digest(
+                CommandEnvelope.model_validate({
+                    key: getattr(request, key) for key in (
+                        "command_id", "command_type", "command_version", "target",
+                        "tenant_id", "requested_by", "correlation_id",
+                        "idempotency_key", "capability", "payload",
+                    )
+                }), request.authenticated_client_id,
+            ),
+        ):
+            raise ApplicationError("Temporal command differs from durable intent",
+                                   non_retryable=True, type="CommandExecutionRejected")
+        return durable
+
+    async def _claim_call_dispatch(self, request: CommandExecutionRequest) -> bool:
+        """Atomically elect the only process allowed to send a call mutation."""
+        async with self.store.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE middleware_command_attempts
+                SET result_payload='{"dispatch_claimed":true}'::jsonb
+                WHERE id=(SELECT id FROM middleware_command_attempts
+                          WHERE tenant_id=$1 AND command_id=$2
+                          ORDER BY attempt_number DESC LIMIT 1)
+                  AND state='dispatching'
+                  AND result_payload IS NULL
+                RETURNING id
+                """,
+                request.tenant_id, request.command_id,
+            )
+        return row is not None
+
+    @staticmethod
+    def _is_dispatch_claim(value: Any) -> bool:
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return False
+        return isinstance(value, Mapping) and dict(value) == {"dispatch_claimed": True}
+
+    async def _load_committed_call_cancellation(
+        self, request: CommandExecutionRequest,
+    ) -> ActivityResult | None:
+        """Recover a proven no-send cancellation without readback or redial."""
+        async with self.store.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT c.state, a.state AS attempt_state, a.error_code, "
+                "a.result_payload FROM middleware_commands c "
+                "JOIN LATERAL (SELECT state,error_code,result_payload "
+                "FROM middleware_command_attempts WHERE tenant_id=c.tenant_id "
+                "AND command_id=c.command_id ORDER BY attempt_number DESC LIMIT 1) a ON true "
+                "WHERE c.tenant_id=$1 AND c.command_id=$2",
+                request.tenant_id, request.command_id,
+            )
+        if (row is not None and row["state"] == "cancelled"
+                and row["attempt_state"] == "failed"
+                and row["error_code"] == "pre_dispatch_rejected"
+                and self._is_dispatch_claim(row["result_payload"])):
+            return ActivityResult(
+                "cancelled", "bounded originate rejected before transport",
+            )
+        return None
 
     @staticmethod
     def _validated_reconciliation_command(
@@ -304,12 +529,15 @@ class CommandLedgerWorkflowActivities:
             )
         if row["state"] == "completed":
             operation = await self.store.get(request.tenant_id, operation_id)
-            return None, ActivityResult(
+            command, payload_digest = self._validated_reconciliation_command(
+                row, request, operation_id,
+            )
+            return command, ActivityResult(
                 status="completed",
                 detail="provider read-back was already durably reconciled",
                 provider_operation_id=operation.provider_operation_id,
                 readback_evidence=operation.readback_evidence,
-            ), None
+            ), payload_digest
         if row["state"] != "reconciliation_required":
             raise ApplicationError(
                 "operation is not awaiting reconciliation",
@@ -365,11 +593,52 @@ class CommandLedgerWorkflowActivities:
                         type="ReconciliationRejected",
                     )
                 if current["state"] == "completed" and matched:
+                    durable = await conn.fetchrow(
+                        """
+                        SELECT
+                          (SELECT result_payload FROM middleware_command_attempts
+                           WHERE tenant_id=$1 AND command_id=$2
+                           ORDER BY attempt_number DESC LIMIT 1) AS evidence,
+                          (SELECT metadata->>'readback_evidence_sha256'
+                           FROM middleware_command_audit
+                           WHERE tenant_id=$1 AND command_id=$2
+                             AND new_state='completed'
+                             AND metadata ? 'readback_evidence_sha256'
+                           ORDER BY id DESC LIMIT 1) AS evidence_digest
+                        """,
+                        request.tenant_id, request.operation_id,
+                    )
+                    if durable is None:
+                        raise ApplicationError(
+                            "completed reconciliation evidence is unavailable",
+                            non_retryable=True, type="ReconciliationRejected",
+                        )
+                    if not isinstance(durable["evidence_digest"], str):
+                        raise ApplicationError(
+                            "completed reconciliation evidence digest is unavailable",
+                            non_retryable=True, type="ReconciliationRejected",
+                        )
+                    try:
+                        committed, _ = verify_readback_evidence_digest(
+                            durable["evidence"], durable["evidence_digest"],
+                        )
+                    except RuntimeError as exc:
+                        raise ApplicationError(
+                            "completed reconciliation evidence failed integrity verification",
+                            non_retryable=True, type="ReconciliationRejected",
+                        ) from exc
+                    if committed is None or not hmac.compare_digest(
+                        provider_evidence_digest(committed), evidence_digest,
+                    ):
+                        raise ApplicationError(
+                            "replacement reconciliation evidence conflicts with the durable result",
+                            non_retryable=True, type="ReconciliationRejected",
+                        )
                     return ActivityResult(
                         status="completed",
                         detail="provider read-back was already durably reconciled",
                         provider_operation_id=current["provider_operation_id"],
-                        readback_evidence=evidence,
+                        readback_evidence=committed,
                     )
                 if current["state"] != "reconciliation_required":
                     raise ApplicationError(
@@ -386,7 +655,7 @@ class CommandLedgerWorkflowActivities:
                         non_retryable=True,
                         type="ReconciliationRejected",
                     ) from exc
-                _, current_payload_sha256 = self._validated_reconciliation_command(
+                current_command, current_payload_sha256 = self._validated_reconciliation_command(
                     current,
                     request,
                     operation_id,
@@ -401,6 +670,15 @@ class CommandLedgerWorkflowActivities:
                         type="ReconciliationRejected",
                     )
 
+                if current_command.target == TARGET:
+                    observed_id = evidence.get("asterisk_uniqueid")
+                    expected_ids = (current["provider_operation_id"], result.provider_operation_id,
+                                    current_command.payload.get("call_id"))
+                    if any(value is not None and value != observed_id for value in expected_ids):
+                        raise ApplicationError(
+                            "calling evidence differs from the accepted provider identity",
+                            non_retryable=True, type="ProviderReadbackContractError",
+                        )
                 next_state = "completed" if matched else "reconciliation_required"
                 if matched:
                     row = await conn.fetchrow(
@@ -503,20 +781,122 @@ class CommandLedgerWorkflowActivities:
             request
         )
         if completed is not None:
+            assert command is not None
+            if (command.target == TARGET and command.command_type == HANGUP
+                    and completed.readback_evidence):
+                await self.complete_originating_call(OriginalCallCompletionRequest(
+                    command.command_id, command.tenant_id,
+                    completed.readback_evidence,
+                ))
             return completed
         assert command is not None
         assert payload_sha256 is not None
         result = await self.readback_command(command)
-        return await self._persist_reconciliation_result(
+        if command.target == TARGET and command.command_type in {ORIGINATE, HANGUP}:
+            original = (command.command_id if command.command_type == ORIGINATE
+                        else str(command.payload.get("origin_operation_id", "")))
+            try:
+                evidence = validate_call_evidence(
+                    result.readback_evidence, operation_id=original,
+                    correlation_id=command.correlation_id, tenant_id=command.tenant_id,
+                    actor=command.payload["actor"],
+                    authorization_reference=command.payload["authorization_reference"],
+                    require_terminal=result.status == "matched",
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ApplicationError(
+                    "calling evidence failed the bounded contract",
+                    non_retryable=True, type="ProviderReadbackContractError",
+                ) from exc
+            result = ActivityResult(
+                result.status, result.detail, result.provider_operation_id, evidence,
+            )
+        persisted = await self._persist_reconciliation_result(
             request,
             result,
             payload_sha256,
+        )
+        if (command.target == TARGET and command.command_type == HANGUP
+                and persisted.status == "completed"):
+            await self.complete_originating_call(OriginalCallCompletionRequest(
+                command.command_id, command.tenant_id,
+                persisted.readback_evidence or {},
+            ))
+        return persisted
+
+    @activity.defn(name="complete_originating_call")
+    async def complete_originating_call(
+        self, request: OriginalCallCompletionRequest,
+    ) -> ActivityResult:
+        try:
+            hangup_id = UUID(request.hangup_command_id)
+        except ValueError as exc:
+            raise ApplicationError("hangup command identity is invalid", non_retryable=True,
+                                   type="CommandExecutionRejected") from exc
+        async with self.store.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
+                request.tenant_id, request.hangup_command_id,
+            )
+        if row is None:
+            raise ApplicationError("hangup command was not found", non_retryable=True,
+                                   type="CommandExecutionRejected")
+        hangup, _ = self._validated_reconciliation_command(
+            row, ReconciliationRequest(request.hangup_command_id, request.tenant_id,
+                                       "hangup completion"), hangup_id,
+        )
+        if hangup.command_type != HANGUP or hangup.target != TARGET:
+            raise ApplicationError("command is not a bounded hangup", non_retryable=True,
+                                   type="CommandExecutionRejected")
+        original_id = str(hangup.payload.get("origin_operation_id", ""))
+        original_request = ReconciliationRequest(
+            original_id, request.tenant_id, "same-call hangup terminal evidence",
+        )
+        # A terminal same-call hangup may outrun the originate workflow's
+        # readback. Move only that durable origin into its existing
+        # reconciliation transition; no generic transition is broadened.
+        async with self.store.pool.acquire() as conn:
+            origin_state = await conn.fetchval(
+                "SELECT state FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
+                request.tenant_id, original_id,
+            )
+        if origin_state in {"accepted", "readback_pending"}:
+            try:
+                await self.store.transition(
+                    request.tenant_id, UUID(original_id),
+                    new_state="reconciliation_required",
+                    actor_id="temporal:codestra.same-call-hangup.v1",
+                    reason="validated terminal hangup requires originating-call reconciliation",
+                )
+            except CommandConflict:
+                # A concurrent terminal/readback transition is reloaded and
+                # validated below; it is never overwritten from local state.
+                pass
+        command, completed, digest = await self._load_reconciliation_command(original_request)
+        if completed is not None:
+            return completed
+        assert command is not None and digest is not None
+        evidence = validate_call_evidence(
+            request.readback_evidence, operation_id=original_id,
+            correlation_id=command.correlation_id, tenant_id=command.tenant_id,
+            actor=command.payload["actor"],
+            authorization_reference=command.payload["authorization_reference"],
+            require_terminal=True,
+        )
+        return await self._persist_reconciliation_result(
+            original_request,
+            ActivityResult("matched", "same-call hangup terminal evidence verified",
+                           evidence["asterisk_uniqueid"], evidence),
+            digest,
         )
 
     def registered(self) -> tuple[Any, ...]:
         return (
             self.record_command_transition,
             self.execute_command,
+            self.record_call_pre_dispatch_rejection,
+            self.recover_call_execution,
             self.readback_command,
             self.reconcile_operation,
+            self.complete_originating_call,
         )

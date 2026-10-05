@@ -1,14 +1,18 @@
 {
   "schema_version": "codestra.production-orchestrator-contract.v1",
-  "repository": "appolon1908-hue/Middleware-",
+  "repository": "appolon1908/Middleware-",
   "repository_id": 1347559071,
   "default_branch": "main",
-  "role": "transitional-middleware",
+  "role": "canonical-middleware",
   "release_intent_workflow": ".github/workflows/manual-release-intent.yml",
   "deployment_authority": false,
+  "runtime_mutation_authority": false,
   "require_verified_commit": true,
+  "required_check_app_id": 15368,
   "required_checks": [
+    "orchestrator-contract",
     "validate",
+    "connector-runtime-build",
     "docker-test-build",
     "docker-runtime-build",
     "container-security",
@@ -21,14 +25,20 @@
     "plan"
   ],
   "artifact_policy": {
-    "minimum_images": 0,
-    "maximum_images": 2,
+    "minimum_images": 1,
+    "maximum_images": 1,
+    "image_repositories": [
+      "ghcr.io/appolon1908/codestra-middleware"
+    ],
     "require_digest": true,
     "allow_rebuild_after_staging": false,
     "allow_retag_after_staging": false,
-    "require_sbom": false,
-    "require_provenance": false,
-    "require_signature": true
+    "require_sbom": true,
+    "require_provenance": true,
+    "require_signature": true,
+    "attestation_verifier": "cosign",
+    "attestation_storage": "oci",
+    "signer_workflow": ".github/workflows/release.yml"
   },
   "environments": {},
   "native_workflows": {
@@ -46,6 +56,6 @@
     "payment_execution": false
   },
   "blockers": [
-    "This repository is verified as transitional evidence and is not the canonical production Middleware deployment authority."
+    "Infustruction-repo remains the sole infrastructure runtime authority; this canonical Middleware repository supplies source and signed image evidence through plan-only intent."
   ]
 }

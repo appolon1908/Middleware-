@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import json
 import sys
 import tempfile
@@ -9,22 +11,36 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from portfolio_ruleset.common import (  # noqa: E402
-    RolloutError,
-    load_policy,
-    normalize_ruleset_payload,
-    validate_ruleset_payload,
-)
-from portfolio_ruleset.rollout import (  # noqa: E402
-    select_active_repositories,
-    write_evidence,
-)
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.common import (  # noqa: E402
+        RolloutError,
+        load_policy,
+        normalize_ruleset_payload,
+        validate_ruleset_payload,
+    )
+else:
+    from portfolio_ruleset.common import (  # noqa: E402
+        RolloutError,
+        load_policy,
+        normalize_ruleset_payload,
+        validate_ruleset_payload,
+    )
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.rollout import (  # noqa: E402
+        select_active_repositories,
+        write_evidence,
+    )
+else:
+    from portfolio_ruleset.rollout import (  # noqa: E402
+        select_active_repositories,
+        write_evidence,
+    )
 
 
 class PortfolioProductionRulesetTests(unittest.TestCase):
     def test_committed_policy_is_exact_and_complete(self) -> None:
         portfolio, ruleset = load_policy()
-        self.assertEqual(portfolio["owner"], "appolon1908-hue")
+        self.assertEqual(portfolio["owner"], "appolon1908")
         self.assertEqual(len(portfolio["known_active_repositories"]), 56)
         self.assertEqual(len(set(portfolio["known_active_repositories"])), 56)
         normalized = validate_ruleset_payload(ruleset)
@@ -74,7 +90,7 @@ class PortfolioProductionRulesetTests(unittest.TestCase):
             {
                 "id": 1234,
                 "source_type": "Repository",
-                "source": "appolon1908-hue/example",
+                "source": "appolon1908/example",
                 "node_id": "RRS_example",
                 "created_at": "2026-09-03T00:00:00Z",
                 "updated_at": "2026-09-03T00:00:00Z",
@@ -96,7 +112,7 @@ class PortfolioProductionRulesetTests(unittest.TestCase):
         observed = [
             {
                 "name": name,
-                "full_name": f"appolon1908-hue/{name}",
+                "full_name": f"appolon1908/{name}",
                 "archived": False,
                 "disabled": False,
             }
@@ -109,7 +125,7 @@ class PortfolioProductionRulesetTests(unittest.TestCase):
         document = {
             "overall_result": "PASS",
             "mode": "apply",
-            "owner": "appolon1908-hue",
+            "owner": "appolon1908",
             "source_sha": "a" * 40,
             "ruleset_name": "AI automated production branch gates",
             "repositories_discovered": 1,
@@ -118,7 +134,7 @@ class PortfolioProductionRulesetTests(unittest.TestCase):
             "failure_count": 0,
             "results": [
                 {
-                    "repository": "appolon1908-hue/example",
+                    "repository": "appolon1908/example",
                     "action": "created",
                     "result": "PASS",
                     "ruleset_id": 42,
@@ -130,7 +146,7 @@ class PortfolioProductionRulesetTests(unittest.TestCase):
             json_path, markdown_path = write_evidence(Path(temp), document)
             self.assertEqual(json.loads(json_path.read_text())["overall_result"], "PASS")
             markdown = markdown_path.read_text()
-            self.assertIn("appolon1908-hue/example", markdown)
+            self.assertIn("appolon1908/example", markdown)
             self.assertIn("refs/heads/production", markdown)
 
 

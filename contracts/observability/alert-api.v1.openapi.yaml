@@ -9,24 +9,57 @@ info:
 servers:
   - url: https://middleware-observability-alerts.internal.codestra.co
 paths:
+  /internal/v1/alerts/alertmanager:
+    post:
+      operationId: submitCanonicalAlertmanagerEvent
+      summary: Persist Alertmanager transitions as durable operations
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/NativeWebhook'}
+        - {$ref: '#/components/parameters/TenantId'}
+        - {$ref: '#/components/parameters/WebhookCorrelationId'}
+        - {$ref: '#/components/parameters/WebhookIdempotencyKey'}
+        - {$ref: '#/components/parameters/SourceDeployment'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - {$ref: '#/components/schemas/AlertmanagerWebhook'}
+                - {$ref: '#/components/schemas/NativeAlertmanagerWebhook'}
+      responses:
+        '202': {description: New durable operations were accepted}
+        '200': {description: Exact idempotent replay}
+        '207': {description: Native batch accepted with explicit per-alert failures}
+        '400': {$ref: '#/components/responses/Problem'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
   /v1/integrations/alertmanager/events:
     post:
       operationId: ingestAlertmanagerEvent
       summary: Persist Alertmanager transitions as durable operations
       security: [{bearerAuth: []}]
       parameters:
+        - {$ref: '#/components/parameters/NativeWebhook'}
         - {$ref: '#/components/parameters/TenantId'}
-        - {$ref: '#/components/parameters/CorrelationId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/WebhookCorrelationId'}
+        - {$ref: '#/components/parameters/WebhookIdempotencyKey'}
         - {$ref: '#/components/parameters/SourceDeployment'}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/AlertmanagerWebhook'}
+            schema:
+              oneOf:
+                - {$ref: '#/components/schemas/AlertmanagerWebhook'}
+                - {$ref: '#/components/schemas/NativeAlertmanagerWebhook'}
       responses:
         '202': {description: New durable operations were accepted}
         '200': {description: Exact idempotent replay}
+        '207': {description: Native batch accepted with explicit per-alert failures}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
@@ -72,6 +105,24 @@ paths:
       responses:
         '200': {description: Durable dependencies ready}
         '503': {$ref: '#/components/responses/Problem'}
+  /platform/v1/health:
+    get:
+      operationId: platformHealthObservabilityAlerts
+      security: []
+      responses:
+        '200': {description: Process health}
+    head:
+      operationId: platformHeadHealthObservabilityAlerts
+      security: []
+      responses:
+        '200': {description: Process health}
+  /platform/v1/readiness:
+    get:
+      operationId: platformReadinessObservabilityAlerts
+      security: []
+      responses:
+        '200': {description: Durable dependencies ready}
+        '503': {$ref: '#/components/responses/Problem'}
   /version:
     get:
       operationId: versionObservabilityAlerts
@@ -97,18 +148,23 @@ paths:
       summary: Persist one Alertmanager transition as one durable command
       security: [{bearerAuth: []}]
       parameters:
+        - {$ref: '#/components/parameters/NativeWebhook'}
         - {$ref: '#/components/parameters/TenantId'}
-        - {$ref: '#/components/parameters/CorrelationId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/WebhookCorrelationId'}
+        - {$ref: '#/components/parameters/WebhookIdempotencyKey'}
         - {$ref: '#/components/parameters/SourceDeployment'}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/AlertmanagerWebhook'}
+            schema:
+              oneOf:
+                - {$ref: '#/components/schemas/AlertmanagerWebhook'}
+                - {$ref: '#/components/schemas/NativeAlertmanagerWebhook'}
       responses:
         '202': {description: A new durable operation was accepted}
         '200': {description: Exact idempotent replay}
+        '207': {description: Native batch accepted with explicit per-alert failures}
         '400': {$ref: '#/components/responses/Problem'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
@@ -262,6 +318,32 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    NativeWebhook:
+      name: X-Alertmanager-Native-Webhook
+      in: header
+      required: false
+      description: >-
+        Explicit v4 compatibility mode for the authenticated alertmanager client.
+        Supports the six canonical middleware-* receivers, at most 100 alerts,
+        server-derived idempotency and correlation, and informational-to-info
+        normalization. Tenant, scope, source deployment, metadata and body limits
+        remain enforced. Truncated payloads are rejected.
+      schema: {type: string, enum: [v4]}
+    WebhookCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Required unless native v4 mode is selected; generated per attempt otherwise.
+      schema: {type: string, minLength: 1, maxLength: 180}
+    WebhookIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >-
+        Required unless native v4 mode is selected. An omitted native key is derived
+        from the validated sanitized payload, tenant and source deployment. Explicit
+        keys retain existing conflict checks; semantic transition identity is unchanged.
+      schema: {type: string, minLength: 8, maxLength: 180}
     TenantId:
       name: X-Tenant-ID
       in: header
@@ -336,6 +418,43 @@ components:
           type: array
           minItems: 1
           maxItems: 1
+          items: {$ref: '#/components/schemas/Alert'}
+    NativeAlertmanagerWebhook:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - groupKey
+        - truncatedAlerts
+        - status
+        - receiver
+        - groupLabels
+        - commonLabels
+        - commonAnnotations
+        - externalURL
+        - alerts
+      properties:
+        version: {const: '4'}
+        groupKey: {type: string, minLength: 1, maxLength: 2048}
+        truncatedAlerts: {type: integer, const: 0}
+        status: {enum: [firing, resolved]}
+        receiver:
+          enum:
+            - codestra-observability-email
+            - middleware-default
+            - middleware-heartbeat
+            - middleware-critical
+            - middleware-high
+            - middleware-warning
+            - middleware-informational
+        groupLabels: {type: object, additionalProperties: {type: string}}
+        commonLabels: {type: object, additionalProperties: {type: string}}
+        commonAnnotations: {type: object, additionalProperties: {type: string}}
+        externalURL: {type: string, format: uri, maxLength: 2048}
+        alerts:
+          type: array
+          minItems: 1
+          maxItems: 100
           items: {$ref: '#/components/schemas/Alert'}
     AlertmanagerStatusSnapshot:
       type: object

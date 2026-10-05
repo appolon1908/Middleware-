@@ -6,13 +6,14 @@ from datetime import timedelta
 
 from temporalio.worker import Worker
 
-from app.config import ConfigurationError, Settings
+from app.core.config import ConfigurationError, Settings
 from app.commands import PostgresCommandStore
 from app.klyrow_alert_adapter import KlyrowAlertAdapter
 from app.klyrow_email_adapter import KlyrowEmailAdapter
 from app.odoo_provider_adapter import OdooProviderAdapter
 from app.postly_social_adapter import PostlySocialAdapter
 from app.telnexa_provider_adapter import TelnexaSmsAdapter
+from app.vicidial_internal_call_adapter import VicidialInternalCallAdapter
 from app.temporal_activities import (
     CommandLedgerWorkflowActivities,
     FailClosedWorkflowActivities,
@@ -36,9 +37,10 @@ def build_command_activities(
         command_store,
         OdooProviderAdapter(settings),
         KlyrowAlertAdapter(settings),
-        telnexa_sms_adapter=TelnexaSmsAdapter(settings),
-        klyrow_email_adapter=KlyrowEmailAdapter(settings),
-        postly_social_adapter=PostlySocialAdapter(settings),
+        telnexa_sms=TelnexaSmsAdapter(settings),
+        klyrow_email=KlyrowEmailAdapter(settings),
+        postly_social=PostlySocialAdapter(settings),
+        vicidial_internal=VicidialInternalCallAdapter(settings),
     )
 
 

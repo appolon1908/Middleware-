@@ -2,19 +2,32 @@
 """Validate, apply, or verify the Codestra portfolio production ruleset."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import argparse
 import datetime as dt
 import os
 import sys
 from pathlib import Path
 
-from portfolio_ruleset.common import (
-    DEFAULT_EVIDENCE_DIR,
-    RolloutError,
-    TOKEN_ENV,
-    load_policy,
-)
-from portfolio_ruleset.rollout import execute, write_evidence
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.common import (
+        DEFAULT_EVIDENCE_DIR,
+        RolloutError,
+        TOKEN_ENV,
+        load_policy,
+    )
+else:
+    from portfolio_ruleset.common import (
+        DEFAULT_EVIDENCE_DIR,
+        RolloutError,
+        TOKEN_ENV,
+        load_policy,
+    )
+if TYPE_CHECKING:
+    from scripts.portfolio_ruleset.rollout import execute, write_evidence
+else:
+    from portfolio_ruleset.rollout import execute, write_evidence
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

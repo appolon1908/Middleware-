@@ -6,32 +6,33 @@ on:
       - ".github/workflows/integration-main-release-authorities.yml"
       - "config/integration-main-release-authorities.v1.json"
       - "scripts/apply_integration_main_release_authorities.py"
+      - "scripts/apply_integration_main_release_authorities_base.py"
+      - "scripts/apply_integration_main_release_authorities_v2.py"
       - "tests/test_integration_main_release_authorities.py"
+      - "tests/test_integration_main_release_authorities_v2.py"
+      - "tests/test_integration_main_release_authorities_compat.py"
   push:
     branches: [main]
     paths:
       - ".github/workflows/integration-main-release-authorities.yml"
       - "config/integration-main-release-authorities.v1.json"
       - "scripts/apply_integration_main_release_authorities.py"
+      - "scripts/apply_integration_main_release_authorities_base.py"
+      - "scripts/apply_integration_main_release_authorities_v2.py"
       - "tests/test_integration_main_release_authorities.py"
+      - "tests/test_integration_main_release_authorities_v2.py"
+      - "tests/test_integration_main_release_authorities_compat.py"
+  issue_comment:
+    types: [created]
+  # Manual dispatch is validation-only. Live repository administration has no
+  # user-supplied mode or target and requires the exact issue command below.
   workflow_dispatch:
-    inputs:
-      mode:
-        description: Validate, apply, or verify the fixed integration authorities
-        required: true
-        type: choice
-        options: [validate, apply, verify]
-        default: validate
-      confirmation:
-        description: For apply, type APPLY_INTEGRATION_MAIN_RELEASE_AUTHORITY_V1
-        required: false
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: integration-main-release-authorities-${{ github.ref }}
+  group: integration-main-release-authorities-${{ github.event_name }}-${{ github.event.issue.number || github.ref }}
   cancel-in-progress: false
 
 defaults:
@@ -41,6 +42,21 @@ defaults:
 jobs:
   policy:
     name: integration-main-release-authority-policy
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (
+        github.event.action == 'created' &&
+        github.event.repository.id == 1347559071 &&
+        github.event.repository.full_name == 'appolon1908/Middleware-' &&
+        github.event.repository.default_branch == 'main' &&
+        github.event.issue.number == 130 &&
+        github.event.issue.pull_request == null &&
+        github.event.comment.body == '/apply-integration-main-release-authority v1' &&
+        github.event.sender.id == 335843231 &&
+        github.event.sender.login == 'appolon1908' &&
+        github.event.comment.user.id == 335843231 &&
+        github.event.comment.user.login == 'appolon1908'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -57,14 +73,28 @@ jobs:
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           test -z "$(git status --porcelain)"
+      - name: Validate exact owner issue command
+        if: github.event_name == 'issue_comment'
+        run: |
+          set -Eeuo pipefail
+          python3 -I scripts/apply_integration_main_release_authorities_v2.py \
+            --validate-issue-comment-event
       - name: Validate fixed repository, reviewer, and ruleset authority
         run: |
           set -Eeuo pipefail
           python3 -m py_compile \
             scripts/apply_integration_main_release_authorities.py \
-            tests/test_integration_main_release_authorities.py
-          python3 -m unittest -v tests.test_integration_main_release_authorities
-          python3 scripts/apply_integration_main_release_authorities.py --mode validate
+            scripts/apply_integration_main_release_authorities_base.py \
+            scripts/apply_integration_main_release_authorities_v2.py \
+            tests/test_integration_main_release_authorities.py \
+            tests/test_integration_main_release_authorities_v2.py \
+            tests/test_integration_main_release_authorities_compat.py
+          python3 -m unittest -v \
+            tests.test_integration_main_release_authorities \
+            tests.test_integration_main_release_authorities_v2 \
+            tests.test_integration_main_release_authorities_compat
+          python3 -I scripts/apply_integration_main_release_authorities.py --mode validate
+          python3 -I scripts/apply_integration_main_release_authorities_v2.py --mode validate
           python3 -m json.tool config/integration-main-release-authorities.v1.json >/dev/null
           git diff --check
       - name: Upload secret-free policy evidence
@@ -78,11 +108,26 @@ jobs:
   apply:
     name: apply-and-verify-integration-main-authorities
     needs: [policy]
+    # CONTROL_PLANE_MUTATION=repository-administration. This is not runtime
+    # authority: it is bound to one owner command, immutable main, and the
+    # independently reviewed repository-administration environment.
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/main' &&
-      github.actor == github.repository_owner &&
-      (inputs.mode == 'apply' || inputs.mode == 'verify')
+      needs.policy.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      github.event.repository.id == 1347559071 &&
+      github.event.repository.full_name == 'appolon1908/Middleware-' &&
+      github.event.repository.default_branch == 'main' &&
+      github.event.issue.number == 130 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.body == '/apply-integration-main-release-authority v1' &&
+      github.event.sender.id == 335843231 &&
+      github.event.sender.login == 'appolon1908' &&
+      github.event.comment.user.id == 335843231 &&
+      github.event.comment.user.login == 'appolon1908'
+    permissions:
+      contents: read
+      issues: write
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment:
@@ -94,33 +139,26 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
-      - name: Require exact protected source and confirmation
-        env:
-          REQUESTED_MODE: ${{ inputs.mode }}
-          CONFIRMATION: ${{ inputs.confirmation }}
+      - name: Require current protected source and exact command
         run: |
           set -Eeuo pipefail
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_ACTOR" = "$GITHUB_REPOSITORY_OWNER"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          if [ "$REQUESTED_MODE" = apply ]; then
-            test "$CONFIRMATION" = APPLY_INTEGRATION_MAIN_RELEASE_AUTHORITY_V1
-          fi
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test -n "$current_main"
+          test "$current_main" = "$GITHUB_SHA"
       - id: rollout
         name: Apply or verify fixed integration authorities
         continue-on-error: true
         env:
           CODESTRA_REPOSITORY_ADMIN_TOKEN: ${{ secrets.CODESTRA_REPOSITORY_ADMIN_TOKEN }}
-          REQUESTED_MODE: ${{ inputs.mode }}
-          CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -Eeuo pipefail
           test -n "$CODESTRA_REPOSITORY_ADMIN_TOKEN"
-          args=(--mode "$REQUESTED_MODE")
-          if [ "$REQUESTED_MODE" = apply ]; then
-            args+=(--confirm "$CONFIRMATION")
-          fi
-          python3 scripts/apply_integration_main_release_authorities.py "${args[@]}"
+          python3 -I scripts/apply_integration_main_release_authorities_v2.py \
+            --mode apply \
+            --confirm APPLY_INTEGRATION_MAIN_RELEASE_AUTHORITY_V1
       - name: Upload bounded rollout evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -129,15 +167,46 @@ jobs:
           path: artifacts/integration-main-release-authorities/
           if-no-files-found: error
           retention-days: 90
+      - name: Publish bounded issue result
+        if: always() && github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLLOUT_OUTCOME: ${{ steps.rollout.outcome }}
+        run: |
+          set -Eeuo pipefail
+          if [ "$ROLLOUT_OUTCOME" = success ]; then
+            cat > /tmp/authority-result.md <<EOF
+          ## Integration protected-main authority — PASS
+
+          \`SOURCE_SHA=$GITHUB_SHA\`
+
+          The exact seven-repository reviewer and ruleset authority applied and read back successfully. No runtime, deployment, provider, traffic, business write, or SSH setting was changed.
+          EOF
+          else
+            cat > /tmp/authority-result.md <<EOF
+          ## Integration protected-main authority — BLOCKED
+
+          \`SOURCE_SHA=$GITHUB_SHA\`
+
+          The workflow failed closed. Review the retained secret-free artifact for the exact missing token, permission, invitation, ruleset, or readback gate. No runtime or production effect was enabled.
+          EOF
+          fi
+          gh issue comment 130 --repo "$GITHUB_REPOSITORY" --body-file /tmp/authority-result.md
       - name: Fail closed on invitation or readback failure
         if: ${{ steps.rollout.outcome != 'success' }}
         run: |
           echo 'INTEGRATION_MAIN_RELEASE_AUTHORITY=BLOCKED' >&2
           echo 'Pending reviewer invitations must be accepted before verification can pass.' >&2
           exit 1
+      - name: Close completed authority issue
+        if: steps.rollout.outcome == 'success' && github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue close 130 --repo "$GITHUB_REPOSITORY" --reason completed
       - name: Confirm no runtime effect
         if: always()
         run: |
           echo 'RUNTIME_CONTACTED=NO'
           echo 'PRODUCTION_CHANGED=NO'
           echo 'EXTERNAL_EFFECTS_ENABLED=NO'
+          echo 'CALLS_PLACED=0'

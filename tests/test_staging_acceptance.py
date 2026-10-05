@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import hashlib
 import hmac
 import json
@@ -27,8 +26,7 @@ IMAGE_DIGEST = "sha256:" + ("b" * 64)
 
 
 def staging_readback(test_settings) -> dict:
-    staging = replace(
-        test_settings,
+    staging = test_settings.replace(
         app_env="staging",
         runtime_profile_id="codestra-middleware-staging-v1",
         source_sha=SOURCE_SHA,

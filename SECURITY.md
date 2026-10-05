@@ -1,24 +1,19 @@
-# Security policy
+# Security governance
 
-## Reporting
+Report vulnerabilities privately through GitHub Security Advisories for this
+repository. Do not include secrets, customer data, production credentials, or
+recording references in public issues.
 
-Do not open a public issue for a suspected vulnerability, leaked credential,
-tenant-isolation defect, authentication bypass, replay weakness, or external-write
-safety failure. Use GitHub private vulnerability reporting for this repository.
+## Isolated-staging Security Owner
 
-Include the affected commit, route or component, reproduction conditions, impact,
-and whether any live effect may have occurred. Never include production secrets,
-tokens, customer data, or raw payloads.
+For Server A isolated-staging risk decisions only, `kazan555` is the delegated
+Security Owner approval principal. The requestor and implementation operator is
+`appolon1908`; that principal cannot approve its own security decision.
 
-## Supported source
+This delegation grants no authority for production deployment or activation,
+Server B, telephony, communications, customer data, or recordings. Those
+permissions remain blocked and require separate governance.
 
-Only the exact protected `main` commit and immutable images produced from it are
-supported. Stale integration branches, mutable image tags, and unreviewed server
-copies are not supported release artifacts.
-
-## Safety boundary
-
-`ODOO_WRITE`, `live_apply_authorized`, SMS/email/PSTN delivery, and all equivalent
-external-effect switches remain disabled unless a separately approved production
-activation identifies the exact image digest, evidence packet, rollback artifact,
-and human approver.
+An approval is valid only when enforced by the `security-owner-signing` GitHub
+Environment, bound to an exact PR head and immutable evidence hashes, signed by
+the protected-main OIDC workflow, unexpired, and independently verifiable.

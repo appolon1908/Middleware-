@@ -19,11 +19,11 @@ from temporalio import activity
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from app.config import Settings
+from app.core.config import Settings
 from app.main import create_app
 from app.nats_transport import NatsJetStreamPublisher
 from app.replay import RedisReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.storage import (
     NATS_JETSTREAM_DESTINATION,
     PostgresInboxStore,
@@ -117,7 +117,7 @@ def signed_request(
 ) -> tuple[bytes, dict[str, str]]:
     now = int(time.time())
     occurred_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-    event = {
+    event: dict[str, Any] = {
         "event_id": event_id,
         "event_type": "codestra.odoo.activity.completed",
         "event_version": "1.0",
@@ -159,7 +159,7 @@ def signed_request(
         "X-Codestra-Tenant-Id": tenant_id,
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": f"sha256={signature}",
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
 
 
@@ -265,6 +265,10 @@ async def test_disposable_api_ledger_redis_jetstream_temporal_journey() -> None:
                 worker = OutboxWorker(
                     PostgresOutboxStore(pool),
                     {NATS_JETSTREAM_DESTINATION: publisher.publish},
+                    effect_gate=lambda record: (
+                        record.destination == NATS_JETSTREAM_DESTINATION
+                        and settings.outbox_dispatch_enabled
+                    ),
                     lease_seconds=10,
                     handler_timeout_seconds=5,
                 )
@@ -276,6 +280,7 @@ async def test_disposable_api_ledger_redis_jetstream_temporal_journey() -> None:
                 delivered = json.loads(message.data)
                 assert delivered["event_id"] == event_id
                 assert delivered["tenant_id"] == tenant_id
+                assert message.headers is not None
                 assert message.headers["X-Codestra-Event-Id"] == event_id
 
                 activities = SyntheticReconciliationActivity(event_id, tenant_id)

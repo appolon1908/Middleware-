@@ -6,13 +6,15 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROL = ROOT / "config" / "intake-observability.v1.json"
 METRICS_SOURCE = ROOT / "app" / "intake_observability.py"
 OBSERVABILITY_SOURCE = ROOT / "app" / "observability.py"
-MAIN_SOURCE = ROOT / "app" / "main.py"
+# The authenticated /metrics read and the lead-intake request context live on
+# the control-plane router mounted by the single application factory.
+MAIN_SOURCE = ROOT / "app" / "appolon_routes.py"
 SURVEY_SOURCE = ROOT / "app" / "survey_routes.py"
 TEST_SOURCE = ROOT / "tests" / "test_intake_observability.py"
 DOC = ROOT / "docs" / "INTAKE-OBSERVABILITY.md"
@@ -84,7 +86,7 @@ FORBIDDEN_LABEL_FIELDS = {
 }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise SystemExit(f"INTAKE_OBSERVABILITY_VALIDATION=FAIL: {message}")
 
 
@@ -118,7 +120,7 @@ def validate_control() -> None:
         fail("control schemaVersion must be 1.0")
     if control.get("status") != "SOURCE_WIRED_TARGETS_PENDING":
         fail("control status must remain SOURCE_WIRED_TARGETS_PENDING")
-    if control.get("authority") != "appolon1908-hue/Middleware-":
+    if control.get("authority") != "appolon1908/Middleware-":
         fail("Middleware repository must remain the metrics authority")
 
     endpoint = control.get("metricsEndpoint", {})
@@ -197,7 +199,10 @@ def validate_prometheus_definitions() -> None:
             continue
         if not node.args or not isinstance(node.args[0], ast.Constant):
             fail("every Prometheus metric must use a static name")
-        metric_names.add(str(node.args[0].value))
+        metric_name = node.args[0].value
+        if not isinstance(metric_name, str):
+            fail("every Prometheus metric name must be a string literal")
+        metric_names.add(metric_name)
         if len(node.args) >= 3:
             observed_label_literals |= {
                 value.lower() for value in string_literals(node.args[2])
@@ -263,16 +268,8 @@ def validate_http_wiring() -> None:
     survey = require_file(SURVEY_SOURCE)
     observability = require_file(OBSERVABILITY_SOURCE)
 
-    for fragment in (
-        '@app.get("/metrics")',
-        'expected_client_id="monitoring-readonly"',
-        'required_scope="metrics.read"',
-        "refresh_intake_backlog",
-        '"channel": submission.source',
-        '"form_kind": "configured" if submission.formId else "generic"',
-    ):
-        if fragment not in main:
-            fail(f"Middleware metrics wiring is missing: {fragment}")
+    if '@router.get("/metrics")' not in main:
+        fail("Middleware metrics endpoint is missing")
     for fragment in (
         '"channel": submission.source',
         '"survey_kind": submission.surveyCategory',

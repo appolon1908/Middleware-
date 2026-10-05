@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from .contracts import WebhookRoute
 from .models import EventEnvelope, IngressResult
 from .replay import ReplayBusy
-from .runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from .security import RequestValidationError, authorize_tenant, verify_signed_request
 from .storage import ReplayConflict, canonical_payload_sha256
 
@@ -101,7 +101,7 @@ async def accept_webhook(
     if signed.tenant_id != envelope.tenant_id:
         raise RequestValidationError("X-Codestra-Tenant-Id does not match body")
     if signed.correlation_id != envelope.correlation_id:
-        raise RequestValidationError("X-Correlation-Id does not match body")
+        raise RequestValidationError("X-Correlation-ID does not match body")
     if envelope.idempotency_key != signed.idempotency_key:
         raise RequestValidationError("body idempotency_key does not match headers")
     if envelope.source != route.producer_client_id:
@@ -115,12 +115,21 @@ async def accept_webhook(
             envelope.event_id,
         )
         try:
-            result = await runtime.inbox.accept(
-                envelope,
-                producer_client_id=route.producer_client_id,
-                body_sha256=signed.body_sha256,
-                semantic_sha256=semantic_sha,
-            )
+            if runtime.automation is not None:
+                result = await runtime.automation.accept_event(
+                    runtime.inbox,
+                    envelope,
+                    producer_client_id=route.producer_client_id,
+                    body_sha256=signed.body_sha256,
+                    semantic_sha256=semantic_sha,
+                )
+            else:
+                result = await runtime.inbox.accept(
+                    envelope,
+                    producer_client_id=route.producer_client_id,
+                    body_sha256=signed.body_sha256,
+                    semantic_sha256=semantic_sha,
+                )
         except ReplayConflict as exc:
             raise ReplayConflictError(str(exc)) from exc
     except ReplayBusy as exc:

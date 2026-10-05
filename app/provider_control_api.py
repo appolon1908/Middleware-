@@ -11,13 +11,13 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .api_inputs import authorization_header, required_header
 from .commands import CommandEnvelope, CommandNotFound
 from .control_api import router
 from .control_plane_auth import caller_for_authorization
 from .operations import OperationResponse, _operation_json
 from .security import (
     AuthorizationError,
-    RequestValidationError,
     authorize_tenant,
 )
 from .storage import StorageError
@@ -183,42 +183,23 @@ class ProviderControlResponse(OperationResponse):
     external_effect_dispatched: Literal[False]
 
 
-def _required_header(request: Request, name: str, *, minimum: int, maximum: int) -> str:
-    value = request.headers.get(name, "").strip()
-    if not minimum <= len(value) <= maximum:
-        raise RequestValidationError(
-            f"{name} must contain between {minimum} and {maximum} characters"
-        )
-    return value
-
-
 async def _submit_provider_operation(
     spec: ProviderControlSpec,
     body: ProviderControlRequest,
     request: Request,
 ) -> JSONResponse:
     active = request.app.state.runtime
-    if active.commands is None:
-        raise StorageError("command ledger is unavailable")
-
-    tenant_id = _required_header(request, "X-Tenant-ID", minimum=1, maximum=128)
-    correlation_id = _required_header(
-        request,
-        "X-Correlation-ID",
-        minimum=8,
-        maximum=180,
-    )
-    idempotency_key = _required_header(
-        request,
-        "Idempotency-Key",
-        minimum=8,
-        maximum=180,
-    )
-    authorization = request.headers.get("Authorization", "")
+    authorization = authorization_header(request)
     claims = await active.tokens.verify(
         authorization,
         expected_client_id=spec.caller_client_id,
         required_scope=spec.required_scope,
+    )
+    tenant_id = required_header(
+        request,
+        "X-Tenant-ID",
+        minimum=1,
+        maximum=128,
     )
     authorize_tenant(claims, tenant_id)
     subject = claims.get("sub")
@@ -227,6 +208,20 @@ async def _submit_provider_operation(
     authenticated_client_id = claims.get("azp")
     if authenticated_client_id != spec.caller_client_id:
         raise AuthorizationError("verified machine client identity is required")
+    correlation_id = required_header(
+        request,
+        "X-Correlation-ID",
+        minimum=8,
+        maximum=180,
+    )
+    idempotency_key = required_header(
+        request,
+        "Idempotency-Key",
+        minimum=8,
+        maximum=180,
+    )
+    if active.commands is None:
+        raise StorageError("command ledger is unavailable")
 
     command = CommandEnvelope(
         command_id=body.operation_id,
@@ -300,9 +295,7 @@ async def provider_control_identity_probe(
 
     del probe_id
     active = request.app.state.runtime
-    tenant_id = _required_header(request, "X-Tenant-ID", minimum=1, maximum=128)
-    _required_header(request, "X-Correlation-ID", minimum=8, maximum=180)
-    authorization = request.headers.get("Authorization", "")
+    authorization = authorization_header(request)
     caller = caller_for_authorization(authorization)
     required_scope = PROVIDER_IDENTITY_PROBE_SCOPES.get(caller.client_id)
     if required_scope is None:
@@ -314,12 +307,24 @@ async def provider_control_identity_probe(
         expected_client_id=caller.client_id,
         required_scope=required_scope,
     )
+    tenant_id = required_header(
+        request,
+        "X-Tenant-ID",
+        minimum=1,
+        maximum=128,
+    )
     authorize_tenant(claims, tenant_id)
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject.strip():
         raise AuthorizationError("machine token subject is required")
     if claims.get("azp") != caller.client_id:
         raise AuthorizationError("verified machine client identity is required")
+    required_header(
+        request,
+        "X-Correlation-ID",
+        minimum=8,
+        maximum=180,
+    )
     raise CommandNotFound("provider-control identity probe was not found")
 
 

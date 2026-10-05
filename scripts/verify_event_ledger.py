@@ -12,7 +12,7 @@ import asyncpg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from app.storage import EventLedgerIntegrityError, PostgresInboxStore
+from app.storage import EventLedgerIntegrityError, PostgresInboxStore  # noqa: E402
 
 
 async def verify(tenant_id: str | None) -> int:

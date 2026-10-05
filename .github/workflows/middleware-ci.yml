@@ -10,11 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: middleware-ci-${{ github.workflow }}-${{ github.ref }}
+  group: middleware-ci-hosted-v2-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   source-head-validation:
+    # RUNTIME_MUTATION_DISABLED=true
     if: github.event_name == 'pull_request'
     name: Validate middleware source head
     runs-on: ubuntu-24.04
@@ -149,6 +150,16 @@ jobs:
             "codestra-middleware-ci:$SOURCE_SHA" \
             -c "from app.commands import CommandPolicyRegistry; from app.main import create_app; assert CommandPolicyRegistry.load().policies; assert create_app().title == 'Codestra Middleware API'; print('RUNTIME_IMAGE_SMOKE=PASS')"
 
+      - name: Prove the image contains its authorized migration bundle
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          docker run --rm --network none \
+            --entrypoint python \
+            "codestra-middleware-ci:$SOURCE_SHA" \
+            -c "from pathlib import Path; from scripts.production_migration_authority import validate_authority; from scripts.migrate_runtime import migration_sets; validate_authority(Path('/app')); assert migration_sets(); print('RUNTIME_MIGRATION_BUNDLE=PASS')"
+
   docker-test-build:
     name: docker-test-build
     runs-on: ubuntu-24.04
@@ -275,6 +286,7 @@ jobs:
           fail-build: true
           severity-cutoff: high
           only-fixed: true
+          output-format: table
 
       - name: Generate Connector Runtime SPDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
@@ -292,6 +304,7 @@ jobs:
           fail-build: true
           severity-cutoff: high
           only-fixed: true
+          output-format: table
 
       - name: Upload SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -315,7 +328,7 @@ jobs:
           POSTGRES_PASSWORD: middleware_ci_only
           POSTGRES_DB: middleware_test_runtime
         ports:
-          - 5432:5432
+          - 5432/tcp
         options: >-
           --health-cmd "pg_isready -U middleware -d middleware_test_runtime"
           --health-interval 5s
@@ -325,7 +338,7 @@ jobs:
       redis:
         image: redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # 7-alpine
         ports:
-          - 6379:6379
+          - 6379/tcp
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -348,9 +361,15 @@ jobs:
         env:
           RUNTIME_INTEGRATION_TESTS: "1"
           RUNTIME_INTEGRATION_ALLOW_DISPOSABLE: "YES"
-          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:5432/middleware_test_runtime
-          REDIS_URL: redis://127.0.0.1:6379/15
-        run: bash scripts/integration_ci.sh
+          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_test_runtime
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
+          # Keep
+          # pytest's temp root isolated per job rather than using a shared /tmp.
+          TMPDIR: ${{ runner.temp }}/middleware-runtime-integration
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR"
+          bash scripts/integration_ci.sh
 
   nats-jetstream-integration:
     name: Disposable NATS JetStream integration
@@ -405,7 +424,7 @@ jobs:
           POSTGRES_PASSWORD: middleware_ci_only
           POSTGRES_DB: middleware_test_synthetic
         ports:
-          - 5432:5432
+          - 5432/tcp
         options: >-
           --health-cmd "pg_isready -U middleware -d middleware_test_synthetic"
           --health-interval 5s
@@ -415,7 +434,7 @@ jobs:
       redis:
         image: redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf # 7-alpine
         ports:
-          - 6379:6379
+          - 6379/tcp
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -438,8 +457,8 @@ jobs:
         env:
           RUNTIME_INTEGRATION_TESTS: "1"
           RUNTIME_INTEGRATION_ALLOW_DISPOSABLE: "YES"
-          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:5432/middleware_test_synthetic
-          REDIS_URL: redis://127.0.0.1:6379/15
+          DATABASE_URL: postgresql://middleware:middleware_ci_only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_test_synthetic
+          REDIS_URL: redis://127.0.0.1:${{ job.services.redis.ports['6379'] }}/15
         run: bash scripts/synthetic_acceptance_ci.sh
 
   required-validation:

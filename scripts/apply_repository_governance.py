@@ -12,13 +12,14 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "config" / "repository-governance.v1.json"
 API_VERSION = "2026-03-10"
 RULESET_NAME = "middleware-main-production-authority"
 TOKEN_ENV = "CODESTRA_REPOSITORY_ADMIN_TOKEN"
+REQUIRED_CHECK_APP_ID = 15368
 
 
 class GovernanceApplyError(RuntimeError):
@@ -38,7 +39,7 @@ def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
     require(isinstance(policy, dict), "governance policy must be an object")
     require(policy.get("schema_version") == "1.0", "unsupported governance schema")
     require(
-        policy.get("repository") == "appolon1908-hue/Middleware-",
+        policy.get("repository") == "appolon1908/Middleware-",
         "repository authority drift",
     )
     require(
@@ -82,10 +83,9 @@ def repository_patch(policy: Mapping[str, Any]) -> dict[str, Any]:
 def ruleset_payload(policy: Mapping[str, Any]) -> dict[str, Any]:
     encoded = policy["default_branch_ruleset"]
     checks = encoded["required_status_checks"]
-    require(
-        isinstance(checks, list) and checks and all(isinstance(item, str) for item in checks),
-        "required status checks are invalid",
-    )
+    if not isinstance(checks, list) or not checks:
+        raise GovernanceApplyError("required status checks are invalid")
+    require(all(isinstance(item, str) for item in checks), "required status checks are invalid")
     require(len(checks) == len(set(checks)), "required status checks contain duplicates")
     return {
         "name": RULESET_NAME,
@@ -109,7 +109,9 @@ def ruleset_payload(policy: Mapping[str, Any]) -> dict[str, Any]:
                     "dismiss_stale_reviews_on_push": encoded[
                         "dismiss_stale_reviews"
                     ],
-                    "require_code_owner_review": False,
+                    "require_code_owner_review": encoded[
+                        "require_code_owner_review"
+                    ],
                     "require_extra_approval_for_unattributed_changes": encoded.get(
                         "require_extra_approval_for_unattributed_changes", False
                     ),
@@ -127,7 +129,11 @@ def ruleset_payload(policy: Mapping[str, Any]) -> dict[str, Any]:
                 "parameters": {
                     "do_not_enforce_on_create": False,
                     "required_status_checks": [
-                        {"context": context} for context in checks
+                        {
+                            "context": context,
+                            "integration_id": REQUIRED_CHECK_APP_ID,
+                        }
+                        for context in checks
                     ],
                     "strict_required_status_checks_policy": encoded[
                         "require_branch_up_to_date"
@@ -138,22 +144,100 @@ def ruleset_payload(policy: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def deployment_branch_policy_keys(
+    environment: Mapping[str, Any],
+) -> set[tuple[str, str]]:
+    branch_policy = environment.get("deployment_branch_policy")
+    if not isinstance(branch_policy, Mapping):
+        raise GovernanceApplyError("deployment branch policy is missing")
+    protected_branches = branch_policy.get("protected_branches")
+    custom_branch_policies = branch_policy.get("custom_branch_policies")
+    require(
+        isinstance(protected_branches, bool)
+        and isinstance(custom_branch_policies, bool)
+        and protected_branches is not custom_branch_policies,
+        "exactly one deployment branch-policy mode must be active",
+    )
+
+    desired = environment.get("allowed_branches", [])
+    require(isinstance(desired, list), "allowed_branches must be a list")
+    if protected_branches:
+        require(
+            not desired,
+            "protected-branch mode must not define custom branch policies",
+        )
+        return set()
+    require(bool(desired), "custom branch-policy mode requires allowed_branches")
+
+    desired_keys = {
+        (item.get("name"), item.get("type", "branch"))
+        for item in desired
+        if isinstance(item, Mapping)
+    }
+    require(
+        len(desired_keys) == len(desired)
+        and all(
+            isinstance(branch_name, str)
+            and branch_name
+            and policy_type in {"branch", "tag"}
+            for branch_name, policy_type in desired_keys
+        ),
+        "allowed branch policies are invalid",
+    )
+    return cast(set[tuple[str, str]], desired_keys)
+
+
 def environment_payload(environment: Mapping[str, Any]) -> dict[str, Any]:
+    wait_timer = environment.get("wait_timer", 0)
+    require(
+        isinstance(wait_timer, int)
+        and not isinstance(wait_timer, bool)
+        and 0 <= wait_timer <= 43_200,
+        "environment wait_timer is invalid",
+    )
+    prevent_self_review = environment.get("prevent_self_review")
+    can_admins_bypass = environment.get("can_admins_bypass")
+    require(
+        isinstance(prevent_self_review, bool),
+        "prevent_self_review must be boolean",
+    )
+    require(
+        isinstance(can_admins_bypass, bool),
+        "can_admins_bypass must be boolean",
+    )
+
     reviewers = environment.get("reviewers", [])
     require(isinstance(reviewers, list), "environment reviewers must be a list")
     normalized_reviewers: list[dict[str, Any]] = []
+    reviewer_keys: set[tuple[str, int]] = set()
     for reviewer in reviewers:
-        require(isinstance(reviewer, dict), "environment reviewer must be an object")
+        require(isinstance(reviewer, Mapping), "environment reviewer must be an object")
         reviewer_type = reviewer.get("type")
         reviewer_id = reviewer.get("id")
         require(reviewer_type in {"User", "Team"}, "invalid environment reviewer type")
-        require(isinstance(reviewer_id, int) and reviewer_id > 0, "invalid reviewer ID")
+        require(
+            isinstance(reviewer_id, int)
+            and not isinstance(reviewer_id, bool)
+            and reviewer_id > 0,
+            "invalid reviewer ID",
+        )
+        key = (str(reviewer_type), reviewer_id)
+        require(key not in reviewer_keys, "duplicate environment reviewer")
+        reviewer_keys.add(key)
         normalized_reviewers.append({"type": reviewer_type, "id": reviewer_id})
+    require(
+        not normalized_reviewers or prevent_self_review is True,
+        "reviewed environments must prevent self-review",
+    )
+
     branch_policy = environment.get("deployment_branch_policy")
-    require(isinstance(branch_policy, dict), "deployment branch policy is missing")
+    if not isinstance(branch_policy, Mapping):
+        raise GovernanceApplyError("deployment branch policy is missing")
+    deployment_branch_policy_keys(environment)
     return {
-        "wait_timer": environment.get("wait_timer", 0),
-        "prevent_self_review": environment["prevent_self_review"],
+        "wait_timer": wait_timer,
+        "prevent_self_review": prevent_self_review,
+        "can_admins_bypass": can_admins_bypass,
         "reviewers": normalized_reviewers,
         "deployment_branch_policy": {
             "protected_branches": branch_policy["protected_branches"],
@@ -223,12 +307,14 @@ class GitHubApi:
 
 def _rules_by_type(ruleset: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     rules = ruleset.get("rules")
-    require(isinstance(rules, list), "ruleset rules are unavailable")
+    if not isinstance(rules, list):
+        raise GovernanceApplyError("ruleset rules are unavailable")
     result: dict[str, Mapping[str, Any]] = {}
     for item in rules:
         require(isinstance(item, dict), "ruleset contains an invalid rule")
         rule_type = item.get("type")
-        require(isinstance(rule_type, str) and rule_type, "ruleset rule type is invalid")
+        if not isinstance(rule_type, str) or not rule_type:
+            raise GovernanceApplyError("ruleset rule type is invalid")
         require(rule_type not in result, f"duplicate ruleset rule: {rule_type}")
         result[rule_type] = item
     return result
@@ -248,6 +334,19 @@ def _matching_rulesets(api: GitHubApi) -> list[Mapping[str, Any]]:
         and item.get("name") == RULESET_NAME
         and item.get("source_type", "Repository") == "Repository"
     ]
+
+
+def verify_automated_security_fixes(api: GitHubApi) -> None:
+    """Require enabled, unpaused security updates from GitHub's read-back."""
+
+    response = api.request(
+        "GET",
+        "/automated-security-fixes",
+        expected=(200,),
+    )
+    state = _require_mapping(response.payload, "Dependabot security update state is invalid")
+    require(state.get("enabled") is True, "Dependabot security updates are not enabled")
+    require(state.get("paused") is False, "Dependabot security updates are paused or unknown")
 
 
 def apply_ruleset(api: GitHubApi, policy: Mapping[str, Any]) -> int:
@@ -271,7 +370,8 @@ def apply_ruleset(api: GitHubApi, policy: Mapping[str, Any]) -> int:
             expected=(201,),
         )
     ruleset_id = response.payload.get("id") if isinstance(response.payload, dict) else None
-    require(isinstance(ruleset_id, int), "applied ruleset ID is unavailable")
+    if not isinstance(ruleset_id, int):
+        raise GovernanceApplyError("applied ruleset ID is unavailable")
     return ruleset_id
 
 
@@ -289,6 +389,10 @@ def apply_environment(
         expected=(200,),
     )
 
+    desired_keys = deployment_branch_policy_keys(encoded)
+    if not desired_keys:
+        return
+
     policies_path = (
         f"/environments/{encoded_name}/deployment-branch-policies"
     )
@@ -299,36 +403,18 @@ def apply_environment(
     ).payload
     require(isinstance(observed, dict), f"{name}: branch-policy list is invalid")
     policies = observed.get("branch_policies")
-    require(isinstance(policies, list), f"{name}: branch policies are unavailable")
-
-    desired = encoded.get("allowed_branches")
-    require(isinstance(desired, list) and desired, f"{name}: allowed_branches is invalid")
-    desired_keys = {
-        (item.get("name"), item.get("type", "branch"))
-        for item in desired
-        if isinstance(item, dict)
-    }
-    require(
-        len(desired_keys) == len(desired)
-        and all(
-            isinstance(branch_name, str)
-            and branch_name
-            and policy_type in {"branch", "tag"}
-            for branch_name, policy_type in desired_keys
-        ),
-        f"{name}: allowed branch policies are invalid",
-    )
+    if not isinstance(policies, list):
+        raise GovernanceApplyError(f"{name}: branch policies are unavailable")
 
     observed_by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
     for item in policies:
         require(isinstance(item, dict), f"{name}: invalid branch policy")
         policy_name = item.get("name")
         policy_type = item.get("type", "branch")
+        if not isinstance(policy_name, str) or not policy_name:
+            raise GovernanceApplyError(f"{name}: branch-policy name is invalid")
+        require(isinstance(policy_type, str), f"{name}: branch-policy type is invalid")
         key = (policy_name, policy_type)
-        require(
-            isinstance(policy_name, str) and policy_name,
-            f"{name}: branch-policy name is invalid",
-        )
         require(key not in observed_by_key, f"{name}: duplicate branch policy {key}")
         observed_by_key[key] = item
 
@@ -383,9 +469,11 @@ def apply_live(api: GitHubApi, policy: Mapping[str, Any]) -> None:
     api.request("PUT", "/private-vulnerability-reporting", expected=(204,))
 
     environments = policy["environments"]
-    require(isinstance(environments, dict) and environments, "environments are missing")
+    if not isinstance(environments, dict) or not environments:
+        raise GovernanceApplyError("environments are missing")
     for name, encoded in sorted(environments.items()):
-        require(isinstance(name, str) and name, "environment name is invalid")
+        if not isinstance(name, str) or not name:
+            raise GovernanceApplyError("environment name is invalid")
         require(isinstance(encoded, dict), f"{name}: environment policy is invalid")
         apply_environment(api, name=name, encoded=encoded)
 
@@ -441,15 +529,18 @@ def verify_ruleset(
         if rule_type == "required_status_checks":
             observed_checks = observed_parameters.get("required_status_checks")
             expected_checks = expected_parameters.get("required_status_checks")
-            require(isinstance(observed_checks, list), "live status checks missing")
+            if not isinstance(observed_checks, list):
+                raise GovernanceApplyError("live status checks missing")
+            if not isinstance(expected_checks, list):
+                raise GovernanceApplyError("expected status checks missing")
             require(
                 {
-                    item.get("context")
+                    (item.get("context"), item.get("integration_id"))
                     for item in observed_checks
                     if isinstance(item, dict)
                 }
                 == {
-                    item.get("context")
+                    (item.get("context"), item.get("integration_id"))
                     for item in expected_checks
                     if isinstance(item, dict)
                 },
@@ -491,17 +582,25 @@ def verify_environment(
         environment.get("deployment_branch_policy"),
         f"{name}: deployment branch policy missing",
     )
+    expected_branch_policy = expected["deployment_branch_policy"]
     require(
-        branch_policy.get("custom_branch_policies") is True,
-        f"{name}: custom branch policy is not active",
+        branch_policy.get("custom_branch_policies")
+        is expected_branch_policy["custom_branch_policies"],
+        f"{name}: custom branch-policy mode drift",
     )
     require(
-        branch_policy.get("protected_branches") is False,
+        branch_policy.get("protected_branches")
+        is expected_branch_policy["protected_branches"],
         f"{name}: protected-branch mode drift",
+    )
+    require(
+        environment.get("can_admins_bypass") is expected["can_admins_bypass"],
+        f"{name}: administrator-bypass policy drift",
     )
 
     protection_rules = environment.get("protection_rules")
-    require(isinstance(protection_rules, list), f"{name}: protection rules invalid")
+    if not isinstance(protection_rules, list):
+        raise GovernanceApplyError(f"{name}: protection rules invalid")
     wait_rules = [
         item
         for item in protection_rules
@@ -513,6 +612,8 @@ def verify_environment(
             and wait_rules[0].get("wait_timer") == expected["wait_timer"],
             f"{name}: wait timer drift",
         )
+    else:
+        require(not wait_rules, f"{name}: unexpected wait timer")
 
     reviewer_rules = [
         item
@@ -525,7 +626,8 @@ def verify_environment(
     if expected_reviewers:
         require(len(reviewer_rules) == 1, f"{name}: required reviewer rule missing")
         observed_reviewers = reviewer_rules[0].get("reviewers")
-        require(isinstance(observed_reviewers, list), f"{name}: reviewers missing")
+        if not isinstance(observed_reviewers, list):
+            raise GovernanceApplyError(f"{name}: reviewers missing")
         normalized: set[tuple[str, int]] = set()
         for item in observed_reviewers:
             require(isinstance(item, dict), f"{name}: invalid reviewer")
@@ -533,11 +635,19 @@ def verify_environment(
             reviewer = item.get("reviewer")
             reviewer = _require_mapping(reviewer, f"{name}: reviewer object missing")
             reviewer_id = reviewer.get("id")
-            require(
-                reviewer_type in {"User", "Team"} and isinstance(reviewer_id, int),
-                f"{name}: reviewer identity invalid",
-            )
+            if (
+                reviewer_type not in {"User", "Team"}
+                or not isinstance(reviewer_id, int)
+                or isinstance(reviewer_id, bool)
+            ):
+                raise GovernanceApplyError(f"{name}: reviewer identity invalid")
+            if not isinstance(reviewer_type, str):
+                raise GovernanceApplyError(f"{name}: reviewer type invalid")
             normalized.add((reviewer_type, reviewer_id))
+        require(
+            len(normalized) == len(observed_reviewers),
+            f"{name}: duplicate live reviewer",
+        )
         require(normalized == expected_reviewers, f"{name}: reviewer drift")
         require(
             reviewer_rules[0].get("prevent_self_review")
@@ -547,6 +657,10 @@ def verify_environment(
     else:
         require(not reviewer_rules, f"{name}: unexpected required reviewers")
 
+    expected_keys = deployment_branch_policy_keys(encoded)
+    if not expected_keys:
+        return
+
     policies = api.request(
         "GET",
         f"/environments/{encoded_name}/deployment-branch-policies?per_page=100",
@@ -554,15 +668,12 @@ def verify_environment(
     ).payload
     policies = _require_mapping(policies, f"{name}: branch-policy list invalid")
     branch_policies = policies.get("branch_policies")
-    require(isinstance(branch_policies, list), f"{name}: branch policies missing")
+    if not isinstance(branch_policies, list):
+        raise GovernanceApplyError(f"{name}: branch policies missing")
     observed_keys = {
         (item.get("name"), item.get("type", "branch"))
         for item in branch_policies
         if isinstance(item, dict)
-    }
-    expected_keys = {
-        (item["name"], item.get("type", "branch"))
-        for item in encoded["allowed_branches"]
     }
     require(observed_keys == expected_keys, f"{name}: allowed branch-policy drift")
 
@@ -621,13 +732,7 @@ def verify_live(api: GitHubApi, policy: Mapping[str, Any]) -> None:
     verify_ruleset(api, policy)
 
     api.request("GET", "/vulnerability-alerts", expected=(204,))
-    automated = api.request(
-        "GET",
-        "/automated-security-fixes",
-        expected=(200,),
-    ).payload
-    automated = _require_mapping(automated, "Dependabot security-update state invalid")
-    require(automated.get("enabled") is True, "Dependabot security updates are disabled")
+    verify_automated_security_fixes(api)
     private_reporting = api.request(
         "GET",
         "/private-vulnerability-reporting",

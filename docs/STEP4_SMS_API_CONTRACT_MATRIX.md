@@ -11,7 +11,8 @@ Date: 2026-08-30
 | `POST /v1/communications/messages/{messageId}/cancel` | Implemented | Idempotently dead-letters a persisted/queued command before provider dispatch; refuses an in-flight command. |
 | `GET /v1/communications/usage` | Implemented | Provider-neutral accepted/delivered/failed/suppressed counts split by email and SMS. |
 | `GET /v1/communications/providers/health` | Prepared | Returns both Klyrow and Telnexa as disabled until provider bindings are reviewed and activated. |
-| `POST /api/v1/telnexa/events` | Implemented | OIDC, HMAC, freshness, durable inbox replay control, then canonical DLR/MO/STOP/HELP normalization. |
+| `POST /api/v1/telnexa/events` | Implemented (legacy envelope) | OIDC, HMAC, freshness, durable replay control, then canonical DLR/MO/STOP/HELP normalization for the Codestra event envelope. |
+| `POST /api/v1/events/telnexa` | Implemented (provider callback) | Exact Telnexa billing-worker envelope; Bearer shared API key plus HMAC over `timestamp\nevent_id\ntelnexa\n` and raw JSON; durable inbox/analytics projection updates the Middleware message Odoo polls. |
 
 ## Durable command mapping
 
@@ -25,6 +26,17 @@ No provider password, Jasmin credential, bearer token, or private key is part of
 the command payload.
 
 ## Signed Telnexa events
+
+The provider callback at `/api/v1/events/telnexa` is a separate wire contract.
+Telnexa sends it over internal mTLS with `Authorization`, `X-Event-Id`,
+`X-Timestamp`, `X-Signature`, and `Idempotency-Key`. Its body is defined by
+`contracts/telnexa-delivery-event.v1.schema.json`; the endpoint accepts only the
+four versioned SMS delivery event types in that schema. It is fail-closed behind
+`TELNEXA_EVENT_INGRESS_ENABLED` and the Middleware `SMS_DELIVERY` umbrella gate.
+An event is acknowledged only after the inbox, message projection, immutable
+timeline, provider-event evidence, and analytics row are durable. If the
+original Middleware message is not available, the event is retained for retry
+and the endpoint returns 503 so Telnexa does not lose delivery state.
 
 The reviewed event allowlist is:
 

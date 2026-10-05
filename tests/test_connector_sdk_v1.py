@@ -39,6 +39,7 @@ from middleware.connector_sdk import (
     ReadBackRequiredError,
     ReplayDecision,
     SemanticVersion,
+    StandardsValidationError,
     StaticCapabilityProvider,
     VerifiedWebhook,
     WebhookProcessor,
@@ -87,7 +88,7 @@ class FakeAdapter(ConnectorAdapter):
         self,
         request: CommandRequest,
     ) -> CommandResult:
-        safe_result = (
+        safe_result: dict[str, Any] = (
             {"access_token": "leak"}
             if self.leak_result
             else {"submitted": True}
@@ -257,7 +258,7 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             self.registry.get("klyrow-email")
             .manifest.webhook_policy_for("postal-events")
         )
-        self.assertIsNotNone(webhook_policy)
+        assert webhook_policy is not None
         return WebhookProcessor(
             self.registry,
             MappingSecretResolver(
@@ -281,6 +282,9 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             {
                 "ai-provider",
                 "beyvra-nonfinancial",
+                "connect-router",
+                "djone-mixxx",
+                "evolution-whatsapp",
                 "klyrow-alert-email",
                 "klyrow-email",
                 "kyqra-crawler",
@@ -318,6 +322,18 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             SemanticVersion.parse("1.0.0+build.1"),
             SemanticVersion.parse("1.0.0+build.2"),
         )
+
+    def test_semver_parser_rejects_adversarial_invalid_input(self) -> None:
+        hostile = "0.0.0-" + ("-" * 20_000) + "."
+        with self.assertRaises(StandardsValidationError):
+            SemanticVersion.parse(hostile)
+
+    def test_oauth_scope_parser_rejects_adversarial_invalid_input(self) -> None:
+        raw = self.raw("klyrow-email")
+        raw["authentication"]["scopes"] = ["0" + ("--" * 10_000) + ":"]
+        with self.assertRaises(ManifestValidationError) as error:
+            parse_manifest(raw)
+        self.assertIn("invalid OAuth scope", str(error.exception))
 
     def test_same_version_different_digest_is_rejected(self) -> None:
         registry = ConnectorRegistry()
@@ -503,6 +519,7 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             result.cloud_event,
             CloudEventEnvelope,
         )
+        assert result.cloud_event is not None
         event = result.cloud_event.as_dict()
         self.assertEqual(event["specversion"], "1.0")
         self.assertEqual(event["tenantid"], tenant_id)
@@ -610,6 +627,7 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
             "postal-events",
             request,
         )
+        assert result.cloud_event is not None
         self.assertEqual(
             result.cloud_event.as_dict()["tenantid"],
             authoritative_tenant,
@@ -618,10 +636,12 @@ class ConnectorSdkStandardsTests(unittest.TestCase):
     def test_scaffolder_output_remains_disabled_and_valid(self) -> None:
         from scripts.scaffold_connector import build_manifest
 
-        class Args:
+        from argparse import Namespace
+
+        class Args(Namespace):
             connector_id = "sample-api"
             display_name = "Sample API"
-            repository = "appolon1908-hue/sample-api"
+            repository = "appolon1908/sample-api"
             cell = "core-communications"
             command_prefix = "sample."
             capability = "SAMPLE_WRITE"

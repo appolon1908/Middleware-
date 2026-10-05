@@ -406,14 +406,14 @@ class IntakeMetrics:
         current_queues = set(snapshot.oldest_pending_seconds)
         for queue in self._queues - current_queues:
             self.oldest_pending.labels(*self._base, queue).set(0)
-        for queue, value in snapshot.oldest_pending_seconds.items():
+        for queue, age_seconds in snapshot.oldest_pending_seconds.items():
             bounded_queue = (
                 queue
                 if queue == "inbox" or queue.startswith("outbox:")
                 else "other"
             )
             self.oldest_pending.labels(*self._base, bounded_queue).set(
-                max(value, 0.0)
+                max(age_seconds, 0.0)
             )
         self._queues |= current_queues
         self.backlog_collection_success.labels(*self._base).set(1)

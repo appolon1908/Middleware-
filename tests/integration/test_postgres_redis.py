@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 import asyncio
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import asyncpg
@@ -20,7 +22,13 @@ from app.commands import (
 )
 from app.models import EventEnvelope
 from app.replay import RedisReplayGuard, ReplayBusy
-from app.storage import PostgresInboxStore, PostgresOutboxStore, ReconciliationError, ReplayConflict
+from app.storage import (
+    KLYROW_ODOO_PROJECTION_DESTINATION,
+    PostgresInboxStore,
+    PostgresOutboxStore,
+    ReconciliationError,
+    ReplayConflict,
+)
 
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -93,7 +101,7 @@ async def pool() -> asyncpg.Pool:
 
 
 @pytest_asyncio.fixture
-async def redis_client() -> Redis:
+async def redis_client() -> AsyncIterator[Redis]:
     assert REDIS_URL, "REDIS_URL is required"
     client = Redis.from_url(REDIS_URL, encoding="utf-8", decode_responses=True)
     await client.flushdb()
@@ -235,6 +243,123 @@ async def test_postgres_concurrent_same_event_is_single_accept(pool: asyncpg.Poo
             item.event_id,
         )
     assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_postgres_concurrent_klyrow_raw_replay_records_one_projection(
+    pool: asyncpg.Pool,
+) -> None:
+    store = PostgresInboxStore(pool)
+    first = envelope(
+        event_id="evt-klyrow-race",
+        idempotency_key="evt-klyrow-race",
+    ).model_copy(
+        update={
+            "event_type": "codestra.klyrow.usage.daily",
+            "source": "klyrow-gateway",
+        }
+    )
+    second = first.model_copy(
+        update={"received_at": first.received_at + timedelta(seconds=1)}
+    )
+    body_hash = "a" * 64
+
+    async def accept_once(item: EventEnvelope) -> str:
+        result = await store.accept(
+            item,
+            producer_client_id="klyrow-gateway",
+            body_sha256=body_hash,
+            semantic_sha256=semantic_digest(item),
+            deduplication_sha256=body_hash,
+            destination=KLYROW_ODOO_PROJECTION_DESTINATION,
+        )
+        return result.status
+
+    statuses = await asyncio.gather(accept_once(first), accept_once(second))
+    assert sorted(statuses) == ["accepted", "duplicate"]
+
+    async with pool.acquire() as conn:
+        inbox_count = await conn.fetchval(
+            "SELECT count(*) FROM middleware_inbox WHERE tenant_id=$1 AND event_id=$2",
+            first.tenant_id,
+            first.event_id,
+        )
+        projection_count = await conn.fetchval(
+            "SELECT count(*) FROM middleware_outbox "
+            "WHERE tenant_id=$1 AND destination=$2 AND idempotency_key=$3",
+            first.tenant_id,
+            KLYROW_ODOO_PROJECTION_DESTINATION,
+            first.idempotency_key,
+        )
+    assert inbox_count == 1
+    assert projection_count == 1
+
+
+@pytest.mark.asyncio
+async def test_postgres_klyrow_replay_repairs_deliberately_missing_projection(
+    pool: asyncpg.Pool,
+) -> None:
+    store = PostgresInboxStore(pool)
+    first = envelope(
+        event_id="evt-klyrow-repair",
+        idempotency_key="evt-klyrow-repair",
+    ).model_copy(
+        update={
+            "event_type": "codestra.klyrow.usage.daily",
+            "source": "klyrow-gateway",
+        }
+    )
+    body_hash = "b" * 64
+    accepted = await store.accept(
+        first,
+        producer_client_id="klyrow-gateway",
+        body_sha256=body_hash,
+        semantic_sha256=semantic_digest(first),
+        deduplication_sha256=body_hash,
+        destination=KLYROW_ODOO_PROJECTION_DESTINATION,
+    )
+    assert accepted.status == "accepted"
+
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM middleware_outbox "
+            "WHERE tenant_id=$1 AND destination=$2 AND idempotency_key=$3",
+            first.tenant_id,
+            KLYROW_ODOO_PROJECTION_DESTINATION,
+            first.idempotency_key,
+        )
+
+    replay = first.model_copy(
+        update={"received_at": first.received_at + timedelta(seconds=1)}
+    )
+    duplicate = await store.accept(
+        replay,
+        producer_client_id="klyrow-gateway",
+        body_sha256=body_hash,
+        semantic_sha256=semantic_digest(replay),
+        deduplication_sha256=body_hash,
+        destination=KLYROW_ODOO_PROJECTION_DESTINATION,
+    )
+    assert duplicate.status == "duplicate"
+
+    async with pool.acquire() as conn:
+        repaired = await conn.fetchrow(
+            "SELECT event_type,payload FROM middleware_outbox "
+            "WHERE tenant_id=$1 AND destination=$2 AND idempotency_key=$3",
+            first.tenant_id,
+            KLYROW_ODOO_PROJECTION_DESTINATION,
+            first.idempotency_key,
+        )
+    assert repaired is not None
+    assert repaired["event_type"] == first.event_type
+    repaired_payload = (
+        json.loads(repaired["payload"])
+        if isinstance(repaired["payload"], str)
+        else dict(repaired["payload"])
+    )
+    assert repaired_payload["received_at"] == first.model_dump(
+        mode="json"
+    )["received_at"]
 
 
 @pytest.mark.asyncio
@@ -493,7 +618,7 @@ async def test_postgres_operation_reads_and_cancel_are_tenant_isolated_and_atomi
         "command_id": "00000000-0000-4000-8000-000000000002",
         "command_type": "crm.contact.create.v1", "command_version": "1.0",
         "target": "odoo-19", "tenant_id": "tenant-operation", "requested_by": "user-1",
-        "correlation_id": "correlation-operation-2", "idempotency_key": "idempotency-operation-2",
+        "correlation_id": "correlation-operation-2", "idempotency_key": "test-idem-2",
         "capability": "ODOO_WRITE", "payload": {"contact_id": "contact-2"},
     })
     await store.submit(command, authenticated_client_id="test-client")
@@ -518,7 +643,7 @@ async def test_postgres_operation_retry_enqueues_dispatchable_command_envelope(p
         "command_id": "00000000-0000-4000-8000-000000000003",
         "command_type": "crm.contact.create.v1", "command_version": "1.0",
         "target": "odoo-19", "tenant_id": "tenant-operation-retry", "requested_by": "user-1",
-        "correlation_id": "correlation-operation-3", "idempotency_key": "idempotency-operation-3",
+        "correlation_id": "correlation-operation-3", "idempotency_key": "test-idem-3",
         "capability": "ODOO_WRITE", "payload": {"contact_id": "contact-3"},
     })
     await store.submit(command, authenticated_client_id="test-client")

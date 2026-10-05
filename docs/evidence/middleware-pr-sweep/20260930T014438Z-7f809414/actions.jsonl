@@ -1,0 +1,17 @@
+{"action": "entry_gate", "phase": "S0", "result": "PASS", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "agent_preflight.sh --start on 7f809414"}
+{"action": "push_branch", "phase": "S1", "result": "PUSHED", "run_id": "20260930T014438Z-7f809414", "sha": "99f34e9ee2c0f3846bde992015251d52ff7bb6e4", "target": "preserve/pr-sweep-20260930-replay-wt"}
+{"action": "push_branch", "phase": "S1", "result": "PUSHED", "run_id": "20260930T014438Z-7f809414", "sha": "ff22191db19433495ecd8b44df168417c12755b7", "target": "preserve/pr-sweep-20260930-local-refs"}
+{"action": "push_tag", "phase": "S1", "result": "DENIED_HTTP_403_BRANCHES_USED", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "refs/tags/preserve/*"}
+{"action": "audit", "phase": "S2", "result": "COMPLETE", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "A tenant isolation / RLS"}
+{"action": "audit", "phase": "S2", "result": "COMPLETE", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "B+E provider read-back and provisioning"}
+{"action": "audit", "phase": "S2", "result": "COMPLETE", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "C+F routes, contracts, schema-head metadata"}
+{"action": "audit", "phase": "S2", "result": "COMPLETE", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "D MCR stack, certify gate, deferred adapters"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "557513ae", "target": "fix(provisioning): tenant-scope readback and repair intents"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "f5952174", "target": "fix(providers): report post-send provider failures as unknown"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "b37b4a07", "target": "fix(provisioning): keep suspend/revoke open when the identity disable fails"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "95ad89d4", "target": "fix(provisioning): only mark WebRTC sessions revoked after VICIdial revokes them"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "ad5f8fed", "target": "fix(providers): bind CRM read-back to the bridge's configured tenant"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "67052999", "target": "docs(release): name the current schema head 0071"}
+{"action": "commit", "phase": "S3", "result": "LOCAL", "run_id": "20260930T014438Z-7f809414", "sha": "b8e75ab9", "target": "chore(trust): rederive pins for the sweep fixes"}
+{"action": "pr_closure", "phase": "S6", "result": "NO_ACTION", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "no PR closed in this run; earlier decision-backed closures #309 #390 (D6) and #362 (D9) stand"}
+{"action": "pr_rerun", "phase": "S6", "result": "NO_ACTION", "run_id": "20260930T014438Z-7f809414", "sha": null, "target": "quota-blocked jobs not rerun (no evidence storage was freed)"}

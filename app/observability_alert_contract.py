@@ -8,13 +8,13 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Literal, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .commands import CommandEnvelope, CommandNotFound, CommandOperation
-from .config import ConfigurationError, Settings
+from app.core.config import ConfigurationError, Settings
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +23,7 @@ COMMAND_TYPE = "observability.alert.email.send.v1"
 COMMAND_PREFIX = "observability.alert."
 COMMAND_TARGET = "klyrow-alert-email"
 COMMAND_CAPABILITY = "OBSERVABILITY_ALERT_EMAIL_DELIVERY"
-ALERTMANAGER_CLIENT_ID = "alertmanager-service"
+ALERTMANAGER_CLIENT_ID = "alertmanager"
 DELIVERY_CLIENT_ID = "klyrow-alert-adapter"
 OPERATOR_CLIENT_ID = "observability-operator"
 

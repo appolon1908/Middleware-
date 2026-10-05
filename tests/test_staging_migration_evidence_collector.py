@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -9,12 +11,26 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "collect_staging_migration_evidence.sh"
 
 
+def bash_executable() -> str:
+    found = shutil.which("bash")
+    if found:
+        return found
+    for candidate in (
+        os.path.join(os.environ.get("LOCALAPPDATA", r"C:\Users\Default\AppData\Local"), "Programs", "Git", "bin", "bash.exe"),
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+    ):
+        if os.path.exists(candidate):
+            return candidate
+    return "bash"
+
+
 def source() -> str:
     return SCRIPT.read_text(encoding="utf-8")
 
 
 def test_shell_syntax_is_valid() -> None:
-    subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
+    subprocess.run([bash_executable(), "-n", str(SCRIPT)], check=True)
 
 
 def test_default_revision_and_output_are_safe() -> None:

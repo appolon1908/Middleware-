@@ -1,38 +1,47 @@
 # Gate W0 — Contract decision and repository-governance baseline
 
-- **Status:** LIVE_GOVERNANCE_APPLIED — TAG_PENDING
+- **Status:** COMPLETE — LIVE GOVERNANCE AND TAG VERIFIED
 - **Original baseline commit:** `382683958feefce73458ee56a1589092bad632b3`
-- **Verified governance source head:** `8e4e1e2e7ed38fffbd71f1b50d45b26ce325bc0e`
-- **Live verification workflow:** `33781342722`
-- **Active authority ruleset:** `middleware-main-production-authority` (`22120968`)
+- **Historical verified governance source:** `8e4e1e2e7ed38fffbd71f1b50d45b26ce325bc0e`
+- **Historical live verification workflow:** `33781342722`
+- **Current accepted governance source:** `996ebecef80e6efec0ae4d19d5a8c6ff87d2fe7e`
+- **Current live apply-and-verify workflow:** `34388426803`
+- **Authority ruleset:** `middleware-main-production-authority`
 - **Decision:** Middleware adopts automation v2 (ADR-0001)
 - **Live writes changed:** no
 - **Deployment changed:** no
 
-## Evidence
+## Historical evidence
 
-- The target repository policy remains encoded in
-  `config/repository-governance.v1.json`.
-- Workflow run `33781342722` completed successfully on the exact default-branch
-  event SHA. Source identity, encoded-policy validation, live settings apply,
-  independent ruleset verification, and non-secret evidence publication all
-  passed.
-- The live `middleware-main-production-authority` ruleset is active on the
-  default branch with no bypass actors.
-- The live ruleset blocks deletion and non-fast-forward updates, requires linear
-  history, requires one approving review, dismisses stale reviews after a push,
-  requires review-thread resolution, and permits squash merges only.
-- All eleven encoded Middleware status checks are required with strict
-  up-to-date-branch enforcement.
-- Repository profile and merge settings match the encoded policy: `main` is the
-  default branch, the documented description and topics are present, the wiki
-  is disabled, web commit sign-off is required, squash merge and auto-merge are
-  enabled, merge commits and rebase merges are disabled, merged branches are
-  deleted, and branch updates are allowed.
-- The conformance harness, route authority, compatibility policy, skip
-  ownership, and fail-closed release defaults remain unchanged.
-- No runtime, provider, credential, server, deployment, or external-effect
-  capability was activated by applying repository governance.
+Workflow run `33781342722` successfully applied and verified the historical
+policy at source `8e4e1e2e7ed38fffbd71f1b50d45b26ce325bc0e`. That run remains valid
+for its exact historical source and is not used as proof for later policy.
+
+## Current live evidence — September 9, 2026
+
+Owner-locked workflow run `34388426803` checked out exact protected-main source
+`996ebecef80e6efec0ae4d19d5a8c6ff87d2fe7e` and completed successfully.
+The run reported:
+
+- `REPOSITORY_GOVERNANCE_APPLIER=PASS mode=APPLY main_protected=YES live_effects=UNCHANGED`
+- `REPOSITORY_GOVERNANCE=PASS live=PASS`
+- `REPOSITORY_GOVERNANCE_APPLIER=PASS mode=VERIFY main_protected=YES live_effects=UNCHANGED`
+- staging and production environment governance applied and read back
+- no runtime, deployment, provider, or live-write change
+
+The plan step on the same exact source reported twelve required checks. The
+committed policy requires one independent approval on `main`, stale-review
+dismissal, resolved review threads, strict up-to-date status checks, linear
+history, and administrator enforcement.
+
+Both `staging` and `production` require the approved independent reviewer
+identity `77101516`, set `prevent_self_review=true`, set `can_admins_bypass=false`,
+and accept deployments only from protected branches. The release policy keeps
+live writes, Odoo writes, and live apply disabled by default and requires
+independent human approval for production release.
+
+No runtime, provider, credential, server, deployment, or external-effect
+capability is activated by W0 governance completion.
 
 ## Exit conditions
 
@@ -40,10 +49,24 @@
 - [x] Conformance harness present
 - [x] Route authority and compatibility policy recorded
 - [x] Skipped-test ownership documented
-- [x] PR exact-head and merge-result checks green
-- [x] GitHub settings applied and live audit green
-- [ ] Tag `w0-complete`
+- [x] Historical GitHub governance apply and audit recorded
+- [x] Independent environment-review decision recorded
+- [x] Updated policy merged through protected `main`
+- [x] Updated policy applied and read back from exact protected-main SHA
+- [x] Current run/source evidence recorded in this protected change
+- [x] Tag `w0-complete` created and its exact target read back
 
-The remaining tag must be created only after this evidence refresh reaches
-protected `main`. Creating that repository tag does not authorize runtime
-promotion or any live write.
+## Completion readback — September 9, 2026
+
+Owner-authenticated verification on protected-main commit
+`eb4cee4c36f6e9f1195b967a792e56d9bbc456a3` passed both
+`apply_repository_governance.py --verify-live` and
+`validate_repository_governance.py --live`. The exact results were
+`REPOSITORY_GOVERNANCE_APPLIER=PASS mode=VERIFY main_protected=YES live_effects=UNCHANGED`
+and `REPOSITORY_GOVERNANCE=PASS live=PASS skip_files=27`.
+
+Created `refs/tags/w0-complete` without force and read it back as a direct commit
+reference to `eb4cee4c36f6e9f1195b967a792e56d9bbc456a3`. The completion record is
+on [issue #68](https://github.com/appolon1908-hue/Middleware-/issues/68), now
+closed. Never repoint this tag. W0 completion grants no runtime promotion,
+environment approval, or live-write authority.

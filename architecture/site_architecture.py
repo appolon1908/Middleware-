@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from .routes import (
     APPLICATION_ROUTES,
@@ -246,7 +246,7 @@ def server_stacks() -> dict[str, Any]:
                     "branch": item[2],
                     "status": item[3],
                     "components": list(item[4]),
-                    **item[5],
+                    **cast(dict[str, Any], item[5]),
                 }
                 for item in STACKS if item[0] == "provider-host"
             ],

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 from uuid import uuid4
 
@@ -10,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.commands import CommandPolicy, CommandPolicyRegistry, CommandService, MemoryCommandStore
 from app.main import create_app
 from app.replay import MemoryReplayGuard
-from app.runtime import Runtime
+from app.core.runtime import RuntimeContainer as Runtime
 from app.security import AuthenticationError
 from app.storage import MemoryInboxStore
 
@@ -135,12 +134,8 @@ def _client(
     *,
     provider_writes_enabled: bool = True,
 ) -> TestClient:
-    settings = replace(
-        test_settings,
-        umbrella_controls={
-            **test_settings.umbrella_controls,
-            "N8N_EXTERNAL_PROVIDER_WRITES": provider_writes_enabled,
-        },
+    settings = test_settings.replace(
+        umbrella_n8n_external_provider_writes=provider_writes_enabled,
     )
     runtime = Runtime(
         settings=settings,
@@ -149,7 +144,8 @@ def _client(
         tokens=verifier,
         commands=CommandService(MemoryCommandStore(), _policy()),
     )
-    return TestClient(create_app(settings=settings, runtime=runtime))
+    # The deprecated /v1/integrations/n8n/* aliases exist only on the monolith.
+    return TestClient(create_app(settings=settings, runtime=runtime, legacy_monolith=True))
 
 
 def test_n8n_provider_write_umbrella_blocks_durable_submission(test_settings) -> None:

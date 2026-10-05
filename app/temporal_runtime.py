@@ -5,7 +5,7 @@ from pathlib import Path
 from temporalio.client import Client
 from temporalio.service import TLSConfig
 
-from .config import ConfigurationError, Settings
+from app.core.config import ConfigurationError, Settings
 
 
 def _read_credential(path: Path | None, label: str) -> bytes:
