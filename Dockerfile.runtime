@@ -1,9 +1,6 @@
 ARG RUNTIME_BASE=python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56
 ARG TEST_BASE=python:3.14.7-bookworm@sha256:4121f1893084fd19c71df52b7a48565d47f5bf36173d2c2ce8bca626512ef3db
 ARG FINAL_BASE=python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56
-# Test image only: the node binary that runs the generated Postman collection
-# scripts in tests/test_postman_generation_safety.py.
-ARG NODE_TEST_BASE=node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
 
 FROM ${FINAL_BASE} AS patched-final-base
 USER root
@@ -50,7 +47,6 @@ COPY --chown=65532:65532 connectors ./connectors
 COPY --chown=65532:65532 contracts ./contracts
 COPY --chown=65532:65532 migrations ./migrations
 COPY --chown=65532:65532 scripts/migrate_runtime.py ./scripts/migrate_runtime.py
-COPY --chown=65532:65532 scripts/start_integration_api.py ./scripts/start_integration_api.py
 COPY --chown=65532:65532 scripts/production_migration_authority.py ./scripts/production_migration_authority.py
 COPY --chown=65532:65532 scripts/runtime_sql_schema.py ./scripts/runtime_sql_schema.py
 USER 65532:65532
@@ -60,7 +56,7 @@ FROM runtime-common AS runtime
 EXPOSE 8095
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD ["/usr/local/bin/python3.14", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8095/health', timeout=2)"]
-CMD ["/app/scripts/start_integration_api.py"]
+CMD ["-m", "uvicorn", "app.entrypoints.integration_api:app", "--host", "0.0.0.0", "--port", "8095", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1"]
 
 FROM runtime-common AS worker
 CMD ["-m", "workers.run_outbox"]
@@ -112,8 +108,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD ["/usr/local/bin/python3.14", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2)"]
 CMD ["-m", "uvicorn", "codestra_connector_runtime.main:app", "--host", "0.0.0.0", "--port", "8081", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1"]
 
-FROM ${NODE_TEST_BASE} AS test-node
-
 FROM ${TEST_BASE} AS test
 ARG SOURCE_REPOSITORY=https://github.com/appolon1908/Middleware-
 ARG SOURCE_REVISION
@@ -138,8 +132,6 @@ COPY requirements-test.txt ./
 RUN python -m pip install --require-hashes -r requirements-test.txt \
  && python -m pip check \
  && test "$(openssl version | awk '{print $2}')" = "3.0.20"
-COPY --from=test-node /usr/local/bin/node /usr/local/bin/node
-RUN node --version
 # The full source tree is required because repository contract tests inspect
 # schemas, workflows, lockfiles, deployment descriptors, and root metadata.
 # .dockerignore already keeps VCS data, credentials, caches, and build outputs
