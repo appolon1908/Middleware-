@@ -54,7 +54,7 @@ RUN python -c 'import html.parser,http.cookies,inspect,pyexpat,sys,tarfile; asse
 
 FROM ${PYTHON_BASE} AS verified-python
 USER root
-RUN apk add --no-cache expat=2.8.4-r0
+RUN apk add --no-cache expat=2.8.5-r0
 RUN rm -rf /usr/local/*
 COPY --from=python-builder /usr/local /usr/local
 
