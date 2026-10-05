@@ -1,7 +1,7 @@
 # PAS-266 — Video media artifact handoff through Middleware
 
-Status: implementation candidate  
-Authority issue: PAS-266 — NABEEL-07 — Video post-production & publishing pipeline  
+Status: implementation candidate
+Authority issue: PAS-266 — NABEEL-07 — Video post-production & publishing pipeline
 Base: `main@0be6d28b4e8c3cbd5fb7564b6d30689a265d3ed9`
 
 ## Outcome
@@ -88,5 +88,5 @@ flags. Live publishing stays disabled.
 Application rollback is a normal revert. Existing registered media rows and
 audit evidence are preserved. No schema downgrade is needed.
 
-LIVE_CAPABILITIES_ENABLED=NO  
+LIVE_CAPABILITIES_ENABLED=NO
 PRODUCTION_DEPLOYED=NO
