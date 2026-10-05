@@ -1,6 +1,6 @@
 FROM python:3.12.13-slim-bookworm@sha256:4766d8b510c428e595d74b9cc5bbb2fae8e26316fffb4adc89908d79aacd58a2
 ARG VCS_REF
-ARG SOURCE_URL=https://github.com/ingtrader21-spec/Middleware-
+ARG SOURCE_URL=https://github.com/appolon1908/Middleware-
 ARG VERSION
 LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source=$SOURCE_URL \
@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.revision=$VCS_REF \
 # Debian security update for libpcre2-8-0 (CVE-2026-86145, CVE-2026-89157,
 # CVE-2026-89161); the same pin Dockerfile.runtime applies in patched-final-base.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libpcre2-8-0=10.42-1+deb12u1 \
+ && apt-get install -y --no-install-recommends libpcre2-8-0=10.42-1+deb12u2 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/codestra
 COPY requirements.lock /tmp/requirements.lock

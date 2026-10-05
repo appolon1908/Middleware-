@@ -1,0 +1,34 @@
+schema_version: 1
+canonical_owner: "appolon1908"
+repository: "appolon1908/Middleware-"
+canonical_url: "https://github.com/appolon1908/Middleware-"
+default_branch_observed: "main"
+classification:
+  type: "platform-service"
+  subtype: "middleware-control-plane"
+  standalone: true
+  integration_boundary: "api-or-endpoint"
+lifecycle:
+  promotion_order: [development, testing, staging, production]
+  development: "development"
+  testing: "testing"
+  staging: "staging"
+  production: "production"
+  exact_branch_exception: true
+  exception_notes:
+    - "testing: exact refs/heads/testing is blocked by existing testing/* namespace; historical refs preserved"
+    - "production: exact refs/heads/production is blocked by existing production/* namespace; historical refs preserved"
+governance:
+  canonical_owner_is_authority: true
+  transferred_owner_refs_are_non_authoritative: true
+  forward_only_promotion: true
+  force_push_allowed: false
+integration:
+  middleware_v3: "optional-orchestration-boundary; not a standalone runtime dependency"
+  edge_path_when_applicable: "Caddy -> Kong -> Middleware :8095"
+
+effective_lifecycle:
+  development: "development"
+  testing: "testing/environment"
+  staging: "staging"
+  production: "production/environment"

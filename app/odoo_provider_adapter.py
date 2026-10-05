@@ -26,6 +26,14 @@ class OdooProviderAdapterError(RuntimeError):
     pass
 
 
+class OdooUnknownOutcomeError(OdooProviderAdapterError):
+    """The request may have reached Odoo; the outcome could not be confirmed.
+
+    Raised only after the send. It must be reconciled by read-back, never
+    re-sent as if nothing had happened.
+    """
+
+
 @lru_cache(maxsize=1)
 def _odoo_lead_command_validator() -> Draft202012Validator:
     """Load the local Odoo specialization without resolving its remote base ref.
@@ -255,7 +263,7 @@ class OdooProviderAdapter:
         try:
             reconciliation = await self.readback(request)
         except OdooProviderAdapterError as reconciliation_error:
-            raise OdooProviderAdapterError(
+            raise OdooUnknownOutcomeError(
                 "Odoo command outcome remains unknown after command-status reconciliation failed"
             ) from reconciliation_error
         if reconciliation.status == "matched":
@@ -267,7 +275,7 @@ class OdooProviderAdapter:
                 ),
                 provider_operation_id=request.command_id,
             )
-        raise OdooProviderAdapterError(
+        raise OdooUnknownOutcomeError(
             "Odoo command outcome remains unknown after command-status mismatch"
         ) from original_error
 
@@ -299,7 +307,7 @@ class OdooProviderAdapter:
             or data.get("external_id") != source_record_id
             or data.get("outcome") not in {"created", "updated"}
         ):
-            raise OdooProviderAdapterError(
+            raise OdooUnknownOutcomeError(
                 "Odoo response did not confirm the canonical command identity"
             )
         return ActivityResult(

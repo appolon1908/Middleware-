@@ -27,15 +27,15 @@ jobs:
           POSTGRES_PASSWORD: connector
           POSTGRES_DB: connector
         ports:
-          - 5432:5432
+          - 5432/tcp
         options: >-
           --health-cmd "pg_isready -U connector -d connector"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
     env:
-      ADMIN_DATABASE_URL: postgresql+psycopg://connector:connector@127.0.0.1:5432/connector
-      APP_DATABASE_URL: postgresql+psycopg://connector_app_test:connector_app_test@127.0.0.1:5432/connector
+      ADMIN_DATABASE_URL: postgresql+psycopg://connector:connector@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/connector
+      APP_DATABASE_URL: postgresql+psycopg://connector_app_test:connector_app_test@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/connector
       POSTGRES_TOOL_IMAGE: postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
       PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/services/connector-runtime/src
     steps:
