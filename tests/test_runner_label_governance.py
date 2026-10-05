@@ -26,15 +26,12 @@ MIDDLEWARE_CI = WORKFLOWS / "middleware-ci.yml"
 
 GOVERNED_LABELS = ["self-hosted", "Linux", "X64", "middleware-ci"]
 HOSTED_RUNNER = "ubuntu-24.04"
-# Jobs pinned to the governed host by exact labels, each for a stated reason:
-# pull_request_target gates are byte-pinned base-branch code; required-ci owns
-# the host-only egress guard; the single-lane gate materializes branch refs.
+# Jobs pinned to the governed host by exact labels. Required exact-SHA CI owns
+# the host-only egress guard; portable governance and protected-base trust
+# checks run on ephemeral GitHub-hosted Ubuntu.
 EXACT_LABEL_JOBS = {
-    ("production-orchestrator-contract.yml", "validate"): GOVERNED_LABELS,
-    ("trusted-production-orchestrator-gate.yml", "validate-candidate"): GOVERNED_LABELS,
     ("required-ci.yml", "test"): GOVERNED_LABELS,
     ("required-ci.yml", "publish-final-status"): GOVERNED_LABELS,
-    ("single-lane-agent-governance.yml", "governance"): ["self-hosted", "Linux", "X64", "ubuntu-24.04", "middleware-ci"],
 }
 # Branch-protection contexts plus the push-only main gate: rerouting must not
 # rename, drop or add a job.
