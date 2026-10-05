@@ -106,6 +106,57 @@ def verify(conn):
     asyncio.run(schema.verify_sql_schema(conn, ROOT))
 
 
+def test_structure_digest_is_stable_across_pg_dump_varchar_array_rewrite():
+    before = {
+        "constraints": [
+            {
+                "name": "ck_state",
+                "type": "c",
+                "definition": (
+                    "CHECK (((state)::text = ANY "
+                    "((ARRAY['ready'::character varying, "
+                    "'done'::character varying])::text[])))"
+                ),
+            }
+        ]
+    }
+    restored = {
+        "constraints": [
+            {
+                "name": "ck_state",
+                "type": "c",
+                "definition": (
+                    "CHECK (((state)::text = ANY "
+                    "(ARRAY[('ready'::character varying)::text, "
+                    "('done'::character varying)::text])))"
+                ),
+            }
+        ]
+    }
+    assert schema.structure_digest(before) == schema.structure_digest(restored)
+
+
+def test_structure_digest_still_detects_check_literal_change():
+    left = {
+        "constraints": [
+            {
+                "name": "ck_state",
+                "type": "c",
+                "definition": (
+                    "CHECK (((state)::text = ANY "
+                    "((ARRAY['ready'::character varying, "
+                    "'done'::character varying])::text[])))"
+                ),
+            }
+        ]
+    }
+    right = copy.deepcopy(left)
+    right["constraints"][0]["definition"] = right["constraints"][0][
+        "definition"
+    ].replace("'done'", "'failed'")
+    assert schema.structure_digest(left) != schema.structure_digest(right)
+
+
 def test_valid_structure_uses_catalog_only_readonly_snapshot(catalog):
     verify(catalog)
     assert catalog.transaction_options == {

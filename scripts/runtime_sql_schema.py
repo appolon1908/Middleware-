@@ -8,6 +8,7 @@ proof of tables, columns, constraints, indexes or evidence-immutability triggers
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import json
 import re
@@ -207,10 +208,52 @@ def managed_tables(root: Path) -> tuple[str, ...]:
     return tuple(sorted(names))
 
 
-def structure_digest(structure: dict[str, Any]) -> str:
-    payload = json.dumps(structure, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
+_VARCHAR_ELEMENT_TEXT_CAST_RE = re.compile(
+    r"\('((?:''|[^'])*)'::character varying\)::text"
+)
+_VARCHAR_LITERAL_RE = re.compile(r"'((?:''|[^'])*)'::character varying")
+_ARRAY_TEXT_CAST_RE = re.compile(r"\(ARRAY\[(.*?)\]\)::text\[\]", re.S)
+
+
+def _canonical_constraint_definition(definition: str) -> str:
+    """Normalize a pg_dump/restore-equivalent CHECK expression spelling.
+
+    PostgreSQL can deparse the same varchar-array comparison either with one
+    outer text-array cast or with per-element text casts after dump/restore.
+    Canonicalize only that narrow representation difference. Constraint names,
+    operators, literals, validity flags and every other catalog field remain
+    part of the structural hash.
+    """
+
+    value = _VARCHAR_ELEMENT_TEXT_CAST_RE.sub(
+        lambda match: f"'{match.group(1)}'::text", definition
     )
+    value = _VARCHAR_LITERAL_RE.sub(
+        lambda match: f"'{match.group(1)}'::text", value
+    )
+    return _ARRAY_TEXT_CAST_RE.sub(r"ARRAY[\1]", value)
+
+
+def canonical_structure(structure: dict[str, Any]) -> dict[str, Any]:
+    normalized = copy.deepcopy(structure)
+    constraints = normalized.get("constraints")
+    if isinstance(constraints, list):
+        for constraint in constraints:
+            if (
+                isinstance(constraint, dict)
+                and constraint.get("type") == "c"
+                and isinstance(constraint.get("definition"), str)
+            ):
+                constraint["definition"] = _canonical_constraint_definition(
+                    constraint["definition"]
+                )
+    return normalized
+
+
+def structure_digest(structure: dict[str, Any]) -> str:
+    payload = json.dumps(
+        canonical_structure(structure), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
