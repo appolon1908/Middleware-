@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 from functools import lru_cache
 import json
 from dataclasses import dataclass
@@ -967,6 +968,26 @@ class PostgresCampaignRecyclingStore:
             raise CampaignRecyclingConflict(
                 "Evolution normalized events must be whatsapp"
             )
+        if source == "vicidial":
+            if channel != "voice":
+                raise CampaignRecyclingConflict(
+                    "VICIdial normalized events must be voice"
+                )
+            if event_type not in {
+                "accepted",
+                "queued",
+                "dispatched",
+                "delivered",
+                "deferred",
+                "reply",
+            }:
+                raise CampaignRecyclingConflict(
+                    "VICIdial normalized event type is not voice-authoritative"
+                )
+        if source == "odoo" and event_type != "conversion":
+            raise CampaignRecyclingConflict(
+                "Odoo normalized events are conversion truth only"
+            )
 
         event_id = str(event["event_id"])
         correlation_id = str(event["correlation_id"])
@@ -976,6 +997,21 @@ class PostgresCampaignRecyclingStore:
         ):
             raise CampaignRecyclingConflict(
                 "delivery event payload_hash must be lowercase sha256"
+            )
+        canonical_event = dict(event)
+        canonical_event.pop("received_at", None)
+        canonical_event.pop("payload_hash", None)
+        canonical_payload = json.dumps(
+            canonical_event,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+            default=_json_default,
+        ).encode("utf-8")
+        expected_payload_hash = hashlib.sha256(canonical_payload).hexdigest()
+        if not hmac.compare_digest(payload_hash, expected_payload_hash):
+            raise CampaignRecyclingConflict(
+                "delivery event payload_hash does not match canonical event"
             )
         occurred_at = _coerce_event_datetime(event["occurred_at"])
         received_at = _coerce_event_datetime(event["received_at"])

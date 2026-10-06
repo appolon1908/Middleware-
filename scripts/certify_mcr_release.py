@@ -20,8 +20,8 @@ from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "ingtrader21-spec/Middleware-"
-BRANCH = "mission/mcr-m-qa-release-20260924"
 WORKFLOW = ".github/workflows/middleware-ci.yml"
+BRANCH_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,199}")
 DEPENDENCIES = tuple("ABCDEFHIJKL")
 SCENARIOS = (
     "api_openapi",
@@ -269,11 +269,18 @@ def protected_ci(source_sha: str) -> dict:
     return {"required_checks": sorted(required), "source_sha": source_sha}
 
 
-def certify(source_sha: str, run_id: int) -> dict:
+def validate_branch(branch: str) -> str:
+    require(bool(BRANCH_PATTERN.fullmatch(branch)), "invalid certification branch")
+    require(".." not in branch and "//" not in branch and "@{" not in branch, "unsafe certification branch")
+    require(not branch.endswith(("/", ".")), "unsafe certification branch")
+    return branch
+
+
+def certify(source_sha: str, run_id: int, branch: str | None = None) -> dict:
     require(bool(SHA.fullmatch(source_sha)), "full lowercase source SHA required")
-    require(
-        command("git", "branch", "--show-current") == BRANCH, "wrong mission branch"
-    )
+    current_branch = command("git", "branch", "--show-current")
+    branch = validate_branch(branch or current_branch)
+    require(current_branch == branch, "wrong mission branch")
     require(
         command("git", "rev-parse", "HEAD") == source_sha,
         "local HEAD differs from requested SHA",
@@ -283,7 +290,7 @@ def certify(source_sha: str, run_id: int) -> dict:
         "working tree must be clean including untracked files",
     )
     remote = command(
-        "git", "ls-remote", "--exit-code", "origin", f"refs/heads/{BRANCH}"
+        "git", "ls-remote", "--exit-code", "origin", f"refs/heads/{branch}"
     )
     require(remote.split()[0] == source_sha, "local SHA differs from remote branch")
     governance = protected_ci(source_sha)
@@ -332,7 +339,7 @@ def certify(source_sha: str, run_id: int) -> dict:
     )
     require(
         command(
-            "git", "ls-remote", "--exit-code", "origin", f"refs/heads/{BRANCH}"
+            "git", "ls-remote", "--exit-code", "origin", f"refs/heads/{branch}"
         ).split()[0]
         == source_sha,
         "remote changed during certification",
@@ -353,6 +360,7 @@ def certify(source_sha: str, run_id: int) -> dict:
         "run_id": run_id,
         "artifact_id": artifact["id"],
         "artifact_digest": artifact["digest"],
+        "branch": branch,
         "deployment_authorized": False,
     }
 
@@ -361,10 +369,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--run-id", required=True, type=int)
+    parser.add_argument("--branch", help="Expected non-main source branch; defaults to current branch")
     args = parser.parse_args()
     try:
         require(args.run_id > 0, "positive Actions run ID required")
-        report = certify(args.source_sha, args.run_id)
+        report = certify(args.source_sha, args.run_id, args.branch)
     except (
         ValueError,
         OSError,

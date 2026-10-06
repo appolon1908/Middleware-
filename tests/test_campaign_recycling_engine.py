@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import hashlib
+import json
 from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
@@ -88,6 +90,7 @@ def engine(profile: str = "test") -> CampaignRecyclingEngine:
 
 
 def delivery_event(**overrides):
+    explicit_payload_hash = "payload_hash" in overrides
     value = {
         "schema_version": "1.0",
         "automated_suspected": False,
@@ -116,6 +119,18 @@ def delivery_event(**overrides):
     value.update(overrides)
     if value["event_type"] in {"soft_bounce", "hard_bounce"}:
         value["bounce_class"] = "soft" if value["event_type"] == "soft_bounce" else "hard"
+    if not explicit_payload_hash:
+        canonical = dict(value)
+        canonical.pop("received_at", None)
+        canonical.pop("payload_hash", None)
+        value["payload_hash"] = hashlib.sha256(
+            json.dumps(
+                canonical,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
     return value
 
 
@@ -848,7 +863,47 @@ async def test_delivery_event_source_channel_pair_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_delivery_event_rejects_mismatched_canonical_payload_hash() -> None:
+    store = PostgresCampaignRecyclingStore(FakePool(FakeConn()))
+    event = delivery_event(payload_hash="0" * 64)
+    with pytest.raises(CampaignRecyclingConflict, match="canonical event"):
+        await store.apply_delivery_event(event, policy=PolicyProfile.load("test"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "event",
+    [
+        delivery_event(source="vicidial", channel="email", event_type="delivered", origin=None),
+        delivery_event(source="vicidial", channel="voice", event_type="hard_bounce", origin=None),
+        delivery_event(source="odoo", channel="email", event_type="delivered", origin=None),
+    ],
+)
+async def test_delivery_event_provider_authority_fails_closed(event: dict) -> None:
+    store = PostgresCampaignRecyclingStore(FakePool(FakeConn()))
+    with pytest.raises(CampaignRecyclingConflict):
+        await store.apply_delivery_event(event, policy=PolicyProfile.load("test"))
+
+
+@pytest.mark.asyncio
+async def test_odoo_conversion_truth_is_accepted_by_authority_gate() -> None:
+    event = delivery_event(
+        source="odoo",
+        channel="email",
+        event_type="conversion",
+        origin=None,
+    )
+    conn = FakeConn()
+    conn.fetchrow_results = [{"id": 9, "projection_state": "pending"}, None]
+    result = await PostgresCampaignRecyclingStore(FakePool(conn)).apply_delivery_event(
+        event, policy=PolicyProfile.load("test")
+    )
+    assert result["projection_state"] == "partial"
+
+
+@pytest.mark.asyncio
 async def test_delivery_event_exact_replay_returns_duplicate() -> None:
+    event = delivery_event()
     conn = FakeConn()
     conn.fetchrow_results = [
         None,
@@ -856,7 +911,7 @@ async def test_delivery_event_exact_replay_returns_duplicate() -> None:
             "id": 7,
             "source": "klyrow",
             "event_id": "evt-mcr-00000001",
-            "payload_hash": "e" * 64,
+            "payload_hash": event["payload_hash"],
             "origin_inbox": "klyrow_delivery_event_inbox",
             "origin_event_id": "raw-1",
             "projection_state": "applied",
@@ -864,7 +919,7 @@ async def test_delivery_event_exact_replay_returns_duplicate() -> None:
     ]
     store = PostgresCampaignRecyclingStore(FakePool(conn))
     result = await store.apply_delivery_event(
-        delivery_event(), policy=PolicyProfile.load("test")
+        event, policy=PolicyProfile.load("test")
     )
     assert result == {
         "event_id": "evt-mcr-00000001",

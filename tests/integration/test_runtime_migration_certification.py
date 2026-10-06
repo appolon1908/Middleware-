@@ -12,7 +12,7 @@ import pytest
 
 from scripts import migrate_runtime as runner
 from scripts.production_migration_authority import validate_authority
-from scripts.runtime_sql_schema import campaign_tables, monitoring_tables
+from scripts.runtime_sql_schema import campaign_tables, mcr_tables, monitoring_tables
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUNTIME_INTEGRATION_TESTS") != "1", reason="disposable PostgreSQL only"
@@ -145,6 +145,20 @@ SQL_CORRUPTIONS.update(
         "monitoring_replay_unique": "ALTER TABLE public.monitoring_operations DROP CONSTRAINT uq_monitoring_operation_replay",
         "monitoring_scope_index": "DROP INDEX public.ix_monitoring_resource_scope",
         "monitoring_tenant_nullability": "ALTER TABLE public.monitoring_events ALTER COLUMN tenant DROP NOT NULL",
+    }
+)
+
+
+SQL_CORRUPTIONS.update(
+    {
+        **{
+            f"missing_{table}": f"DROP TABLE public.{table} CASCADE"
+            for table in mcr_tables(runner.ROOT)
+        },
+        "mcr_delivery_append_only": "ALTER TABLE public.mcr_delivery_events DISABLE TRIGGER mcr_delivery_events_append_only",
+        "mcr_lifecycle_append_only": "ALTER TABLE public.mcr_lead_lifecycle_events DISABLE TRIGGER mcr_lifecycle_events_append_only",
+        "mcr_suppression_append_only": "ALTER TABLE public.mcr_suppressions DISABLE TRIGGER mcr_suppressions_append_only",
+        "mcr_delivery_projection_index": "DROP INDEX public.ix_mcr_delivery_events_projection",
     }
 )
 

@@ -147,7 +147,7 @@ def test_missing_main_protection_is_not_certified(monkeypatch):
 def test_dirty_checkout_stops_before_network(monkeypatch):
     def local(*args):
         if args[1] == "branch":
-            return cert.BRANCH
+            return "repair/mcr-shared-hardening-20260925"
         if args[1] == "rev-parse":
             return SHA
         if args[1] == "status":
@@ -157,6 +157,25 @@ def test_dirty_checkout_stops_before_network(monkeypatch):
     monkeypatch.setattr(cert, "command", local)
     with pytest.raises(ValueError, match="clean"):
         cert.certify(SHA, 123)
+
+
+@pytest.mark.parametrize(
+    "branch",
+    [
+        "../main",
+        "repair//double",
+        "repair/bad@{ref",
+        "repair/trailing.",
+        "repair/trailing/",
+    ],
+)
+def test_unsafe_certification_branch_is_rejected(branch):
+    with pytest.raises(ValueError, match="branch"):
+        cert.validate_branch(branch)
+
+
+def test_safe_successor_branch_is_accepted():
+    assert cert.validate_branch("repair/mcr-shared-hardening-20260925") == "repair/mcr-shared-hardening-20260925"
 
 
 def test_generic_pass_claim_cannot_replace_specific_scenario_assertions():
