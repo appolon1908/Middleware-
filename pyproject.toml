@@ -18,7 +18,7 @@ dependencies = [
   "phonenumbers==9.0.10",
   "prometheus-client==0.22.1",
   "pydantic-settings==2.10.1",
-  "psycopg[binary]==3.2.9",
+  "psycopg[binary]==3.2.13",
   "PyJWT==2.13.0",
   "PyYAML==6.0.3",
   "redis==6.4.0",
