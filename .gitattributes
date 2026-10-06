@@ -6,3 +6,6 @@ security/python312/*.patch -whitespace
 *.yml  text eol=lf
 *.yaml text eol=lf
 *.json text eol=lf
+
+# Migration authority hashes raw bytes; SQL must be checkout-stable.
+*.sql text eol=lf
