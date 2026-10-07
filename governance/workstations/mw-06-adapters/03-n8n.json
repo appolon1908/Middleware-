@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-06-adapters::03-n8n",
+  "product": "middleware",
+  "section": "mw-06-adapters",
+  "subsection": "03-n8n",
+  "branch": "subsection/mw-06-adapters--03-n8n",
+  "parent_branch": "section/mw-06-adapters",
+  "order": 3,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-06-adapters/subsections/03-n8n/repo",
+  "depends_on": [
+    "middleware::mw-03-connectors::05-control-api",
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::05-openapi-postman",
+    "middleware::mw-06-adapters::02-vicidial"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
