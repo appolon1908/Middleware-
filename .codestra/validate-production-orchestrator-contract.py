@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548"
+    "c89cf6b9cac479c20985ce2316449470129163e2b0edf214c47dc11bbab42deb"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -690,7 +690,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
+        ".github/workflows/required-ci.yml": "f2e2dee681f2c1efb84673bec829e6d9d083ead732837451255f930d10c29714",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
