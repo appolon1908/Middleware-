@@ -1,0 +1,118 @@
+name: Manual protected release intent
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase: {description: Normalized portfolio release phase, required: true, type: choice, options: [plan, staging, canary, production]}
+      source_sha: {description: Exact protected default-branch head SHA, required: true, type: string}
+      release_id: {description: Portfolio release identifier, required: true, type: string}
+      candidate_sha256: {description: Exact portfolio candidate file SHA-256, required: true, type: string}
+      images_json: {description: JSON array of exact candidate image digests, required: true, type: string}
+      previous_images_json: {description: JSON array of exact rollback image digests, required: true, type: string}
+      prior_evidence_sha256: {description: Prior evidence SHA-256 or zeroes for plan, required: true, type: string}
+      confirmation: {description: Exact phase confirmation, required: true, type: string}
+
+permissions: {actions: read, checks: read, contents: read}
+concurrency:
+  group: manual-release-intent-${{ inputs.phase }}-${{ inputs.release_id }}
+  cancel-in-progress: false
+defaults: {run: {shell: bash}}
+
+jobs:
+  verify:
+    name: release-intent / exact-head-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      environment: ${{ steps.policy.outputs.environment }}
+      deployment_authority: ${{ steps.policy.outputs.deployment_authority }}
+      evidence_b64: ${{ steps.policy.outputs.evidence_b64 }}
+      evidence_sha256: ${{ steps.policy.outputs.evidence_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {ref: "${{ inputs.source_sha }}", fetch-depth: 0, persist-credentials: false}
+      - id: policy
+        name: Verify contract, exact head, checks, and immutable artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PHASE: ${{ inputs.phase }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_ID: ${{ inputs.release_id }}
+          CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
+          IMAGES_JSON: ${{ inputs.images_json }}
+          PREVIOUS_IMAGES_JSON: ${{ inputs.previous_images_json }}
+          PRIOR_EVIDENCE_SHA256: ${{ inputs.prior_evidence_sha256 }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, re, subprocess
+          from pathlib import Path
+          C=Path('.codestra/production-orchestrator-contract.v1.json')
+          confirms={'plan':'PLAN_RELEASE_INTENT','staging':'APPROVE_STAGING_INTENT','canary':'APPROVE_CANARY_INTENT','production':'APPROVE_PRODUCTION_INTENT'}
+          safety={'external_effects_default','live_email_delivery','live_sms_delivery','live_pstn_dialing','odoo_write','n8n_external_delivery','live_trading','payment_execution'}
+          sha=re.compile(r'^[0-9a-f]{40}$'); digest=re.compile(r'^[0-9a-f]{64}$'); release=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{5,127}$'); image=re.compile(r'^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}$')
+          def req(v,m):
+              if not v: raise SystemExit(m)
+          p=os.environ['PHASE']; s=os.environ['SOURCE_SHA']; r=os.environ['RELEASE_ID']; csum=os.environ['CANDIDATE_SHA256']; prior=os.environ['PRIOR_EVIDENCE_SHA256']
+          req(p in confirms and os.environ['CONFIRMATION']==confirms[p],'confirmation mismatch'); req(sha.fullmatch(s) and s!='0'*40,'invalid source SHA'); req(digest.fullmatch(csum) and csum!='0'*64,'invalid candidate digest'); req(digest.fullmatch(prior),'invalid prior evidence'); req(release.fullmatch(r),'invalid release ID'); req(prior=='0'*64 if p=='plan' else prior!='0'*64,'prior evidence mismatch')
+          req(C.is_file() and not C.is_symlink(),'contract missing or unsafe'); raw=C.read_bytes(); contract=json.loads(raw)
+          req(contract.get('schema_version')=='codestra.production-orchestrator-contract.v1','contract schema mismatch'); req(contract.get('repository')==os.environ['GITHUB_REPOSITORY'],'repository mismatch'); req(contract.get('release_intent_workflow')=='.github/workflows/manual-release-intent.yml','workflow mismatch'); req(contract.get('default_branch')==os.environ['GITHUB_REF_NAME'],'branch mismatch'); req(os.environ['GITHUB_REF']==f"refs/heads/{contract['default_branch']}",'dispatch ref mismatch'); req(subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==s,'checkout mismatch'); req(not subprocess.check_output(['git','status','--porcelain'],text=True).strip(),'dirty workspace')
+          repo=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}"],text=True)); req(repo.get('id')==contract.get('repository_id'),'repository ID mismatch'); req(repo.get('default_branch')==contract.get('default_branch'),'default branch drift'); req(repo.get('archived') is False and repo.get('disabled') is False,'repository unavailable')
+          branch=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/branches/{contract['default_branch']}"],text=True)); req(branch.get('protected') is True,'default branch unprotected'); req(branch.get('commit',{}).get('sha')==s,'source is not protected head')
+          req(isinstance(contract.get('supported_phases'),list) and p in contract['supported_phases'],'phase unsupported'); authority=contract.get('deployment_authority') is True; req(p=='plan' or authority,'not a deployment authority')
+          required=contract.get('required_checks'); req(isinstance(required,list) and all(isinstance(x,str) and x for x in required),'invalid checks'); contexts=branch.get('protection',{}).get('required_status_checks',{}).get('contexts',[]); req(isinstance(contexts,list),'invalid branch checks'); required=sorted(set(required)|set(contexts)); req(required,'no required checks')
+          runs=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/commits/{s}/check-runs?per_page=100"],text=True)).get('check_runs',[]); latest={}
+          for x in sorted(runs,key=lambda y:y.get('completed_at') or y.get('started_at') or ''):
+              if isinstance(x.get('name'),str): latest[x['name']]=x.get('conclusion')
+          states={}
+          for x in json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/commits/{s}/status"],text=True)).get('statuses',[]):
+              if isinstance(x.get('context'),str) and x['context'] not in states: states[x['context']]=x.get('state')
+          missing=[x for x in required if latest.get(x)!='success' and states.get(x)!='success']; req(not missing,f'required exact-head checks not successful: {missing}')
+          if contract.get('require_verified_commit') is True:
+              commit=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/commits/{s}"],text=True)); req(commit.get('commit',{}).get('verification',{}).get('verified') is True,'commit not GitHub-verified')
+          try: images=json.loads(os.environ['IMAGES_JSON']); previous=json.loads(os.environ['PREVIOUS_IMAGES_JSON'])
+          except json.JSONDecodeError as e: raise SystemExit(f'invalid image JSON: {e}')
+          req(isinstance(images,list) and isinstance(previous,list),'images must be arrays'); req(all(isinstance(x,str) and image.fullmatch(x) for x in images),'candidate image not digest-qualified'); req(all(isinstance(x,str) and image.fullmatch(x) for x in previous),'rollback image not digest-qualified'); req(len(images)==len(set(images)) and len(previous)==len(set(previous)),'duplicate image')
+          policy=contract.get('artifact_policy'); req(isinstance(policy,dict),'artifact policy missing'); lo,hi=policy.get('minimum_images'),policy.get('maximum_images'); req(isinstance(lo,int) and isinstance(hi,int) and 0<=lo<=hi and lo<=len(images)<=hi,'image count violates contract'); req(len(previous)==len(images),'rollback image count mismatch'); req(not images or images!=previous,'rollback equals candidate'); req(policy.get('require_digest') is True and policy.get('allow_rebuild_after_staging') is False and policy.get('allow_retag_after_staging') is False,'immutable policy mismatch')
+          safe=contract.get('safety'); req(isinstance(safe,dict) and safety<=set(safe),'safety incomplete')
+          for key in safety: req(safe.get(key) is False,f'{key} must remain false')
+          env=''
+          if p!='plan': env=contract.get('environments',{}).get(p,''); req(env=={'staging':'staging-readonly','canary':'production-readonly-canary','production':'production'}[p],'environment mismatch')
+          evidence={'schema_version':'codestra.normalized-release-intent.v1','repository':os.environ['GITHUB_REPOSITORY'],'repository_id':contract['repository_id'],'role':contract['role'],'phase':p,'release_id':r,'source_sha':s,'candidate_sha256':csum,'prior_evidence_sha256':prior,'contract_sha256':hashlib.sha256(raw).hexdigest(),'required_checks':required,'candidate_images':images,'previous_images':previous,'deployment_authority':authority,'protected_environment':env or None,'protected_environment_approved':False,'runtime_contacted':False,'production_changed':False,'external_effects_enabled':False,'status':'PASS'}; encoded=json.dumps(evidence,sort_keys=True,separators=(',',':')).encode()
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as out: out.write(f'environment={env}\ndeployment_authority={str(authority).lower()}\nevidence_b64={base64.b64encode(encoded).decode()}\nevidence_sha256={hashlib.sha256(encoded).hexdigest()}\n')
+          PY
+  plan-intent:
+    name: release-intent / plan
+    needs: [verify]
+    if: ${{ inputs.phase == 'plan' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - env: {EVIDENCE_B64: "${{ needs.verify.outputs.evidence_b64 }}", EXPECTED_SHA256: "${{ needs.verify.outputs.evidence_sha256 }}"}
+        run: |
+          set -Eeuo pipefail; umask 077
+          printf '%s' "$EVIDENCE_B64" | base64 --decode > "$RUNNER_TEMP/release-intent.json"
+          test "$(sha256sum "$RUNNER_TEMP/release-intent.json" | cut -d' ' -f1)" = "$EXPECTED_SHA256"
+          jq -e '.phase=="plan" and .protected_environment==null and .production_changed==false and .external_effects_enabled==false and .status=="PASS"' "$RUNNER_TEMP/release-intent.json" >/dev/null
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.6.2
+        with: {name: "codestra-release-intent-${{ inputs.phase }}-${{ inputs.source_sha }}", path: "${{ runner.temp }}/release-intent.json", if-no-files-found: error, retention-days: 30}
+  protected-intent:
+    name: release-intent / protected-${{ inputs.phase }}
+    needs: [verify]
+    if: ${{ inputs.phase != 'plan' && needs.verify.outputs.deployment_authority == 'true' }}
+    runs-on: ubuntu-24.04
+    environment: {name: "${{ needs.verify.outputs.environment }}"}
+    steps:
+      - env: {GH_TOKEN: "${{ github.token }}", SOURCE_SHA: "${{ inputs.source_sha }}"}
+        run: |
+          set -Eeuo pipefail
+          branch="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/branches/${branch}" --jq .commit.sha)" = "$SOURCE_SHA"
+      - env: {EVIDENCE_B64: "${{ needs.verify.outputs.evidence_b64 }}", EXPECTED_SHA256: "${{ needs.verify.outputs.evidence_sha256 }}", EXPECTED_ENVIRONMENT: "${{ needs.verify.outputs.environment }}"}
+        run: |
+          set -Eeuo pipefail; umask 077
+          printf '%s' "$EVIDENCE_B64" | base64 --decode > "$RUNNER_TEMP/release-intent.unapproved.json"
+          test "$(sha256sum "$RUNNER_TEMP/release-intent.unapproved.json" | cut -d' ' -f1)" = "$EXPECTED_SHA256"
+          jq --arg e "$EXPECTED_ENVIRONMENT" 'if .protected_environment!=$e or .production_changed!=false or .external_effects_enabled!=false or .status!="PASS" then error("evidence mismatch") else .protected_environment_approved=true end' "$RUNNER_TEMP/release-intent.unapproved.json" > "$RUNNER_TEMP/release-intent.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.6.2
+        with: {name: "codestra-release-intent-${{ inputs.phase }}-${{ inputs.source_sha }}", path: "${{ runner.temp }}/release-intent.json", if-no-files-found: error, retention-days: 30}

@@ -1,0 +1,133 @@
+ARG RUNTIME_BASE=python:3.13.15-slim-bookworm@sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1
+ARG TEST_BASE=python:3.13.15-bookworm@sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13
+ARG FINAL_BASE=gcr.io/distroless/python3-debian13:nonroot@sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33
+
+FROM ${RUNTIME_BASE} AS runtime-dependencies
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+WORKDIR /build
+COPY requirements-runtime.txt ./
+RUN python -m pip install --require-hashes --prefix=/opt/runtime -r requirements-runtime.txt \
+ && PYTHONPATH=/opt/runtime/lib/python3.13/site-packages python -m pip check
+
+FROM ${FINAL_BASE} AS runtime-common
+ARG SOURCE_REPOSITORY=https://github.com/appolon1908-hue/Middleware-
+ARG SOURCE_REVISION
+ARG SOURCE_VERSION
+ARG BUILD_DATE
+ARG GIT_TREE_ID
+LABEL org.opencontainers.image.source="${SOURCE_REPOSITORY}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      org.opencontainers.image.version="${SOURCE_VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="Codestra Middleware" \
+      org.opencontainers.image.vendor="Codestra"
+ENV PYTHONPATH=/opt/runtime/lib/python3.13/site-packages \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    APP_SOURCE_SHA=${SOURCE_REVISION} \
+    APP_VERSION=${SOURCE_VERSION} \
+    BUILD_TIME=${BUILD_DATE} \
+    RELEASE_ID=${SOURCE_VERSION} \
+    CONFIGURATION_CHECKSUM=runtime-injected
+COPY --from=runtime-dependencies /opt/runtime /opt/runtime
+WORKDIR /app
+COPY --chown=65532:65532 app ./app
+COPY --chown=65532:65532 workers ./workers
+COPY --chown=65532:65532 config ./config
+COPY --chown=65532:65532 connectors ./connectors
+COPY --chown=65532:65532 contracts ./contracts
+COPY --chown=65532:65532 migrations ./migrations
+COPY --chown=65532:65532 scripts/migrate_runtime.py ./scripts/migrate_runtime.py
+USER 65532:65532
+
+FROM runtime-common AS runtime
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["/usr/bin/python3.13", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+CMD ["-m", "uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1"]
+
+FROM runtime-common AS worker
+CMD ["-m", "workers.run_outbox"]
+
+FROM ${RUNTIME_BASE} AS connector-dependencies
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+WORKDIR /build
+COPY requirements-connector-runtime.txt ./
+RUN python -m pip install --require-hashes --prefix=/opt/connector -r requirements-connector-runtime.txt
+COPY pyproject.toml ./connector-sdk/pyproject.toml
+COPY middleware ./connector-sdk/middleware
+RUN python -m pip install --no-deps --prefix=/opt/connector ./connector-sdk
+COPY services/connector-runtime/pyproject.toml ./runtime/pyproject.toml
+COPY services/connector-runtime/src ./runtime/src
+RUN python -m pip install --no-deps --prefix=/opt/connector ./runtime \
+ && PYTHONPATH=/opt/connector/lib/python3.13/site-packages python -m pip check
+
+FROM ${FINAL_BASE} AS connector-runtime
+ARG SOURCE_REPOSITORY=https://github.com/appolon1908-hue/Middleware-
+ARG SOURCE_REVISION
+ARG SOURCE_VERSION
+ARG BUILD_DATE
+LABEL org.opencontainers.image.source="${SOURCE_REPOSITORY}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      org.opencontainers.image.version="${SOURCE_VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="Codestra Connector Runtime" \
+      org.opencontainers.image.vendor="Codestra"
+ENV PYTHONPATH=/opt/connector/lib/python3.13/site-packages \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    CONNECTOR_RUNTIME_RELEASE_SHA=${SOURCE_REVISION}
+COPY --from=connector-dependencies /opt/connector /opt/connector
+WORKDIR /app
+COPY --chown=65532:65532 services/connector-runtime/alembic.ini ./alembic.ini
+COPY --chown=65532:65532 services/connector-runtime/migrations ./migrations
+USER 65532:65532
+EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["/usr/bin/python3.13", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2)"]
+CMD ["-m", "uvicorn", "codestra_connector_runtime.main:app", "--host", "0.0.0.0", "--port", "8081", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1"]
+
+FROM ${TEST_BASE} AS test
+ARG SOURCE_REPOSITORY=https://github.com/appolon1908-hue/Middleware-
+ARG SOURCE_REVISION
+ARG SOURCE_VERSION
+ARG BUILD_DATE
+ARG GIT_TREE_ID
+LABEL org.opencontainers.image.source="${SOURCE_REPOSITORY}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      org.opencontainers.image.version="${SOURCE_VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="Codestra Middleware Tests" \
+      org.opencontainers.image.vendor="Codestra"
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    CODESTRA_TEST_SOURCE_SHA=${SOURCE_REVISION} \
+    CODESTRA_TEST_GIT_TREE_ID=${GIT_TREE_ID} \
+    PYTEST_ADDOPTS="-p no:cacheprovider"
+RUN groupadd --system --gid 10001 middleware \
+ && useradd --system --uid 10001 --gid middleware --home-dir /nonexistent middleware
+WORKDIR /app
+COPY requirements-test.txt ./
+RUN python -m pip install --require-hashes -r requirements-test.txt \
+ && python -m pip check \
+ && test "$(openssl version | awk '{print $2}')" = "3.0.20"
+COPY --chown=10001:10001 app ./app
+COPY --chown=10001:10001 workers ./workers
+COPY --chown=10001:10001 middleware ./middleware
+COPY --chown=10001:10001 config ./config
+COPY --chown=10001:10001 connectors ./connectors
+COPY --chown=10001:10001 contracts ./contracts
+COPY --chown=10001:10001 migrations ./migrations
+COPY --chown=10001:10001 scripts ./scripts
+COPY --chown=10001:10001 services ./services
+COPY --chown=10001:10001 tests ./tests
+COPY --chown=10001:10001 docs ./docs
+COPY --chown=10001:10001 deploy ./deploy
+COPY --chown=10001:10001 .github/workflows/production-runtime-certification.yml ./.github/workflows/production-runtime-certification.yml
+COPY --chown=10001:10001 requirements-runtime.in requirements-test.in ./
+COPY --chown=10001:10001 requirements-runtime.txt requirements-test.txt ./
+COPY --chown=10001:10001 Dockerfile.runtime ./Dockerfile.runtime
+COPY --chown=10001:10001 pytest.ini ./pytest.ini
+USER 10001:10001
+ENTRYPOINT ["pytest"]
+CMD ["-q"]

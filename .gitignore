@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+.envrc
+
+# JavaScript tooling, when present
+node_modules/
+.nuxt/
+.output/
+.next/
+coverage/
+
+# Secrets and local configuration
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!*.env.example
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+credentials/
+compose.override.yml
+docker-compose.override.yml
+
+# Runtime and private evidence
+*.log
+*.pid
+logs/
+runtime/
+backups/
+private-evidence/
+*.dump
+*.backup
+*.sql.gz
+*.sql.zst
+*.sqlite
+*.sqlite3
+*.rdb
+*.aof
+*.har
+*.pcap
+*.trace
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+artifacts/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.codestra.co/platform/release-manifest.v1.schema.json",
+  "title": "Codestra Middleware Release Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "release_id", "service", "repository", "source", "image", "runtime", "build", "artifacts", "verification", "promotion"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "release_id": {"type": "string", "pattern": "^[0-9a-f]{12}-[0-9a-f]{12}$"},
+    "service": {"const": "middleware-api"},
+    "repository": {"const": "appolon1908-hue/Middleware-"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_sha", "git_tree_id", "ref"],
+      "properties": {
+        "git_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "git_tree_id": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "ref": {"const": "refs/heads/main"}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "digest", "reference", "platforms", "base_image"],
+      "properties": {
+        "repository": {"const": "ghcr.io/appolon1908-hue/codestra-middleware"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "reference": {"type": "string", "pattern": "^ghcr\\.io/appolon1908-hue/codestra-middleware@sha256:[0-9a-f]{64}$"},
+        "platforms": {"const": ["linux/amd64"]},
+        "base_image": {"const": "gcr.io/distroless/python3-debian13:nonroot@sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_or_migration_head", "runtime_profile_ids", "external_effects_default"],
+      "properties": {
+        "schema_or_migration_head": {"type": "string", "pattern": "^[0-9]{4}_[a-z0-9_]+$"},
+        "runtime_profile_ids": {"const": ["codestra-middleware-production-compose-v1", "codestra-middleware-production-v1", "codestra-middleware-staging-v1"]},
+        "external_effects_default": {"const": "disabled"}
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workflow_path", "workflow_identity", "run_id", "run_attempt", "built_at", "runner_image", "provenance"],
+      "properties": {
+        "workflow_path": {"const": ".github/workflows/release.yml"},
+        "workflow_identity": {"const": "https://github.com/appolon1908-hue/Middleware-/.github/workflows/release.yml@refs/heads/main"},
+        "run_id": {"type": "integer", "minimum": 1},
+        "run_attempt": {"type": "integer", "minimum": 1},
+        "built_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "runner_image": {"const": "ubuntu-24.04"},
+        "provenance": {"const": "buildkit-mode-max"}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependency_input", "dependency_lock", "test_dependency_input", "test_dependency_lock", "dockerfile", "runtime_profiles", "contracts_bundle", "migrations_bundle", "sbom", "vulnerability_report"],
+      "properties": {
+        "dependency_input": {"$ref": "#/$defs/artifact"},
+        "dependency_lock": {"$ref": "#/$defs/artifact"},
+        "test_dependency_input": {"$ref": "#/$defs/artifact"},
+        "test_dependency_lock": {"$ref": "#/$defs/artifact"},
+        "dockerfile": {"$ref": "#/$defs/artifact"},
+        "runtime_profiles": {"$ref": "#/$defs/artifact"},
+        "contracts_bundle": {"$ref": "#/$defs/artifact"},
+        "migrations_bundle": {"$ref": "#/$defs/artifact"},
+        "sbom": {"$ref": "#/$defs/artifact"},
+        "vulnerability_report": {"$ref": "#/$defs/artifact"}
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image_signature", "manifest_signature", "oidc_issuer", "certificate_identity", "transparency_log_required", "vulnerability_policy"],
+      "properties": {
+        "image_signature": {"const": "sigstore-keyless"},
+        "manifest_signature": {"const": "sigstore-keyless-bundle"},
+        "oidc_issuer": {"const": "https://token.actions.githubusercontent.com"},
+        "certificate_identity": {"const": "https://github.com/appolon1908-hue/Middleware-/.github/workflows/release.yml@refs/heads/main"},
+        "transparency_log_required": {"const": true},
+        "vulnerability_policy": {"const": "fail-high-or-critical-with-fix"}
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["staging_and_production_same_digest", "mutable_tags_authoritative"],
+      "properties": {
+        "staging_and_production_same_digest": {"const": true},
+        "mutable_tags_authoritative": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": 200},
+        "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

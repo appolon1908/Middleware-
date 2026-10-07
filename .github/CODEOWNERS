@@ -1,0 +1,11 @@
+# Middleware source and repository policy authority
+* @appolon1908-hue
+
+# Security-sensitive surfaces
+/.github/workflows/ @appolon1908-hue
+/app/ @appolon1908-hue
+/migrations/ @appolon1908-hue
+/contracts/ @appolon1908-hue
+/config/ @appolon1908-hue
+/Dockerfile.runtime @appolon1908-hue
+/requirements-*.txt @appolon1908-hue

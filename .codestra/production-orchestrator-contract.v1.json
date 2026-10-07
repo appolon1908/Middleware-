@@ -1,0 +1,51 @@
+{
+  "schema_version": "codestra.production-orchestrator-contract.v1",
+  "repository": "appolon1908-hue/Middleware-",
+  "repository_id": 1347559071,
+  "default_branch": "main",
+  "role": "transitional-middleware",
+  "release_intent_workflow": ".github/workflows/manual-release-intent.yml",
+  "deployment_authority": false,
+  "require_verified_commit": true,
+  "required_checks": [
+    "validate",
+    "docker-test-build",
+    "docker-runtime-build",
+    "container-security",
+    "Disposable PostgreSQL Redis integration",
+    "Disposable NATS JetStream integration",
+    "Temporal critical workflow integration",
+    "Synthetic no-effect acceptance E2E"
+  ],
+  "supported_phases": [
+    "plan"
+  ],
+  "artifact_policy": {
+    "minimum_images": 0,
+    "maximum_images": 2,
+    "require_digest": true,
+    "allow_rebuild_after_staging": false,
+    "allow_retag_after_staging": false,
+    "require_sbom": false,
+    "require_provenance": false,
+    "require_signature": true
+  },
+  "environments": {},
+  "native_workflows": {
+    "signed_release": ".github/workflows/release.yml",
+    "runtime_certification": ".github/workflows/production-runtime-certification.yml"
+  },
+  "safety": {
+    "external_effects_default": false,
+    "live_email_delivery": false,
+    "live_sms_delivery": false,
+    "live_pstn_dialing": false,
+    "odoo_write": false,
+    "n8n_external_delivery": false,
+    "live_trading": false,
+    "payment_execution": false
+  },
+  "blockers": [
+    "This repository is verified as transitional evidence and is not the canonical production Middleware deployment authority."
+  ]
+}

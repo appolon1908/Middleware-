@@ -1,0 +1,202 @@
+schema_version: "1.0"
+generated_at: "2026-09-02T00:00:00Z"
+canonical_target:
+  repository: appolon1908-hue/Middleware-
+  sha: f3437709c06747249586598590145234ea2c7327
+compared_authorities:
+  live_private:
+    repository: Codestra-SRL/codestra-middleware
+    sha: 2f1c7af41f87c27e2881c3695621ece787b97445
+  control_plane:
+    repository: appolon1908-hue/codestra-production-platform
+    sha: 555884e540f942916c282baff7861cd734a535b7
+classification_values:
+  - IDENTICAL
+  - CANONICAL_HAS
+  - LIVE_PRIVATE_HAS
+  - CONTROL_PLANE_HAS
+  - CONFLICT
+  - OBSOLETE
+rules:
+  canonical_repository_is_only_future_api_and_worker_authority: true
+  production_behavior_must_not_be_deleted_before_compatibility_proof: true
+  secret_or_runtime_data_import_forbidden: true
+  external_effects_during_consolidation: disabled
+capabilities:
+  routes:
+    classification: CONFLICT
+    canonical_evidence: [app/main.py, app/control_api.py, app/domain_api.py, app/operations.py]
+    live_private_evidence: [app/main.py, app/api/v1]
+    control_plane_evidence: [deploy/control-plane, control_plane_service]
+    resolution: Preserve canonical /v1 contract and add authenticated /api/v1 compatibility routes required by the live edge; do not preserve unrelated monolith APIs.
+  openapi:
+    classification: CANONICAL_HAS
+    canonical_evidence: [contracts/platform/middleware-openapi.generated.json, scripts/generate_api_contracts.py, tests/test_generated_api_parity.py]
+    resolution: Canonical generated OpenAPI is authoritative; SDK and edge routes must converge on it.
+  workers:
+    classification: CONFLICT
+    canonical_evidence: [workers/run_outbox.py, workers/run_temporal.py]
+    live_private_evidence: [app/workers, app/entrypoints]
+    control_plane_evidence: [deploy/middleware]
+    resolution: Retain canonical outbox and Temporal workers; port only adapter behavior proven necessary by staging compatibility tests.
+  outbox:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/storage.py, migrations/0001_runtime.sql, migrations/0006_outbox_attempt_events.sql]
+    resolution: Canonical transactional outbox and append-only attempt evidence replace duplicate implementations.
+  inbox:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/storage.py, app/control_api.py, migrations/0001_runtime.sql]
+    resolution: Canonical PostgreSQL inbox remains the sole durable ingress authority.
+  idempotency:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/commands.py, app/storage.py, migrations/0004_operation_control.sql, migrations/0005_durable_control_api.sql]
+    resolution: Canonical semantic request hashes and tenant/caller/action keys are authoritative.
+  policy:
+    classification: CONFLICT
+    canonical_evidence: [app/control_api.py, app/automation_policy.py, config/capabilities.v2.json]
+    live_private_evidence: [app/api/v1/policy_engine.py]
+    resolution: Use the canonical deny-by-default policy and expose compatibility routing without enabling effects.
+  reconciliation:
+    classification: CONFLICT
+    canonical_evidence: [app/control_api.py, app/commands.py, app/storage.py]
+    live_private_evidence: [app/api/v1/lead_reconciliation.py, app/api/v1/n8n_transport.py]
+    resolution: Add canonical detail and guarded resolve APIs over existing reconciliation authority; never auto-repeat ambiguous effects.
+  dead_letters:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/storage.py, workers/temporal_workflows.py, tests/integration/test_postgres_redis.py]
+    resolution: Canonical outbox dead-letter fields and Temporal recovery workflows remain authoritative.
+  quarantine:
+    classification: LIVE_PRIVATE_HAS
+    live_private_evidence: [app/api/v1/quarantine.py]
+    canonical_evidence: [app/control_api.py, migrations/0005_durable_control_api.sql]
+    resolution: Add canonical list/detail/release/discard APIs over existing inbox quarantine fields and append-only control audit.
+  webhooks:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/webhook_api.py, app/main.py, app/security.py, app/replay.py]
+    resolution: Canonical signature, timestamp, bounded body, Redis replay, payload hash, and durable inbox path supersede duplicates.
+  klyrow_email:
+    classification: LIVE_PRIVATE_HAS
+    live_private_evidence: [app/email/api.py, app/email, deploy/klyrow]
+    canonical_evidence: [app/communications.py, tests/integration/test_email_unknown_outcome_reconciliation.py]
+    resolution: Bind the canonical email command to a reviewed Klyrow adapter and durable callback/read-back; do not import provider secrets or the private mail service.
+  odoo:
+    classification: CONFLICT
+    canonical_evidence: [app/odoo_transport.py, app/odoo_provider_adapter.py, app/domain_api.py]
+    live_private_evidence: [app/api/v1/integrations.py, app/api/v1/orchestration.py]
+    control_plane_evidence: [odoo_addons/codestra_middleware_bridge, deploy/odoo]
+    resolution: Keep crm.lead.upsert as the canonical durable boundary and align with protected Odoo addon source; do not import local addons.
+  n8n:
+    classification: CONFLICT
+    canonical_evidence: [app/n8n_control_plane.py, app/domain_api.py, app/automation_policy.py]
+    live_private_evidence: [app/api/v1/n8n_transport.py, app/api/v1/n8n_runtime.py]
+    control_plane_evidence: [n8n/control-plane, deploy/n8n]
+    resolution: Canonical command/operation contract owns effects; n8n owns orchestration only, with result callbacks through durable inbox.
+  vicidial:
+    classification: CONFLICT
+    canonical_evidence: [app/webhook_api.py, app/domain_api.py]
+    live_private_evidence: [app/api/v1/telephony.py, app/api/v1/provider_webhooks.py]
+    control_plane_evidence: [vicidial, deploy/vicidial-restricted-adapter]
+    resolution: Preserve signed callback ingestion and governed telephony operations; keep dialing disabled.
+  sms:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/communications.py, app/domain_api.py, tests/test_communications_sms.py]
+    live_private_evidence: [app/api/v1/provider_webhooks.py]
+    resolution: Canonical durable SMS operations and signed callbacks are authoritative; delivery remains disabled.
+  social:
+    classification: CONFLICT
+    canonical_evidence: [app/domain_api.py, config/capabilities.v2.json]
+    live_private_evidence: [app/api/v1/social.py, app/integrations/postiz]
+    resolution: Retain canonical governed operations; import no direct Postiz write path and keep publishing disabled.
+  marketing:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/domain_api.py, config/provider-operation-policy.json]
+    resolution: Canonical governed campaign operations remain fail closed.
+  ai:
+    classification: CONFLICT
+    canonical_evidence: [app/domain_api.py, config/provider-operation-policy.json]
+    live_private_evidence: [app/api/v1/ai.py, app/api/v1/ai_commands.py]
+    resolution: Canonical durable commands replace direct task APIs; external model calls remain disabled.
+  provisioning:
+    classification: CONFLICT
+    canonical_evidence: [config/control-plane-callers.v1.json, config/provider-operation-policy.json]
+    live_private_evidence: [app/api/v1/telephony.py, app/api/v1/orchestration.py]
+    control_plane_evidence: [campaign_provisioning, control_plane]
+    resolution: Port only approved durable provisioning commands; exclude realm administration and direct provider/database writes.
+  health:
+    classification: IDENTICAL
+    canonical_evidence: [app/main.py]
+    live_private_evidence: [app/main.py]
+    resolution: Canonical /health is authoritative; healthz aliases are deployment compatibility only.
+  readiness:
+    classification: CONFLICT
+    canonical_evidence: [app/main.py, app/runtime.py]
+    live_private_evidence: [app/main.py, app/entrypoints/runtime.py]
+    resolution: Canonical readiness must report durable dependencies and immutable release identity; edge aliases may map to it.
+  metrics:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/main.py, app/metrics.py]
+    live_private_evidence: [app/email/runtime.py]
+    resolution: Canonical process and durable backlog metrics are authoritative.
+  migrations:
+    classification: CONFLICT
+    canonical_evidence: [migrations/0001_runtime.sql, migrations/0006_outbox_attempt_events.sql, scripts/migrate_runtime.py]
+    live_private_evidence: [migrations, migrations/versions]
+    control_plane_evidence: [migrations, migrations/control_plane]
+    resolution: Use canonical sequential raw SQL only; migrate data through reviewed compatibility tooling, never startup auto-migration.
+  db_models:
+    classification: CONFLICT
+    canonical_evidence: [app/storage.py, app/commands.py]
+    live_private_evidence: [app/db]
+    control_plane_evidence: [control_plane, eventing]
+    resolution: Canonical middleware_* ledgers are authoritative; legacy schemas remain read-only until data reconciliation and rollback proof.
+  redis:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/replay.py, app/runtime.py, tests/integration/test_postgres_redis.py]
+    resolution: Redis is replay and coordination authority only, never durable business state.
+  nats:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/nats_transport.py, workers/run_outbox.py, tests/integration/test_nats_jetstream.py]
+    resolution: Canonical JetStream publisher and recovery tests are authoritative; dispatch remains disabled during certification.
+  temporal:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/temporal_workflows.py, workers/run_temporal.py, tests/integration/test_temporal_workflows.py]
+    resolution: Canonical critical workflows and unknown-outcome reconciliation remain authoritative.
+  security:
+    classification: CONFLICT
+    canonical_evidence: [app/control_plane_auth.py, app/security.py, config/control-plane-callers.v1.json]
+    live_private_evidence: [app/core, app/api/v1]
+    control_plane_evidence: [identity, deploy/keycloak, deploy/kong]
+    resolution: Enforce the canonical issuer, middleware-api audience, tenant claim, configured scopes, signed webhooks, and no direct provider bypass.
+  audit:
+    classification: CANONICAL_HAS
+    canonical_evidence: [migrations/0003_immutable_event_ledger.sql, migrations/0004_operation_control.sql, migrations/0005_durable_control_api.sql]
+    resolution: Append-only command, mutation, control, reconciliation, and outbox-attempt evidence is authoritative.
+  runtime_safety_flags:
+    classification: CANONICAL_HAS
+    canonical_evidence: [app/runtime_safety.py, app/main.py, config/environments/production.runtime.env.example]
+    control_plane_evidence: [operations, deploy]
+    resolution: Canonical runtime read-back must prove every external-effect flag disabled throughout consolidation.
+obsolete_boundaries:
+  - capability: direct_provider_write_routes
+    classification: OBSOLETE
+    evidence: [live_private/app/integrations/postiz, live_private/app/api/v1/telephony.py]
+    disposition: Do not migrate; replace with durable command/outbox and provider adapter boundaries.
+  - capability: duplicate_control_plane_api
+    classification: OBSOLETE
+    evidence: [control_plane/control_plane_service]
+    disposition: Retain as rollback-only until canonical staging/cutover succeeds, then remove from active routing.
+  - capability: startup_database_migration
+    classification: OBSOLETE
+    evidence: [live staging compose command]
+    disposition: Replace with explicit pre-deploy migration job and verified restore plan.
+phase_1_result:
+  source_identities_verified: true
+  unknown_classifications: 0
+  canonical_gaps:
+    - authenticated /api/v1 compatibility surface
+    - quarantine list/detail/discard controls
+    - reconciliation detail/resolve controls
+    - reviewed Klyrow provider adapter and durable callback/read-back binding
+    - protected Odoo addon/bridge alignment
+    - SDK generation and contract drift proof
+    - deployment manifests for isolated canonical staging API and worker

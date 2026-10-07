@@ -1,0 +1,191 @@
+name: Signed Middleware Release
+
+on:
+  workflow_run:
+    workflows: ["Middleware CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-middleware-release-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, scan, sign, and verify immutable image
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      IMAGE_REPOSITORY: ghcr.io/appolon1908-hue/codestra-middleware
+      COSIGN_YES: "true"
+
+    steps:
+      - name: Check out the exact CI-accepted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prove release source and initialize immutable metadata
+        id: metadata
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REPOSITORY" = "appolon1908-hue/Middleware-"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          printf 'RELEASE_SOURCE_SHA=%s\n' "$EXPECTED_SOURCE_SHA" >> "$GITHUB_ENV"
+          printf 'RELEASE_GIT_TREE_ID=%s\n' "$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_ENV"
+          printf 'RELEASE_BUILD_TIME=%s\n' "$build_time" >> "$GITHUB_ENV"
+          printf 'RELEASE_EVIDENCE_DIR=%s\n' "$RUNNER_TEMP/codestra-release" >> "$GITHUB_ENV"
+          printf 'source_sha=%s\n' "$EXPECTED_SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          printf 'build_time=%s\n' "$build_time" >> "$GITHUB_OUTPUT"
+          printf 'evidence_dir=%s\n' "$RUNNER_TEMP/codestra-release" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish one provenance-bearing image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: Dockerfile.runtime
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: >-
+            ghcr.io/appolon1908-hue/codestra-middleware:sha-${{ github.event.workflow_run.head_sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          build-args: |
+            SOURCE_REPOSITORY=https://github.com/${{ github.repository }}
+            SOURCE_REVISION=${{ github.event.workflow_run.head_sha }}
+            SOURCE_VERSION=sha-${{ github.event.workflow_run.head_sha }}
+            BUILD_DATE=${{ steps.metadata.outputs.build_time }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Bind published digest for all remaining steps
+        id: image
+        env:
+          BUILT_IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$BUILT_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          mkdir -p "$RELEASE_EVIDENCE_DIR"
+          printf 'RELEASE_IMAGE_DIGEST=%s\n' "$BUILT_IMAGE_DIGEST" >> "$GITHUB_ENV"
+          printf 'RELEASE_IMAGE_REFERENCE=%s@%s\n' "$IMAGE_REPOSITORY" "$BUILT_IMAGE_DIGEST" >> "$GITHUB_ENV"
+          printf 'RELEASE_SBOM_PATH=%s\n' "$RELEASE_EVIDENCE_DIR/middleware.spdx.json" >> "$GITHUB_ENV"
+          printf 'RELEASE_SCAN_PATH=%s\n' "$RELEASE_EVIDENCE_DIR/middleware.grype.json" >> "$GITHUB_ENV"
+          printf 'RELEASE_MANIFEST_PATH=%s\n' "$RELEASE_EVIDENCE_DIR/release-manifest.v1.json" >> "$GITHUB_ENV"
+          printf 'RELEASE_BUNDLE_PATH=%s\n' "$RELEASE_EVIDENCE_DIR/release-manifest.v1.sigstore.json" >> "$GITHUB_ENV"
+          printf 'digest=%s\n' "$BUILT_IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
+          printf 'reference=%s@%s\n' "$IMAGE_REPOSITORY" "$BUILT_IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
+          printf 'sbom=%s\n' "$RELEASE_EVIDENCE_DIR/middleware.spdx.json" >> "$GITHUB_OUTPUT"
+          printf 'scan=%s\n' "$RELEASE_EVIDENCE_DIR/middleware.grype.json" >> "$GITHUB_OUTPUT"
+
+      - name: Generate exact-image SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ steps.image.outputs.reference }}
+          format: spdx-json
+          output-file: ${{ steps.image.outputs.sbom }}
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Reject fixable high or critical vulnerabilities
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+        with:
+          sbom: ${{ steps.image.outputs.sbom }}
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: json
+          output-file: ${{ steps.image.outputs.scan }}
+
+      - name: Create canonical release manifest
+        env:
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/release_manifest.py create \
+            --source-sha "$RELEASE_SOURCE_SHA" \
+            --git-tree-id "$RELEASE_GIT_TREE_ID" \
+            --image-digest "$RELEASE_IMAGE_DIGEST" \
+            --built-at "$RELEASE_BUILD_TIME" \
+            --run-id "$RELEASE_RUN_ID" \
+            --run-attempt "$RELEASE_RUN_ATTEMPT" \
+            --sbom "$RELEASE_SBOM_PATH" \
+            --vulnerability-report "$RELEASE_SCAN_PATH" \
+            --output "$RELEASE_MANIFEST_PATH"
+
+      - name: Install verified Cosign release
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.6
+
+      - name: Keylessly sign image, SBOM attestation, and manifest
+        run: |
+          set -Eeuo pipefail
+          cosign sign --yes \
+            --annotations "codestra.source_sha=$RELEASE_SOURCE_SHA" \
+            --annotations "codestra.schema_head=0009_observability_incidents" \
+            "$RELEASE_IMAGE_REFERENCE"
+          cosign attest --yes \
+            --predicate "$RELEASE_SBOM_PATH" \
+            --type spdxjson \
+            "$RELEASE_IMAGE_REFERENCE"
+          cosign sign-blob --yes \
+            --bundle "$RELEASE_BUNDLE_PATH" \
+            "$RELEASE_MANIFEST_PATH"
+
+      - name: Verify signer identity and every release binding
+        run: |
+          set -Eeuo pipefail
+          SIGNER_IDENTITY='https://github.com/appolon1908-hue/Middleware-/.github/workflows/release.yml@refs/heads/main'
+          OIDC_ISSUER='https://token.actions.githubusercontent.com'
+          cosign verify \
+            --certificate-identity "$SIGNER_IDENTITY" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            "$RELEASE_IMAGE_REFERENCE"
+          cosign verify-attestation \
+            --type spdxjson \
+            --certificate-identity "$SIGNER_IDENTITY" \
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            "$RELEASE_IMAGE_REFERENCE" >/dev/null
+          python3 scripts/release_manifest.py verify \
+            --manifest "$RELEASE_MANIFEST_PATH" \
+            --bundle "$RELEASE_BUNDLE_PATH" \
+            --expected-source-sha "$RELEASE_SOURCE_SHA" \
+            --expected-image-digest "$RELEASE_IMAGE_DIGEST"
+
+      - name: Preserve immutable release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-middleware-release-${{ github.event.workflow_run.head_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.metadata.outputs.evidence_dir }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
