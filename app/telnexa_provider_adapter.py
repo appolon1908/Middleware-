@@ -24,6 +24,15 @@ class TelnexaProviderAdapterError(RuntimeError):
     pass
 
 
+class TelnexaUnknownOutcomeError(TelnexaProviderAdapterError):
+    """The SMS may have been accepted and read-back did not settle it.
+
+    Raised only after the submission left the process; never retried blindly.
+    Every other :class:`TelnexaProviderAdapterError` is raised before sending
+    or reports a conclusive provider refusal.
+    """
+
+
 @lru_cache(maxsize=1)
 def _telnexa_sms_command_validator() -> Draft202012Validator:
     """Enforce the local SMS specialization without resolving its remote base ref."""
@@ -283,14 +292,19 @@ class TelnexaSmsAdapter:
     async def _reconcile_unknown_submission(
         self, request: CommandExecutionRequest, reason: str
     ) -> ActivityResult:
-        result = await self.readback(request)
+        try:
+            result = await self.readback(request)
+        except Exception as exc:  # noqa: BLE001 - a failed read-back leaves the submission unknown
+            raise TelnexaUnknownOutcomeError(
+                f"Telnexa outcome unknown ({reason}); read-only reconciliation failed"
+            ) from exc
         if result.status == "matched":
             return ActivityResult(
                 status="accepted",
                 detail=f"Telnexa outcome was unknown ({reason}); read-only GET confirmed durable acceptance",
                 provider_operation_id=result.provider_operation_id,
             )
-        raise TelnexaProviderAdapterError(
+        raise TelnexaUnknownOutcomeError(
             f"Telnexa outcome unknown ({reason}); {result.detail}"
         )
 

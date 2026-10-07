@@ -134,7 +134,7 @@ async def test_exact_hmac_v2_backend_path_and_body(tmp_path):
         })
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
-    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
     result = await adapter.execute(command(grant))
     assert result.status == "accepted"
     request, body = captured[0]
@@ -163,7 +163,7 @@ async def test_timeout_is_unknown_and_never_self_retries(tmp_path):
         attempts += 1
         raise httpx.ReadTimeout("synthetic", request=request)
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
-    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
     with pytest.raises(VicidialInternalCallUnknown):
         await adapter.execute(command(grant))
     assert attempts == 1
@@ -181,7 +181,7 @@ async def test_policy_change_after_enqueue_fails_before_network(tmp_path):
     changed = grant.model_copy(update={"lead_id": 18})
     Path(env["CODESTRA_INTERNAL_CALL_POLICY_FILE"]).write_text(changed.model_dump_json())
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
-    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
     with pytest.raises(VicidialInternalCallPreDispatchRejected, match="changed"):
         await adapter.execute(command(grant))
     assert called is False
@@ -203,7 +203,7 @@ async def test_authenticated_server_policy_denial_is_conclusive_no_effect(tmp_pa
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
     adapter = VicidialInternalCallAdapter(
-        SimpleNamespace(source_sha=SOURCE_SHA), env, client,
+        SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client,
     )
     with pytest.raises(
         VicidialInternalCallPreDispatchRejected,
@@ -223,7 +223,7 @@ async def test_unrecognized_forbidden_response_is_not_conclusive(tmp_path):
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
     adapter = VicidialInternalCallAdapter(
-        SimpleNamespace(source_sha=SOURCE_SHA), env, client,
+        SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client,
     )
     with pytest.raises(VicidialInternalCallError) as caught:
         await adapter.execute(command(grant))
@@ -258,7 +258,7 @@ async def test_policy_loading_failure_is_conclusive_no_send(
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
     adapter = VicidialInternalCallAdapter(
-        SimpleNamespace(source_sha=SOURCE_SHA), env, client,
+        SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client,
     )
     with pytest.raises(
         VicidialInternalCallPreDispatchRejected,
@@ -284,7 +284,7 @@ async def test_request_preparation_failure_is_conclusive_no_send(
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
     adapter = VicidialInternalCallAdapter(
-        SimpleNamespace(source_sha=SOURCE_SHA), env, client,
+        SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client,
     )
     if failure == "origin":
         env.pop("VICIDIAL_INTERNAL_CALL_BASE_URL")
@@ -317,7 +317,7 @@ def test_wrong_identity_is_rejected(field, value, tmp_path):
     request = command(grant)
     actor = request.payload["actor"] | {field: value}
     request = CommandExecutionRequest(**{**request.__dict__, "payload": request.payload | {"actor": actor}})
-    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env,
+    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env,
                                           httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None)))
     with pytest.raises(VicidialInternalCallError):
         adapter._originate(request)
@@ -352,7 +352,7 @@ async def test_hangup_binding_mismatch_fails_before_network(change, tmp_path):
         return httpx.Response(200, request=http_request, json={})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
-    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+    adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
     with pytest.raises(VicidialInternalCallError, match="hangup"):
         await adapter.execute(request)
     assert called is False
@@ -398,7 +398,7 @@ async def test_unverifiable_originate_response_is_unknown_without_retry(tmp_path
                               json=response, headers=headers, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
-        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
         with pytest.raises(VicidialInternalCallUnknown):
             await adapter.execute(command(grant))
     assert len(attempts) == 1
@@ -423,7 +423,7 @@ async def test_hangup_response_must_bind_original_call(tmp_path, field, value):
         return httpx.Response(200, json=result, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
-        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
         with pytest.raises(VicidialInternalCallUnknown, match="acknowledgement"):
             await adapter.execute(hangup_command(grant))
     assert len(attempts) == 1
@@ -442,7 +442,7 @@ async def test_bound_hangup_preserves_unknown_outcome(tmp_path, hangup, status):
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
         result = await VicidialInternalCallAdapter(
-            SimpleNamespace(source_sha=SOURCE_SHA), env, client,
+            SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client,
         ).execute(hangup_command(grant))
     assert result.status == status
     assert result.provider_operation_id == "codestra-unique-1"
@@ -460,7 +460,7 @@ async def test_readback_requires_original_authorization_and_call(tmp_path, field
         return httpx.Response(200, json=lifecycle_evidence(grant) | {field: value}, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
-        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
         with pytest.raises(VicidialInternalCallError, match="binding mismatch"):
             await adapter.readback(hangup_command(grant))
 
@@ -474,7 +474,7 @@ async def test_matching_terminal_readback_succeeds(tmp_path):
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
         result = await VicidialInternalCallAdapter(
-            SimpleNamespace(source_sha=SOURCE_SHA), env, client,
+            SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client,
         ).readback(hangup_command(grant))
     assert result.status == "matched"
     assert result.readback_evidence["authorization_reference"] == grant.authorization_reference
@@ -496,8 +496,28 @@ async def test_unhashable_response_fields_remain_classified(tmp_path, kind, malf
         return httpx.Response(200, json=result, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
-        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA), env, client)
+        adapter = VicidialInternalCallAdapter(SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=True), env, client)
         expected = VicidialInternalCallError if kind == 'denial' else VicidialInternalCallUnknown
         with pytest.raises(expected):
             await adapter.execute(hangup_command(grant) if kind == 'hangup' else command(grant))
     assert len(attempts) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("flag", [False, None, "true"])
+@pytest.mark.parametrize("builder", [command, hangup_command])
+async def test_writes_are_refused_before_any_request_while_the_effect_gate_is_off(tmp_path, flag, builder):
+    """The Temporal activity path reaches this adapter without the kernel
+    Safety Gate, so the adapter enforces VICIDIAL_WRITES_ENABLED itself."""
+    grant, env = environment(tmp_path)
+    requests = []
+
+    async def endpoint(request):
+        requests.append(request)
+        return httpx.Response(200, request=request, json={})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(endpoint))
+    settings = SimpleNamespace(source_sha=SOURCE_SHA, vicidial_writes_enabled=flag)
+    with pytest.raises(VicidialInternalCallPreDispatchRejected, match="VICIDIAL_WRITES_ENABLED"):
+        await VicidialInternalCallAdapter(settings, env, client).execute(builder(grant))
+    assert requests == []

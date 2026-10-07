@@ -339,7 +339,17 @@ class VicidialInternalCallAdapter:
             },
         )
 
+    def _require_writes_enabled(self) -> None:
+        # The adapter enforces its own effect gate: the Temporal activity path
+        # reaches it without the kernel Safety Gate, and VICIDIAL_WRITES_ENABLED
+        # is the switch that gate checks for INTERNAL_TELEPHONY_CALLS.
+        if getattr(self.settings, "vicidial_writes_enabled", False) is not True:
+            raise VicidialInternalCallPreDispatchRejected(
+                "VICIDIAL_WRITES_ENABLED is off"
+            )
+
     async def execute(self, request: CommandExecutionRequest) -> ActivityResult:
+        self._require_writes_enabled()
         if request.command_type == ORIGINATE:
             _, _, document = self._originate(request)
             value = await self._request(

@@ -7,10 +7,16 @@ registry (``connectors/generated/command-registry.v1.json`` through
 prefix, requires readback support wherever the command registry demands it,
 and reports as not ready when an *enabled* capability has no ready adapter.
 The kernel routes only through :meth:`AdapterRegistry.owner_for`.
+
+Every accepted adapter is held behind a
+:class:`~app.platform.conformance.ConformingAdapter`: what the registry hands
+out enforces ownership, tenant binding, the capability effect gate and the
+normalised result contract on every call.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any, Iterable
@@ -24,6 +30,7 @@ from app.platform.adapter import (
     AdapterReadiness,
     assert_adapter,
 )
+from app.platform.conformance import ConformingAdapter, unwrap
 
 logger = logging.getLogger("codestra.platform.registry")
 
@@ -54,7 +61,7 @@ class AdapterRegistry:
     # Registration
     # ------------------------------------------------------------------
     def register(self, candidate: object) -> Adapter:
-        adapter = assert_adapter(candidate)
+        adapter = assert_adapter(unwrap(candidate))
         adapter.validate_config()
         advertised = adapter.capabilities()
         if advertised.adapter_id != adapter.adapter_id:
@@ -90,10 +97,11 @@ class AdapterRegistry:
             )
         for policy in owned:
             self._owners[policy.prefix] = adapter.adapter_id
-        self._adapters[adapter.adapter_id] = adapter
+        guarded = ConformingAdapter(adapter, policies=self.policies, advertised=advertised)
+        self._adapters[adapter.adapter_id] = guarded
         self._advertised[adapter.adapter_id] = advertised
         self._validated = False
-        return adapter
+        return guarded
 
     def register_all(self, adapters: Iterable[object]) -> None:
         for adapter in adapters:
@@ -170,7 +178,11 @@ class AdapterRegistry:
         report: dict[str, AdapterReadiness] = {}
         for adapter_id, adapter in sorted(self._adapters.items()):
             try:
-                report[adapter_id] = await adapter.readiness(context)
+                report[adapter_id] = await asyncio.wait_for(adapter.readiness(context), timeout=context.timeout_seconds)
+            except asyncio.TimeoutError:
+                # A hung probe must not hang the readiness endpoint with it.
+                logger.warning("adapter_readiness_timeout", extra={"adapter": adapter_id})
+                report[adapter_id] = AdapterReadiness(ready=False, detail="readiness_timeout")
             except Exception as exc:  # readiness must never raise into the probe
                 logger.warning("adapter_readiness_failed", extra={"adapter": adapter_id, "error": type(exc).__name__})
                 report[adapter_id] = AdapterReadiness(ready=False, detail=type(exc).__name__)

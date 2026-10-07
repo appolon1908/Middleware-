@@ -23,6 +23,7 @@ Rules every adapter follows (enforced by the conformance suite):
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Mapping, Protocol, runtime_checkable
@@ -95,6 +96,10 @@ class AdapterContext:
     # The persisted command payload, for readback/reconcile/cancel (the
     # operation view carries no payload).
     payload: Mapping[str, Any] = field(default_factory=dict)
+    # The client the command was authenticated as (bound into the idempotency
+    # digest at submission). Bridges whose provider checks caller provenance
+    # pass it through; ``None`` when the kernel did not supply it.
+    authenticated_client_id: str | None = None
 
     def outbound_headers(self) -> dict[str, str]:
         """Correlation and trace propagation for every provider request."""
@@ -227,13 +232,21 @@ def classify_transport_error(error: BaseException) -> ErrorClass:
     timeout, reset or unexpected exception once bytes may have left the
     process is ambiguous (fail closed).
     """
-    if isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout)):
+    if isinstance(error, httpx.HTTPStatusError):
+        # ``raise_for_status``: the provider answered, so the status decides.
+        status_code = error.response.status_code
+        return error_class_for(classify_status(status_code), status_code) or ErrorClass.AMBIGUOUS
+    if isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+        # No connection was established (or none acquired from the pool).
         return ErrorClass.RETRYABLE_BEFORE_EFFECT
-    if isinstance(error, (httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout, httpx.RemoteProtocolError, httpx.ReadError, httpx.WriteError)):
+    if isinstance(error, (httpx.ReadTimeout, httpx.WriteTimeout, httpx.RemoteProtocolError, httpx.ReadError, httpx.WriteError)):
         return ErrorClass.AMBIGUOUS
     if isinstance(error, httpx.TransportError):
         return ErrorClass.AMBIGUOUS
     if isinstance(error, (asyncio.TimeoutError, TimeoutError)):
+        return ErrorClass.AMBIGUOUS
+    if isinstance(error, (json.JSONDecodeError, UnicodeDecodeError)):
+        # ValueError subclasses raised while reading an answer: the request was sent.
         return ErrorClass.AMBIGUOUS
     if isinstance(error, (AdapterConfigurationError, ValueError, TypeError, KeyError)):
         # Deterministic validation/programming errors: nothing was sent.
@@ -249,15 +262,31 @@ def classify_status(status_code: int) -> Outcome:
         return Outcome.COMPLETED
     if status_code == 202:
         return Outcome.ACCEPTED
-    if status_code in {408, 425, 429, 502, 503, 504}:
+    if status_code in {408, 425, 429, 503}:
+        # The provider refused before processing (timeout reading the request,
+        # too early, rate limited, unavailable): retryable.
         return Outcome.TRANSIENT
     if 400 <= status_code < 500:
         return Outcome.REJECTED
     if status_code >= 500:
         # A 5xx after the request reached the provider is ambiguous: the
-        # provider may have applied the effect before failing to answer.
+        # provider may have applied the effect before failing to answer. That
+        # includes 502/504, where a gateway already forwarded the request.
         return Outcome.UNKNOWN
     return Outcome.UNKNOWN
+
+
+def error_class_for(outcome: Outcome, status_code: int | None = None) -> ErrorClass | None:
+    """The error class that goes with an outcome (``None`` for an acknowledgement)."""
+    if outcome in {Outcome.ACCEPTED, Outcome.COMPLETED}:
+        return None
+    if outcome is Outcome.TRANSIENT:
+        return ErrorClass.PROVIDER_RATE_LIMITED if status_code == 429 else ErrorClass.RETRYABLE_BEFORE_EFFECT
+    if outcome is Outcome.REJECTED:
+        return ErrorClass.PROVIDER_AUTH if status_code in {401, 403} else ErrorClass.NON_RETRYABLE
+    if outcome is Outcome.UNSUPPORTED:
+        return ErrorClass.UNSUPPORTED
+    return ErrorClass.AMBIGUOUS
 
 
 class BaseAdapter:
@@ -327,15 +356,7 @@ class BaseAdapter:
                 return AdapterResult(
                     outcome,
                     provider_operation_id=str(reference) if reference is not None else None,
-                    error_class=(
-                        None
-                        if outcome in {Outcome.ACCEPTED, Outcome.COMPLETED}
-                        else ErrorClass.AMBIGUOUS
-                        if outcome is Outcome.UNKNOWN
-                        else ErrorClass.RETRYABLE_BEFORE_EFFECT
-                        if outcome is Outcome.TRANSIENT
-                        else ErrorClass.NON_RETRYABLE
-                    ),
+                    error_class=error_class_for(outcome, status_code),
                     safe_error_code=None if outcome in {Outcome.ACCEPTED, Outcome.COMPLETED} else f"provider_http_{status_code}",
                 )
         return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code="unnormalizable_result")

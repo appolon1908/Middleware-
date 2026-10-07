@@ -28,6 +28,7 @@ from app.platform.adapter import AdapterConfigurationError, ReadbackStatus
 from app.platform.adapters.fixtures import FixtureAdapter, development_fixtures
 from app.platform.adapters.fixtures import test_syn_adapter as synthetic_adapter
 from app.platform.bus import AdapterDispatch, BusSettings
+from app.platform.conformance import unwrap
 from app.platform.kernel import (
     KernelSaturated,
     MemoryDenialAuditSink,
@@ -570,6 +571,41 @@ async def test_chaos_worker_crash_after_commit_produces_no_duplicate_effect(harn
 # ----------------------------------------------------------------------------
 # reconciliation
 # ----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_adapters_receive_the_authenticated_client_on_execute_and_reconcile(harness: Harness) -> None:
+    seen: list[tuple[str, str | None]] = []
+    adapter = unwrap(harness.test_syn)
+    execute, reconcile = adapter.execute, adapter.reconcile
+
+    async def recording_execute(command: CommandEnvelope, context: Any) -> Any:
+        seen.append(("execute", context.authenticated_client_id))
+        return await execute(command, context)
+
+    async def recording_reconcile(operation: Any, context: Any) -> Any:
+        seen.append(("reconcile", context.authenticated_client_id))
+        return await reconcile(operation, context)
+
+    adapter.execute = recording_execute  # type: ignore[method-assign]
+    adapter.reconcile = recording_reconcile  # type: ignore[method-assign]
+    command = envelope(payload={"fixture": "unknown"})
+    await harness.submit(command)
+    await harness.bus.run_once()
+    harness.bus.expire_leases()
+    await harness.reconciler.run_once()
+    assert seen == [("execute", "middleware-api"), ("reconcile", "middleware-api")]
+    assert await harness.commands.load_authenticated_client_id(TENANT, command.command_id) == "middleware-api"
+
+
+@pytest.mark.asyncio
+async def test_a_pre_provenance_command_reports_no_authenticated_client() -> None:
+    store = MemoryCommandStore()
+    command = envelope()
+    await store.submit(command, authenticated_client_id="middleware-api")
+    store._payloads[(TENANT, command.command_id)].pop("_authenticated_client_id")
+    assert await store.load_authenticated_client_id(TENANT, command.command_id) is None
+    assert (await store.load_envelope(TENANT, command.command_id)).command_id == command.command_id
+
+
 @pytest.mark.asyncio
 async def test_reconciler_completes_matched_and_requeues_not_found(harness: Harness) -> None:
     unknown = envelope(payload={"fixture": "unknown"})

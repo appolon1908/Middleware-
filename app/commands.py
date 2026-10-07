@@ -406,6 +406,12 @@ def command_envelope_from_payload(payload: Mapping[str, Any]) -> CommandEnvelope
     return CommandEnvelope.model_validate(public)
 
 
+def authenticated_client_id_from_payload(payload: Mapping[str, Any]) -> str | None:
+    """The client the command was authenticated as (``None`` for a pre-provenance row)."""
+    value = payload.get(AUTHENTICATED_CLIENT_ID_KEY)
+    return value if isinstance(value, str) and value else None
+
+
 class CommandStore(Protocol):
     async def submit(
         self,
@@ -460,6 +466,9 @@ class CommandStore(Protocol):
         ...
 
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
+        ...
+
+    async def load_authenticated_client_id(self, tenant_id: str, command_id: UUID) -> str | None:
         ...
 
     async def backlog(self, tenant_id: str) -> tuple[int, int]:
@@ -553,6 +562,10 @@ class MemoryCommandStore:
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
         await self.get(tenant_id, command_id)
         return command_envelope_from_payload(self._payloads[(tenant_id, command_id)])
+
+    async def load_authenticated_client_id(self, tenant_id: str, command_id: UUID) -> str | None:
+        await self.get(tenant_id, command_id)
+        return authenticated_client_id_from_payload(self._payloads[(tenant_id, command_id)])
 
     async def backlog(self, tenant_id: str) -> tuple[int, int]:
         active = [entry[1] for entry in self._commands.values() if entry[1].state in ACTIVE_COMMAND_STATES]
@@ -1418,7 +1431,7 @@ class PostgresCommandStore:
             )
         return int(newest or 0)
 
-    async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
+    async def _load_payload(self, tenant_id: str, command_id: UUID) -> dict[str, Any]:
         async with self.pool.acquire() as conn:
             raw = await conn.fetchval(
                 "SELECT payload FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
@@ -1427,8 +1440,13 @@ class PostgresCommandStore:
             )
         if raw is None:
             raise CommandNotFound("command operation was not found")
-        payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
-        return command_envelope_from_payload(payload)
+        return json.loads(raw) if isinstance(raw, str) else dict(raw)
+
+    async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
+        return command_envelope_from_payload(await self._load_payload(tenant_id, command_id))
+
+    async def load_authenticated_client_id(self, tenant_id: str, command_id: UUID) -> str | None:
+        return authenticated_client_id_from_payload(await self._load_payload(tenant_id, command_id))
 
     async def backlog(self, tenant_id: str) -> tuple[int, int]:
         async with self.pool.acquire() as conn:
@@ -1695,4 +1713,5 @@ class CommandService:
     async def reconcile(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.reconcile(*args, **kwargs)
     async def latest_attempt(self, tenant_id: str, command_id: UUID) -> int: return await self.store.latest_attempt(tenant_id, command_id)
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope: return await self.store.load_envelope(tenant_id, command_id)
+    async def load_authenticated_client_id(self, tenant_id: str, command_id: UUID) -> str | None: return await self.store.load_authenticated_client_id(tenant_id, command_id)
     async def backlog(self, tenant_id: str) -> tuple[int, int]: return await self.store.backlog(tenant_id)
