@@ -1,0 +1,24 @@
+{
+  "workstation": "middleware::mw-02-command-kernel::03-idempotency",
+  "product": "middleware",
+  "section": "mw-02-command-kernel",
+  "subsection": "03-idempotency",
+  "branch": "subsection/mw-02-command-kernel--03-idempotency",
+  "parent_branch": "section/mw-02-command-kernel",
+  "order": 3,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-02-command-kernel/subsections/03-idempotency/repo",
+  "depends_on": [
+    "middleware::mw-01-foundation::03-lifecycle",
+    "middleware::mw-02-command-kernel::02-ledger"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

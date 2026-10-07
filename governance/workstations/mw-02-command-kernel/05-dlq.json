@@ -1,0 +1,24 @@
+{
+  "workstation": "middleware::mw-02-command-kernel::05-dlq",
+  "product": "middleware",
+  "section": "mw-02-command-kernel",
+  "subsection": "05-dlq",
+  "branch": "subsection/mw-02-command-kernel--05-dlq",
+  "parent_branch": "section/mw-02-command-kernel",
+  "order": 5,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-02-command-kernel/subsections/05-dlq/repo",
+  "depends_on": [
+    "middleware::mw-01-foundation::03-lifecycle",
+    "middleware::mw-02-command-kernel::04-retry"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "202365917d3541d56031898392647ff0b88e337fb21f0bb5f4c14093816ccbbf"
+    "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -489,7 +489,7 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
         ),
         "scripts/nats_integration_ci.sh": "88d843c665cece68e0fb56a931c295ee10490446cad7b64d9f5356c1cbf7263d",
         "scripts/project_ci.sh": "12a529ea96f39baec5f1eeb287209dc9db355e5dca000cbbfd7494303501b2ae",
-        "scripts/release_manifest.py": "b306ecaa24d74675fb18aac6a3287fbe09b78571c48a32d1eb80bea82c14df1c",
+        "scripts/release_manifest.py": "92515822529d4d8ceab6233391ab812e7c9a20761e119d8907eb7ea2f474f32b",
         "scripts/run_ci.sh": "64d7c92279dd442144c7e1f74c3e48f0ab5d5db105238a534dcf8ccd99e93138",
         "scripts/synthetic_acceptance_ci.sh": "087dac2c5371f2013fa0a8dd22ed4024409ab5015231fb8801c75cf3203e3a8a",
         "scripts/temporal_integration_ci.sh": "76a682cc1f5b15a0a3eb15a029d87206238dfe4a262eaf5fa2c79403f147d4d6",
@@ -654,6 +654,10 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 }
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
+        ".github/workflows/codestra-hierarchy-governance.yml": (
+            "1fd7ab66359de998f5d0ee892d969c15"
+            "ec52954b583d540f7b8f5cb8d864b1dc"
+        ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
             "b09dbfc841ca3eaf7fe13c381bcd1659"
