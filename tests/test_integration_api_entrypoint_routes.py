@@ -72,6 +72,7 @@ def sign(
         "iss": issuer,
         "aud": audience,
         "azp": azp,
+        "sub": f"service-account-{azp}",
         "iat": now,
         "nbf": now,
         "exp": now + expires_in,

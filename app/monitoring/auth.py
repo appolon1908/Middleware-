@@ -9,7 +9,15 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.core.jwt_auth import JWTAuthError, KeycloakValidator, identity_validator_kwargs
+from app.core.jwt_auth import (
+    JWTAuthError,
+    KeycloakValidator,
+    TokenAccessDenied,
+    TokenInvalidError,
+    identity_validator_kwargs,
+    raise_auth_http,
+    realm_roles,
+)
 
 bearer = HTTPBearer(auto_error=False)
 ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
@@ -50,38 +58,30 @@ def require(scope: str, roles: frozenset[str] = READ_ROLES):
             claims = KeycloakValidator(
                 **identity_validator_kwargs(identity, required_scopes=frozenset({scope}))
             ).validate(credential.credentials)
-            subject, tenant = claims.get("sub"), claims.get("tenant_id")
-            raw_roles = claims.get("realm_access", {}).get("roles", [])
+            tenant = claims.get("tenant_id")
+            raw_roles = realm_roles(claims)
             campaigns, services = (
                 claims.get("campaigns", []),
                 claims.get("services", []),
             )
-            if (
-                not isinstance(subject, str)
-                or not subject.strip()
-                or len(subject) > 255
-            ):
-                raise JWTAuthError("subject")
             if not isinstance(tenant, str) or not ID.fullmatch(tenant):
-                raise JWTAuthError("tenant")
-            if not isinstance(claims.get("scope"), str):
-                raise JWTAuthError("scope")
+                raise TokenAccessDenied("tenant claim required", reason="tenant")
             for collection in (raw_roles, campaigns, services):
-                if not isinstance(collection, list) or not all(
+                if not isinstance(collection, (list, set)) or not all(
                     isinstance(v, str) and ID.fullmatch(v) for v in collection
                 ):
-                    raise JWTAuthError("claims")
+                    raise TokenInvalidError("claims malformed", reason="malformed_claims")
             if not roles.intersection(raw_roles):
-                raise JWTAuthError("role")
-            return Principal(
-                subject,
-                tenant,
-                frozenset(raw_roles),
-                frozenset(campaigns),
-                frozenset(services),
-                claims["azp"],
-            )
-        except (JWTAuthError, ValueError, TypeError, AttributeError):
-            raise HTTPException(403, "monitoring authority denied") from None
+                raise TokenAccessDenied("monitoring role denied", reason="role")
+        except JWTAuthError as exc:
+            raise_auth_http(exc, denied_detail="monitoring authority denied")
+        return Principal(
+            claims["sub"],
+            tenant,
+            frozenset(raw_roles),
+            frozenset(campaigns),
+            frozenset(services),
+            claims["azp"],
+        )
 
     return authorize

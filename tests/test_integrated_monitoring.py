@@ -587,10 +587,11 @@ def test_signature_scope_and_tenant_enforcement(system):
     )
     token = system.auth()
     token["Authorization"] = token["Authorization"][:-12] + "not-valid"
-    assert c.get("/v1/observability/overview", headers=token).status_code == 403
+    # Tampered signature and expired token are invalid tokens: 401.
+    assert c.get("/v1/observability/overview", headers=token).status_code == 401
     assert (
         c.get("/v1/observability/overview", headers=system.auth(exp=1)).status_code
-        == 403
+        == 401
     )
 
 
@@ -912,7 +913,7 @@ def test_existing_entrypoints_use_jwt_route_auth_without_shared_secret(system, m
                     "/v1/observability/topology",
                     headers={"Authorization": "Bearer shared-secret"},
                 ).status_code
-                == 403
+                == 401
             )
             assert client.get("/v1/observability/topology").status_code == 401
     finally:

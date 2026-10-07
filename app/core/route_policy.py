@@ -60,7 +60,16 @@ INTEGRATION_SERVICE_JWT_ROUTES: tuple[tuple[str, str, re.Pattern[str], str, str]
     ),
 )
 
+# Callback JWT routes (``app.api.v1.callbacks``, ``Depends(principal)``):
+# reads under ``/api/v1/callbacks`` and writes under ``/api/v1/control/callbacks``.
+# Method-bound on purpose: ``POST /api/v1/callbacks`` and
+# ``PATCH /api/v1/callbacks/{id}`` belong to ``app.api.v1.control``, which does
+# not authenticate in its handler, so they stay behind the shared-secret guard.
 CALLBACK_JWT_PATH = re.compile(r"^/api/v1/(?:control/)?callbacks(?:/.*)?$")
+CALLBACK_JWT_READ_PATH = re.compile(rf"^/api/v1/callbacks(?:/{PUBLIC_ID}(?:/{PUBLIC_ID})?)?$")
+CALLBACK_JWT_WRITE_PATH = re.compile(
+    rf"^/api/v1/control/callbacks(?:/{PUBLIC_ID}(?:/(?:snooze|reschedule|cancel|complete|start|call-now|reassign))?)?$"
+)
 
 
 def is_n8n_service_jwt_route(method: str, path: str) -> bool:
@@ -76,7 +85,17 @@ def is_integration_service_jwt_route(method: str, path: str) -> bool:
 
 
 def is_callback_jwt_path(path: str) -> bool:
+    """The callback path family (any method); not an authentication decision."""
     return CALLBACK_JWT_PATH.fullmatch(path) is not None
+
+
+def is_callback_jwt_route(method: str, path: str) -> bool:
+    upper = method.upper()
+    if upper == "GET":
+        return CALLBACK_JWT_READ_PATH.fullmatch(path) is not None
+    if upper in {"POST", "PATCH"}:
+        return CALLBACK_JWT_WRITE_PATH.fullmatch(path) is not None
+    return False
 
 
 def handler_authenticated(method: str, path: str) -> bool:
@@ -85,7 +104,7 @@ def handler_authenticated(method: str, path: str) -> bool:
         is_n8n_service_jwt_route(method, path)
         or (method.upper(), path) in ODOO_SERVICE_JWT_ROUTES
         or is_integration_service_jwt_route(method, path)
-        or is_callback_jwt_path(path)
+        or is_callback_jwt_route(method, path)
     )
 
 
