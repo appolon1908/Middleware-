@@ -29,6 +29,23 @@ def test_legacy_open_pr_exception_is_bounded_and_expires() -> None:
     assert exception_reason(POLICY, head, "main", today=date(2026, 10, 16)) is None
 
 
+def test_stacked_legacy_pr_exception_is_exact_and_bounded() -> None:
+    reason = exception_reason(
+        POLICY,
+        "convergence/middleware-saas-certified-20261005",
+        "fix/source-hygiene-post430-20261005",
+        today=date(2026, 10, 7),
+    )
+    assert reason is not None
+    assert reason.startswith("migration:pre-hierarchy-open-pr-434:")
+    assert exception_reason(
+        POLICY,
+        "convergence/middleware-saas-certified-20261005",
+        "main",
+        today=date(2026, 10, 7),
+    ) is None
+
+
 def test_unlisted_direct_to_main_branch_remains_blocked() -> None:
     assert exception_reason(
         POLICY,

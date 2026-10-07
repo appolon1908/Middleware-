@@ -45,6 +45,12 @@
       "reason": "pre-hierarchy-open-pr-432"
     },
     {
+      "head": "convergence/middleware-saas-certified-20261005",
+      "base": "fix/source-hygiene-post430-20261005",
+      "expires_on": "2026-10-15",
+      "reason": "pre-hierarchy-open-pr-434"
+    },
+    {
       "head": "trust/governance-control-plane-successor-20261007",
       "base": "main",
       "expires_on": "2026-10-15",
