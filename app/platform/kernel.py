@@ -443,7 +443,8 @@ class CommandKernel:
             idempotency_key=idempotency_key, reason=reason,
         )
         if replay_request.replay_command_id is not None:
-            return await self.commands.get(tenant_id, replay_request.replay_command_id)
+            existing = await self.commands.get(tenant_id, replay_request.replay_command_id)
+            return existing.model_copy(update={"duplicate": True})
         envelope = await self.commands.load_envelope(tenant_id, operation_id)
         replayed = envelope.model_copy(
             update={

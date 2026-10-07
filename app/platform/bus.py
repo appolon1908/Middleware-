@@ -269,7 +269,11 @@ class AdapterDispatch:
         except Exception as exc:
             # Readiness runs before execute, so no provider effect can exist yet.
             logger.warning("adapter_readiness_failed", extra={"adapter": adapter.adapter_id, "error": type(exc).__name__})
-            raise KnownSafeRetryError(f"adapter readiness unavailable: {type(exc).__name__}") from exc
+            await self._defer(
+                operation,
+                outbox_attempt,
+                f"adapter readiness unavailable: {type(exc).__name__}",
+            )
         decision = self.safety.evaluate(
             SafetySubject(
                 tenant_id=operation.tenant_id,

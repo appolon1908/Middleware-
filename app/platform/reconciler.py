@@ -201,7 +201,6 @@ class Reconciler:
                         new_state="queued",
                         actor_id=self.reconciler_id,
                         reason="repairing exhausted dispatch budget",
-                        expected_version=operation.resource_version,
                     )
                 await self.commands.transition(
                     claim.tenant_id,
@@ -209,7 +208,6 @@ class Reconciler:
                     new_state="dead_lettered",
                     actor_id=self.reconciler_id,
                     reason="dispatch retry budget exhausted",
-                    expected_version=operation.resource_version,
                 )
                 await self.source.resolve(
                     claim,
@@ -240,7 +238,6 @@ class Reconciler:
                 new_state="reconciliation_required",
                 actor_id=self.reconciler_id,
                 reason="recovering expired dispatch quarantine",
-                expected_version=operation.resource_version,
             )
             self.metrics.lease_expirations.inc()
         if operation.state != "reconciliation_required":
@@ -317,6 +314,7 @@ class Reconciler:
         family = operation.command_type.split(".", 1)[0]
         exhausted = (
             claim.reconciliation_attempts >= self.budget
+            or claim.dispatch_attempts >= self.max_dispatch_attempts
             or readback.status is ReadbackStatus.UNSUPPORTED
         )
 
@@ -341,7 +339,6 @@ class Reconciler:
                 actor_id=actor,
                 reason="reconciliation proved no provider effect; re-queued",
                 expected_attempt=attempt,
-                expected_version=operation.resource_version,
             )
             await self.source.resolve(
                 claim,
