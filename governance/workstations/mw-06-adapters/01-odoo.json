@@ -1,0 +1,25 @@
+{
+  "workstation": "middleware::mw-06-adapters::01-odoo",
+  "product": "middleware",
+  "section": "mw-06-adapters",
+  "subsection": "01-odoo",
+  "branch": "subsection/mw-06-adapters--01-odoo",
+  "parent_branch": "section/mw-06-adapters",
+  "order": 1,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-06-adapters/subsections/01-odoo/repo",
+  "depends_on": [
+    "middleware::mw-03-connectors::05-control-api",
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::05-openapi-postman"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
