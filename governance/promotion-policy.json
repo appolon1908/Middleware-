@@ -57,6 +57,36 @@
       "head": "dependabot/pip/mako-1.4.2",
       "base": "main",
       "expires": "2026-10-15"
+    },
+    {
+      "head": "sync/agent01-mw02-command-kernel-20261007-api",
+      "base": "section/mw-02-command-kernel",
+      "expires": "2026-10-15"
+    },
+    {
+      "head": "sync/agent02-mw03-connectors-20261007-api",
+      "base": "section/mw-03-connectors",
+      "expires": "2026-10-15"
+    },
+    {
+      "head": "sync/agent03-mw04-identity-20261007-api",
+      "base": "section/mw-04-identity",
+      "expires": "2026-10-15"
+    },
+    {
+      "head": "sync/agent04-mw05-api-20261007-api",
+      "base": "section/mw-05-api",
+      "expires": "2026-10-15"
+    },
+    {
+      "head": "sync/agent05-mw06-adapters-20261007-api",
+      "base": "section/mw-06-adapters",
+      "expires": "2026-10-15"
+    },
+    {
+      "head": "sync/agent06-mw07-provisioning-20261007-api",
+      "base": "section/mw-07-provisioning",
+      "expires": "2026-10-15"
     }
   ],
   "protected": [
