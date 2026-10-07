@@ -12,6 +12,11 @@
       "required_job": "Disposable PostgreSQL Redis integration"
     },
     {
+      "path": "tests/test_agent_provisioning_lifecycle.py",
+      "gate": "DATABASE_URL",
+      "required_job": "Disposable PostgreSQL Redis integration"
+    },
+    {
       "path": "tests/test_agent_provisioning_reads.py",
       "gate": "DATABASE_URL",
       "required_job": "Disposable PostgreSQL Redis integration"

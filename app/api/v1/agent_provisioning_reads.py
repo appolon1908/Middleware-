@@ -61,12 +61,23 @@ router = APIRouter(prefix="/platform/v1", tags=["agent-provisioning-reads"])
 # taken directly from _run_channel_provisioning_step's actual _add_step calls
 # in app.api.v1.agent_provisioning - not the spec's assumed names.
 _CHANNEL_SYSTEMS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "phone": ("vicidial", ("sync_agent", "reserve_extension", "adopt_extension", "provision_phone")),
-    "webrtc": ("vicidial", ("provision_webrtc",)),
+    "phone": (
+        "vicidial",
+        (
+            "sync_agent", "reserve_extension", "adopt_extension", "provision_phone",
+            "disable_agent",
+        ),
+    ),
+    "webrtc": ("vicidial", ("provision_webrtc", "revoke_webrtc")),
     "email": ("klyrow", ("provision_sender_identity",)),
     "sms": ("telnexa", ("provision_sender_profile",)),
-    "odoo": ("keycloak", ("create_user",)),
+    "odoo": ("keycloak", ("create_user", "disable_user", "enable_user")),
 }
+# A succeeded deprovision step means the channel's access was removed.
+_DEPROVISION_OPERATIONS = frozenset({"disable_agent", "revoke_webrtc", "disable_user"})
+# Lifecycle states in which no channel grants effective access, whatever
+# the provider step history says.
+_ACCESS_WITHDRAWN_STATES = frozenset({"SUSPENDED", "REVOKED"})
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
@@ -139,7 +150,11 @@ def _channel_state(
         "desired_enabled": desired_enabled,
         "requested_state": latest.operation,
         "provisioned_state": latest.state,
-        "effective_access": latest.state == "succeeded",
+        "effective_access": (
+            latest.state == "succeeded"
+            and latest.operation not in _DEPROVISION_OPERATIONS
+            and request.state not in _ACCESS_WITHDRAWN_STATES
+        ),
         "provider": system,
         "provider_reference": latest.external_reference,
         "last_error_code": latest.error_code,
@@ -203,8 +218,10 @@ async def get_user(
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    # Authorize the requested tenant before touching the database, so a
+    # caller cannot learn whether an employee exists in another tenant.
+    require_tenant_match(principal, tenant_id)
     request = await _latest_request(session, tenant_id, employee_id)
-    require_tenant_match(principal, request.tenant_id)
     steps = await _steps_for(session, request)
     view = _public_view(request, steps)
     view["employee_id"] = request.employee_id
@@ -219,8 +236,10 @@ async def get_user_campaigns(
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    # Authorize the requested tenant before touching the database, so a
+    # caller cannot learn whether an employee exists in another tenant.
+    require_tenant_match(principal, tenant_id)
     request = await _latest_request(session, tenant_id, employee_id)
-    require_tenant_match(principal, request.tenant_id)
     return {
         "employee_id": request.employee_id,
         "tenant_id": request.tenant_id,
@@ -236,8 +255,10 @@ async def get_user_entitlements(
     principal: ProvisioningPrincipal = Depends(require_provisioning_scope("identity.request")),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    # Authorize the requested tenant before touching the database, so a
+    # caller cannot learn whether an employee exists in another tenant.
+    require_tenant_match(principal, tenant_id)
     request = await _latest_request(session, tenant_id, employee_id)
-    require_tenant_match(principal, request.tenant_id)
     steps = await _steps_for(session, request)
     return {
         "employee_id": request.employee_id,
