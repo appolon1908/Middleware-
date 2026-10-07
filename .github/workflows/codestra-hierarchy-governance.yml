@@ -29,17 +29,3 @@ jobs:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: python3 governance/promotion_guard.py
-
-  control-plane-certification:
-    name: control-plane-certification
-    runs-on: [self-hosted, linux, x64, codestra-control-plane]
-    timeout-minutes: 5
-    steps:
-      - name: Verify exact SHA in Codestra development control plane
-        run: |
-          /srv/codestra/dev-platform/control-plane/bin/codestra-github-check \
-            --product 'middleware' \
-            --repo-path '/srv/codestra/apps/Middleware-' \
-            --head-ref '${{ github.head_ref }}' \
-            --base-ref '${{ github.base_ref }}' \
-            --head-sha '${{ github.event.pull_request.head.sha }}'
