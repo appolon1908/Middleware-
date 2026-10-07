@@ -32,13 +32,13 @@ from typing import Any, Protocol
 from contextlib import AbstractAsyncContextManager
 from uuid import UUID
 
-from app.commands import CommandNotFound, CommandService, redact_metadata
+from app.commands import CommandConflict, CommandNotFound, CommandService, redact_metadata
 from app.core.config import Settings
 from app.storage import DEFAULT_MAX_OUTBOX_ATTEMPTS
 from app.platform.adapter import AdapterContext, ReadbackResult, ReadbackStatus
 from app.platform.metrics import KernelMetrics
 from app.platform.registry import AdapterRegistry
-from app.platform.bus import worker_identity
+from app.platform.bus import status_readback, worker_identity
 
 logger = logging.getLogger("codestra.platform.reconciler")
 
@@ -88,6 +88,7 @@ class ReconciliationDecision:
     readback: ReadbackResult | None
     action: str
     final_state: str
+    drift_class: str | None = None
 
 
 class Reconciler:
@@ -138,6 +139,24 @@ class Reconciler:
             decision = await self.run_once()
             if decision is None:
                 await asyncio.sleep(poll_seconds)
+
+    async def _fenced_reconcile(self, claim: ReconciliationClaim, operation: Any, **kwargs: Any) -> bool:
+        """Record a read-back verdict only against the version that was read.
+
+        The adapter read-back runs outside any lock; if a worker, operator or
+        another reconciler changed the operation meanwhile, the verdict is
+        stale. Release the claim instead so the next pass re-reads it.
+        """
+        try:
+            await self.commands.reconcile(
+                claim.tenant_id, claim.command_id, expected_version=operation.resource_version, **kwargs,
+            )
+        except CommandConflict:
+            await self.source.release(
+                claim, reconciler_id=self.reconciler_id, reason="operation changed during read-back; verdict discarded",
+            )
+            return False
+        return True
 
     async def _reconcile(self, claim: ReconciliationClaim) -> ReconciliationDecision:
         try:
@@ -247,8 +266,14 @@ class Reconciler:
                 claim.command_id, None, None, "release", operation.state
             )
         adapter = self.registry.adapter(ownership.adapter_id)
+        advertised = self.registry.advertised(ownership.adapter_id)
         attempt = await self.commands.latest_attempt(claim.tenant_id, claim.command_id)
         envelope = await self.commands.load_envelope(claim.tenant_id, claim.command_id)
+        if envelope.target not in adapter.capabilities().connector_ids:
+            reason = "connector unavailable during reconciliation"
+            await self.commands.transition(claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=self.reconciler_id, reason=reason)
+            await self.source.resolve(claim, reconciler_id=self.reconciler_id, action="dead_letter", reason=reason)
+            return ReconciliationDecision(claim.command_id, adapter.adapter_id, None, "dead_letter", "dead_lettered")
         context = AdapterContext(
             tenant_id=operation.tenant_id,
             command_id=str(operation.command_id),
@@ -265,12 +290,16 @@ class Reconciler:
         ).inc()
         started = time.perf_counter()
         try:
-            readback = await asyncio.wait_for(
-                adapter.reconcile(operation, context), timeout=self.timeout_seconds
-            )
+            # The provider status surface is the cheapest proof of a failed
+            # asynchronous operation; otherwise the connector's reconcile hook
+            # performs the deeper lookup.
+            readback = await status_readback(adapter, operation, context, pending_is_unavailable=False)
+            if readback is None:
+                readback = await asyncio.wait_for(adapter.reconcile(operation, context), timeout=self.timeout_seconds)
         except Exception as exc:  # noqa: BLE001
             readback = ReadbackResult(
-                ReadbackStatus.UNAVAILABLE, safe_error_code=type(exc).__name__
+                ReadbackStatus.UNAVAILABLE, provider_operation_id=operation.provider_operation_id,
+                evidence={"retry_hint": "reconcile"}, safe_error_code=type(exc).__name__,
             )
         finally:
             self.metrics.adapter_latency.labels(
@@ -292,40 +321,19 @@ class Reconciler:
         )
 
         if readback.status is ReadbackStatus.MATCHED:
-            await self.commands.reconcile(
-                claim.tenant_id,
-                claim.command_id,
-                matched=True,
-                actor_id=actor,
-                reason="reconciliation read-back matched",
-                provider_operation_id=readback.provider_operation_id,
-                evidence=evidence,
-                expected_version=operation.resource_version,
-            )
-            await self.source.resolve(
-                claim,
-                reconciler_id=actor,
-                action="complete",
-                reason="reconciliation read-back matched",
-            )
-            self.metrics.reconciliation_decisions.labels(
-                adapter=adapter.adapter_id, result="completed"
-            ).inc()
-            self.metrics.commands_completed.labels(
-                command_family=family, adapter=adapter.adapter_id
-            ).inc()
-            return ReconciliationDecision(
-                claim.command_id, adapter.adapter_id, readback, "complete", "completed"
-            )
+            if not await self._fenced_reconcile(
+                claim, operation, matched=True, actor_id=actor,
+                reason="reconciliation read-back matched", provider_operation_id=readback.provider_operation_id, evidence=evidence,
+            ):
+                return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "release", operation.state, "operation_changed_during_readback")
+            await self.source.resolve(claim, reconciler_id=actor, action="complete", reason="reconciliation read-back matched")
+            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="completed").inc()
+            self.metrics.commands_completed.labels(command_family=family, adapter=adapter.adapter_id).inc()
+            return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "complete", "completed")
 
-        if (
-            readback.status is ReadbackStatus.NOT_FOUND
-            and claim.dispatch_attempts >= self.max_dispatch_attempts
-        ):
-            exhausted = True
-
-        if readback.status is ReadbackStatus.NOT_FOUND and not exhausted:
-            # The provider has no trace of the effect: re-executing is safe.
+        if readback.status is ReadbackStatus.NOT_FOUND and not exhausted and advertised.safe_reexecution:
+            # Absence is repairable only when the adapter explicitly advertises
+            # that repeating the provider effect is safe.
             await self.commands.transition(
                 claim.tenant_id,
                 claim.command_id,
@@ -347,21 +355,36 @@ class Reconciler:
             return ReconciliationDecision(
                 claim.command_id, adapter.adapter_id, readback, "retry", "queued"
             )
+            await self.source.resolve(claim, reconciler_id=actor, action="retry", reason="reconciliation proved no provider effect")
+            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="requeued").inc()
+            return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "retry", "queued", "provider_missing_repairable")
+
+        if readback.status is ReadbackStatus.NOT_FOUND and not advertised.safe_reexecution:
+            if not await self._fenced_reconcile(
+                claim, operation, matched=False, actor_id=actor,
+                reason="provider state missing; automatic repair is not safe",
+                provider_operation_id=readback.provider_operation_id, evidence=evidence,
+            ):
+                return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "release", operation.state, "operation_changed_during_readback")
+            reason = "provider state missing and adapter does not permit safe automatic re-execution"
+            await self.commands.transition(
+                claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=actor, reason=reason,
+            )
+            await self.source.resolve(claim, reconciler_id=actor, action="dead_letter", reason=reason)
+            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="missing_unsafe").inc()
+            self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
+            return ReconciliationDecision(
+                claim.command_id, adapter.adapter_id, readback, "dead_letter", "dead_lettered",
+                "provider_missing_manual_repair",
+            )
 
         if readback.status is ReadbackStatus.MISMATCH:
-            operation = await self.commands.reconcile(
-                claim.tenant_id,
-                claim.command_id,
-                matched=False,
-                actor_id=actor,
-                reason="reconciliation read-back mismatch",
-                provider_operation_id=readback.provider_operation_id,
-                evidence=evidence,
-                expected_version=operation.resource_version,
-            )
-            self.metrics.reconciliation_decisions.labels(
-                adapter=adapter.adapter_id, result="mismatch"
-            ).inc()
+            if not await self._fenced_reconcile(
+                claim, operation, matched=False, actor_id=actor,
+                reason="reconciliation read-back mismatch", provider_operation_id=readback.provider_operation_id, evidence=evidence,
+            ):
+                return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "release", operation.state, "operation_changed_during_readback")
+            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="mismatch").inc()
         else:
             self.metrics.reconciliation_decisions.labels(
                 adapter=adapter.adapter_id, result=readback.status.value.lower()
@@ -372,29 +395,17 @@ class Reconciler:
                 reason = f"provider read-back unsupported ({readback.safe_error_code or 'no read surface'}); operator verification required"
             else:
                 reason = f"reconciliation budget exhausted after {readback.status.value.lower()}"
-            await self.commands.transition(
-                claim.tenant_id,
-                claim.command_id,
-                new_state="dead_lettered",
-                actor_id=actor,
-                reason=reason,
-                expected_version=operation.resource_version,
+            await self.commands.transition(claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=actor, reason=reason)
+            await self.commands.record_dead_letter(
+                claim.tenant_id, claim.command_id, actor_id=actor,
+                reason_code="reconciliation_exhausted" if readback.status is not ReadbackStatus.UNSUPPORTED else "readback_unsupported",
+                error_class=readback.status.value.lower(), terminal_reason=reason,
+                retry_exhausted=readback.status is not ReadbackStatus.UNSUPPORTED,
             )
-            await self.source.resolve(
-                claim, reconciler_id=actor, action="dead_letter", reason=reason
-            )
-            self.metrics.commands_failed.labels(
-                command_family=family,
-                adapter=adapter.adapter_id,
-                result="dead_lettered",
-            ).inc()
-            return ReconciliationDecision(
-                claim.command_id,
-                adapter.adapter_id,
-                readback,
-                "dead_letter",
-                "dead_lettered",
-            )
+            await self.source.resolve(claim, reconciler_id=actor, action="dead_letter", reason=reason)
+            self.metrics.retry_exhaustions.inc()
+            self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
+            return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "dead_letter", "dead_lettered")
 
         await self.source.release(
             claim,

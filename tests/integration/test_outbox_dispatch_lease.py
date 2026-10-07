@@ -214,11 +214,49 @@ async def test_active_dispatch_heartbeat_renews_same_owner_from_database_time(
     assert state["reconciliation_required"] is True
     assert float(state["remaining_seconds"]) > 20.0
 
-    assert (
-        await store.claim(
-            worker_id="worker-other",
-            lease_seconds=30,
-            max_attempts=3,
+    assert await store.claim(
+        worker_id="worker-other",
+        lease_seconds=30,
+        max_attempts=3,
+    ) is None
+
+
+@pytest.mark.asyncio
+async def test_reclaimed_outbox_fencing_rejects_stale_worker_completion(
+    pool: asyncpg.Pool,
+) -> None:
+    async with pool.acquire() as conn:
+        row_id = await conn.fetchval(
+            """
+            INSERT INTO middleware_outbox
+              (tenant_id,destination,event_type,payload,idempotency_key)
+            VALUES ('tenant-test','sandbox-provider','codestra.test.delivery','{}'::jsonb,
+                    'delivery-fencing-reclaim')
+            RETURNING id
+            """
         )
-        is None
+    store = PostgresOutboxStore(pool)
+    first = await store.claim(worker_id="worker-old", lease_seconds=1, max_attempts=3)
+    assert first is not None and first.id == row_id
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE middleware_outbox SET lease_until=now()-interval '1 second' WHERE id=$1",
+            row_id,
+        )
+    second = await store.claim(worker_id="worker-new", lease_seconds=30, max_attempts=3)
+    assert second is not None and second.id == row_id
+    assert second.fencing_token == first.fencing_token + 1
+
+    from app.storage import StorageError
+    with pytest.raises(StorageError, match="ownership"):
+        await store.complete(
+            row_id,
+            worker_id="worker-old",
+            fencing_token=first.fencing_token,
+        )
+
+    await store.complete(
+        row_id,
+        worker_id="worker-new",
+        fencing_token=second.fencing_token,
     )

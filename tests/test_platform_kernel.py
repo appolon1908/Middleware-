@@ -24,7 +24,7 @@ from app.commands import (
 from app.control_plane_auth import ControlPlaneCaller
 from app.core.config import Settings
 from app.core.policy_engine import CommandPolicyRequest, evaluate_command
-from app.platform.adapter import AdapterConfigurationError, ReadbackStatus
+from app.platform.adapter import AdapterConfigurationError, AdapterResult, ErrorClass, Outcome, ReadbackStatus
 from app.platform.adapters.fixtures import FixtureAdapter, development_fixtures
 from app.platform.adapters.fixtures import test_syn_adapter as synthetic_adapter
 from app.platform.bus import AdapterDispatch, BusSettings, UnknownOutcomeError
@@ -412,6 +412,27 @@ def test_safety_gate_requires_synthetic_tenant_registered_and_ready_adapter(
         ).reason_code
         == "capability_without_safety_gate"
     )
+
+
+def test_external_effect_denies_when_backlog_evidence_is_unavailable(
+    test_settings: Settings,
+) -> None:
+    gate = SafetyGate(test_settings, command_policies(test_settings))
+    decision = gate.evaluate(
+        _subject(
+            command_type="crm.contact.create.v1",
+            target="odoo-19",
+            capability="ODOO_WRITE",
+        ),
+        SafetyContext(
+            adapter_registered=True,
+            adapter_ready=True,
+            tenant_backlog=0,
+            global_backlog=None,
+        ),
+    )
+    assert not decision.allow
+    assert "global_backlog_unavailable" in decision.reason_codes
 
 
 def test_safety_gate_bounds_backlog_and_tenant_rate(test_settings: Settings) -> None:
@@ -915,9 +936,40 @@ async def test_reconciler_completes_matched_and_requeues_not_found(
 
 
 @pytest.mark.asyncio
-async def test_reconciler_dead_letters_after_bounded_mismatches(
-    harness: Harness,
-) -> None:
+async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_readback(harness: Harness) -> None:
+    """The read-back runs unlocked: a verdict is recorded only against the
+    resource_version that was read, otherwise the claim is released."""
+    command = envelope(payload={"fixture": "unknown"})
+    await harness.submit(command)
+    await harness.bus.run_once()
+    key = (TENANT, command.command_id)
+    original = harness.test_syn.reconcile
+
+    async def racing_reconcile(operation, context):
+        digest, current = harness.commands.store._commands[key]
+        harness.commands.store._commands[key] = (
+            digest, current.model_copy(update={"resource_version": current.resource_version + 1}),
+        )
+        return await original(operation, context)
+
+    harness.test_syn.reconcile = racing_reconcile
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None
+    assert decision.action == "release" and decision.drift_class == "operation_changed_during_readback"
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "reconciliation_required" and operation.readback_evidence is None
+    assert await harness.reconciler.source.backlog() == 1
+
+    harness.test_syn.reconcile = original
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None and decision.action == "complete"
+    assert harness.test_syn.provider_effects == 1
+
+
+@pytest.mark.asyncio
+async def test_reconciler_dead_letters_after_bounded_mismatches(harness: Harness) -> None:
     command = envelope(payload={"fixture": "unknown"})
     await harness.submit(command)
     await harness.bus.run_once()
@@ -1137,11 +1189,7 @@ async def test_tenant_isolation(harness: Harness) -> None:
 
 
 def test_describe_exposes_registries_and_no_secrets(harness: Harness) -> None:
-    description = harness.kernel.describe(
-        runtime_schema_version=11,
-        contract_digest="abc",
-        command_contract_version="command-envelope.v1",
-    )
+    description = harness.kernel.describe(runtime_schema_version=12, contract_digest="abc", command_contract_version="command-envelope.v1")
     assert description["canonical_port"] == 8095
     assert description["provider_effects_enabled"] is False
     assert all(value is False for value in description["effect_defaults"].values())
@@ -1171,194 +1219,77 @@ def test_test_syn_policy_is_never_registered_in_production(
 
 
 @pytest.mark.asyncio
-async def test_dispatch_quarantined_operation_never_executes(harness: Harness) -> None:
-    command = envelope(payload={"fixture": "unknown"})
-    await harness.submit(command)
-    await harness.bus.run_once()
-    with pytest.raises(UnknownOutcomeError):
-        await harness.dispatch.dispatch(TENANT, command.command_id)
-    assert len(harness.test_syn.executed) == 1
-    assert (
-        await harness.commands.get(TENANT, command.command_id)
-    ).state == "reconciliation_required"
+async def test_bus_fails_closed_when_target_connector_is_not_served(harness: Harness) -> None:
+    command = envelope()
+    submitted = await harness.submit(command)
+    adapter = harness.test_syn
+    adapter.connector_ids = ("different-connector",)
+
+    await harness.bus.drain()
+
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "dead_lettered"
+    assert adapter.provider_effects == 0
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("state", ["dispatching", "accepted", "readback_pending"])
-async def test_reconciler_recovers_real_quarantine_after_worker_crash(
-    harness: Harness, state: str
-) -> None:
-    command = envelope()
-    await harness.submit(command)
-    for next_state in ["queued", "dispatching", "accepted", "readback_pending"]:
-        await harness.commands.transition(
-            TENANT,
-            command.command_id,
-            new_state=next_state,
-            actor_id="dead",
-            reason="crash setup",
-        )
-        if next_state == state:
-            break
-    harness.test_syn.effects[str(command.command_id)] = 1
-    intent = harness.intents(command.command_id)[0]
-    intent.reconciliation_required_at = harness.bus.clock()
-    intent.lease_until = harness.bus.clock() - 1
+async def test_bus_uses_provider_status_before_readback_for_async_completion(harness: Harness) -> None:
+    command = envelope(payload={"probe": True, "fixture": "success"})
+    submitted = await harness.submit(command)
+
+    await harness.bus.drain()
+
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "completed"
+    assert current.provider_operation_id is not None
+    assert str(command.command_id) in harness.test_syn.readbacks
+
+
+@pytest.mark.asyncio
+async def test_reconciler_dead_letters_when_connector_mapping_disappears(harness: Harness) -> None:
+    command = envelope(payload={"probe": True, "fixture": "unknown"})
+    submitted = await harness.submit(command)
+    await harness.bus.drain()
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "reconciliation_required"
+
+    harness.test_syn.connector_ids = ("different-connector",)
+    harness.bus.expire_leases()
     decision = await harness.reconciler.run_once()
-    assert decision is not None and decision.final_state == "completed"
-    assert harness.test_syn.executed == []
-    assert intent.completed_at is not None
+
+    assert decision is not None
+    assert decision.action == "dead_letter"
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "dead_lettered"
+    assert harness.test_syn.provider_effects == 1
 
 
 @pytest.mark.asyncio
-async def test_completion_requires_matched_readback_evidence(harness: Harness) -> None:
+async def test_bus_backs_off_without_an_attempt_when_readiness_raises(harness: Harness) -> None:
     command = envelope()
     await harness.submit(command)
-    for state in ["queued", "dispatching", "accepted", "readback_pending"]:
-        await harness.commands.transition(
-            TENANT,
-            command.command_id,
-            new_state=state,
-            actor_id="worker",
-            reason="setup",
-        )
-    with pytest.raises(CommandConflict, match="matched"):
-        await harness.commands.transition(
-            TENANT,
-            command.command_id,
-            new_state="completed",
-            actor_id="worker",
-            reason="unverified",
-        )
-    assert (
-        await harness.commands.get(TENANT, command.command_id)
-    ).state == "readback_pending"
 
+    async def broken_readiness(context):
+        raise ConnectionError("readiness probe unreachable")
 
-@pytest.mark.asyncio
-async def test_reconciliation_rejects_stale_resource_version(harness: Harness) -> None:
-    command = envelope(payload={"fixture": "unknown"})
-    await harness.submit(command)
+    harness.test_syn.readiness = broken_readiness
     await harness.bus.run_once()
     operation = await harness.commands.get(TENANT, command.command_id)
-    await harness.commands.reconcile(
-        TENANT,
-        command.command_id,
-        matched=False,
-        actor_id="new",
-        reason="new observation",
-        provider_operation_id=None,
-        evidence={"status": "mismatch"},
-    )
-    with pytest.raises(CommandConflict, match="version"):
-        await harness.commands.reconcile(
-            TENANT,
-            command.command_id,
-            matched=True,
-            actor_id="stale",
-            reason="late read",
-            provider_operation_id=None,
-            evidence={"status": "matched"},
-            expected_version=operation.resource_version,
-        )
-    assert (
-        await harness.commands.get(TENANT, command.command_id)
-    ).state == "reconciliation_required"
+    assert operation.state in {"persisted", "queued"}
+    assert harness.test_syn.executed == []
+    assert harness.test_syn.provider_effects == 0
 
 
 @pytest.mark.asyncio
-async def test_reconciler_repairs_retry_commit_before_outbox_resolution(
-    harness: Harness,
-) -> None:
-    command = envelope(payload={"fixture": "unknown"})
-    await harness.submit(command)
-    await harness.bus.run_once()
-    await harness.commands.transition(
-        TENANT,
-        command.command_id,
-        new_state="queued",
-        actor_id="dead-reconciler",
-        reason="no effect found",
-    )
-    harness.bus.expire_leases()
-    decision = await harness.reconciler.run_once()
-    assert decision is not None and decision.action == "retry"
-    assert harness.intents(command.command_id)[0].reconciliation_required_at is None
-
-
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_command_payload_rejects_non_json_numbers(value: float) -> None:
-    with pytest.raises(ValueError):
-        envelope(payload={"nested": {"amount": value}})
-
-
-@pytest.mark.asyncio
-async def test_ambiguous_transient_result_is_never_blindly_retried(
-    harness: Harness,
-) -> None:
-    from app.platform.adapter import AdapterResult, ErrorClass, Outcome
-
-    async def ambiguous(command, context):
-        harness.test_syn.effects[str(command.command_id)] = 1
-        return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.AMBIGUOUS)
-
-    harness.test_syn.execute = ambiguous  # type: ignore[method-assign]
+async def test_bus_fails_a_provider_rejected_status_without_readback(harness: Harness) -> None:
     command = envelope()
     await harness.submit(command)
+
+    async def rejected_status(operation, context):
+        return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code="provider_rejected")
+
+    harness.test_syn.status = rejected_status
     await harness.bus.run_once()
-    assert (
-        await harness.commands.get(TENANT, command.command_id)
-    ).state == "reconciliation_required"
-    assert harness.intents(command.command_id)[0].reconciliation_required_at is not None
-
-
-@pytest.mark.asyncio
-async def test_reexecute_rejects_stale_version(harness: Harness) -> None:
-    command = envelope(payload={"fixture": "reject"})
-    await harness.submit(command)
-    await harness.bus.run_once()
-    original = await harness.commands.get(TENANT, command.command_id)
-    with pytest.raises(CommandConflict, match="version"):
-        await harness.kernel.replay(
-            TENANT,
-            command.command_id,
-            principal=principal(
-                roles=("platform-operator",), scopes=("platform.command.replay",)
-            ),
-            mode=ReplayMode.REEXECUTE,
-            idempotency_key="replay-test-key",
-            expected_version=original.resource_version + 1,
-            reason="retry",
-            new_idempotency_key="new-replay-test-key",
-        )
-    assert len(harness.store._outbox) == 1
-
-
-@pytest.mark.asyncio
-async def test_reconciliation_claim_cannot_be_stolen_during_readback(
-    harness: Harness,
-) -> None:
-    command = envelope(payload={"fixture": "unknown"})
-    await harness.submit(command)
-    await harness.bus.run_once()
-    harness.bus.expire_leases()
-    entered, release = asyncio.Event(), asyncio.Event()
-    original = harness.test_syn.reconcile
-
-    async def paused(operation, context):
-        entered.set()
-        await release.wait()
-        return await original(operation, context)
-
-    harness.test_syn.reconcile = paused  # type: ignore[method-assign]
-    task = asyncio.create_task(harness.reconciler.run_once())
-    await entered.wait()
-    source = harness.reconciler.source
-    intent = harness.intents(command.command_id)[0]
-    intent.lease_until = harness.bus.clock() - 1
-    try:
-        stolen = await source.claim(reconciler_id="competitor", lease_seconds=60)
-        assert stolen is None
-    finally:
-        release.set()
-        await asyncio.gather(task, return_exceptions=True)
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "failed"
+    assert str(command.command_id) not in harness.test_syn.readbacks

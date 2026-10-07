@@ -282,6 +282,8 @@ def test_social_api_contract_is_provider_neutral():
         "/api/v1/social/posts/{post_id}/schedule",
         "/api/v1/social/posts/{post_id}/publish",
         "/api/v1/social/posts/{post_id}/cancel",
+        "/api/v1/social/media",
+        "/api/v1/social/media/{asset_id}",
         "/api/v1/social/webhooks/{provider}",
     }
     assert required <= paths

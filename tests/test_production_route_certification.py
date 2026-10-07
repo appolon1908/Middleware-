@@ -59,7 +59,7 @@ def test_middleware_independently_enforces_complete_machine_identity_contract():
     assert 'required_scope="middleware.status.read"' in control_plane
     assert "request.headers.getlist(name)" in api_inputs
     assert "if len(values) != 1" in api_inputs
-    assert 'request.headers.getlist("Authorization")' in api_inputs
+    assert 'request.headers.getlist(AUTHORIZATION)' in api_inputs
     assert "if len(values) > 1" in api_inputs
     assert "correlation = required_header(" in control_plane
     assert '"X-Correlation-ID"' in control_plane
