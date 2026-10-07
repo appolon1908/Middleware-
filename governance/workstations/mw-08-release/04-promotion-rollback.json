@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-08-release::04-promotion-rollback",
+  "product": "middleware",
+  "section": "mw-08-release",
+  "subsection": "04-promotion-rollback",
+  "branch": "subsection/mw-08-release--04-promotion-rollback",
+  "parent_branch": "section/mw-08-release",
+  "order": 4,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-08-release/subsections/04-promotion-rollback/repo",
+  "depends_on": [
+    "middleware::mw-05-api::05-openapi-postman",
+    "middleware::mw-06-adapters::04-messaging",
+    "middleware::mw-07-provisioning::03-sync-disable",
+    "middleware::mw-08-release::03-ci-certification"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

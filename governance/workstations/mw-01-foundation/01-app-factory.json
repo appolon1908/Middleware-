@@ -1,0 +1,21 @@
+{
+  "workstation": "middleware::mw-01-foundation::01-app-factory",
+  "product": "middleware",
+  "section": "mw-01-foundation",
+  "subsection": "01-app-factory",
+  "branch": "subsection/mw-01-foundation--01-app-factory",
+  "parent_branch": "section/mw-01-foundation",
+  "order": 1,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-01-foundation/subsections/01-app-factory/repo",
+  "depends_on": [],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
