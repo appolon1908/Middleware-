@@ -555,7 +555,9 @@ def test_chaos_a_persistence_failure_before_acceptance_is_never_a_202(
     async def failing_submit(*_args, **_kwargs):
         raise StorageError("database unavailable")
 
-    stack.runtime.commands.store.submit = failing_submit  # type: ignore[method-assign]
+    commands = stack.runtime.commands
+    assert commands is not None
+    commands.store.submit = failing_submit  # type: ignore[method-assign]
     with TestClient(stack.app) as client:
         response, body = submit(client)
         assert response.status_code == 503

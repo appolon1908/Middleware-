@@ -1302,7 +1302,7 @@ async def test_ambiguous_transient_result_is_never_blindly_retried(
         harness.test_syn.effects[str(command.command_id)] = 1
         return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.AMBIGUOUS)
 
-    harness.test_syn.execute = ambiguous
+    harness.test_syn.execute = ambiguous  # type: ignore[method-assign]
     command = envelope()
     await harness.submit(command)
     await harness.bus.run_once()
@@ -1350,7 +1350,7 @@ async def test_reconciliation_claim_cannot_be_stolen_during_readback(
         await release.wait()
         return await original(operation, context)
 
-    harness.test_syn.reconcile = paused
+    harness.test_syn.reconcile = paused  # type: ignore[method-assign]
     task = asyncio.create_task(harness.reconciler.run_once())
     await entered.wait()
     source = harness.reconciler.source

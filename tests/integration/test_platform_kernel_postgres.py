@@ -327,10 +327,8 @@ async def test_unknown_outcome_is_quarantined_then_reconciled(
     decision = await reconciler.run_once()
     assert decision is not None and decision.action == "complete"
     operation = await stack.commands.get(TENANT, command.command_id)
-    assert (
-        operation.state == "completed"
-        and operation.readback_evidence["reconciled"] is True
-    )
+    assert operation.readback_evidence is not None
+    assert operation.state == "completed" and operation.readback_evidence["reconciled"] is True
     assert stack.test_syn.provider_effects == 1
     async with pool.acquire() as conn:
         audit = await conn.fetch(
@@ -478,7 +476,10 @@ async def test_reconciler_requeues_not_found_and_dead_letters_after_budget(
             "UPDATE middleware_outbox SET lease_until=now() - interval '1 second' WHERE command_id=$1",
             str(lost.command_id),
         )
-    decision = await stack.platform.reconciler.run_once()
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+    decision = await reconciler.run_once()
+    assert decision is not None
     assert decision.action == "retry" and decision.final_state == "queued"
     assert await stack.worker.run_once() is True
     assert (await stack.commands.get(TENANT, lost.command_id)).state == "completed"
@@ -487,14 +488,15 @@ async def test_reconciler_requeues_not_found_and_dead_letters_after_budget(
     await stack.submit(stuck)
     await stack.worker.run_once()
     stack.test_syn.reconcile_as[str(stuck.command_id)] = ReadbackStatus.MISMATCH
-    stack.platform.reconciler.budget = 2
+    reconciler.budget = 2
     for _ in range(2):
         async with pool.acquire() as conn:
             await conn.execute(
                 "UPDATE middleware_outbox SET lease_until=now() - interval '1 second' WHERE command_id=$1",
                 str(stuck.command_id),
             )
-        decision = await stack.platform.reconciler.run_once()
+        decision = await reconciler.run_once()
+    assert decision is not None
     assert decision.action == "dead_letter"
     assert (await stack.commands.get(TENANT, stuck.command_id)).state == "dead_lettered"
     rows = await stack.outbox_rows(stuck.command_id)
@@ -570,7 +572,7 @@ async def test_chaos_b_rollback_leaves_no_orphan_command_or_intent(
     async def crash_after_command_insert(conn, envelope, **kwargs):
         return await original(CrashingConnection(conn), envelope, **kwargs)
 
-    stack.store.submit_on_connection = crash_after_command_insert  # type: ignore[method-assign]
+    stack.store.submit_on_connection = crash_after_command_insert  # type: ignore[assignment]
     with pytest.raises(RuntimeError, match="simulated crash"):
         await stack.submit(command)
     async with pool.acquire() as conn:
@@ -662,7 +664,9 @@ async def test_real_dispatch_quarantine_recovers_after_process_death(
             str(command.command_id),
         )
     assert await stack.worker.run_once() is False
-    decision = await stack.platform.reconciler.run_once()
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+    decision = await reconciler.run_once()
     assert decision is not None and decision.final_state == "completed"
     assert stack.test_syn.executed == []
     assert (await stack.outbox_rows(command.command_id))[0]["completed_at"] is not None
@@ -681,7 +685,9 @@ async def test_reconciliation_cannot_resolve_an_expired_lease(
             "UPDATE middleware_outbox SET lease_until=now() - interval '1 second' WHERE command_id=$1",
             str(command.command_id),
         )
-    source = stack.platform.reconciler.source
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+    source = reconciler.source
     claim = await source.claim(reconciler_id="expired", lease_seconds=60)
     assert claim is not None
     async with pool.acquire() as conn:
@@ -709,7 +715,9 @@ async def test_guarded_reconciliation_excludes_competing_claim_after_ttl(
             "UPDATE middleware_outbox SET lease_until=now() - interval '1 second' WHERE command_id=$1",
             str(command.command_id),
         )
-    source = stack.platform.reconciler.source
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+    source = reconciler.source
     claim = await source.claim(reconciler_id="protected", lease_seconds=5)
     assert claim is not None
     async with source.guard(claim, reconciler_id="protected"):
