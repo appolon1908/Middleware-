@@ -53,12 +53,7 @@ jobs:
                 --header "Accept: application/vnd.github+json" \
                 --header "X-GitHub-Api-Version: 2022-11-28" \
                 "${api}/commits/${HEAD_SHA}/statuses?per_page=100" \
-              | python3 -c '
-import json, sys
-statuses=json.load(sys.stdin)
-match=next((s for s in statuses if s.get("context")=="codestra/required-ci"), None)
-print((match or {}).get("state",""))
-'
+              | jq -r '[.[] | select(.context == "codestra/required-ci")][0].state // ""'
             )"
             case "${state}" in
               success)
