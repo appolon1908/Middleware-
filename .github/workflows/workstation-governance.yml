@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Validate promotion hierarchy
         run: python3 .codestra/validate-promotion.py "$HEAD_REF" "$BASE_REF"
         env:
