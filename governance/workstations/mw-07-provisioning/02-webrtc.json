@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-07-provisioning::02-webrtc",
+  "product": "middleware",
+  "section": "mw-07-provisioning",
+  "subsection": "02-webrtc",
+  "branch": "subsection/mw-07-provisioning--02-webrtc",
+  "parent_branch": "section/mw-07-provisioning",
+  "order": 2,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-07-provisioning/subsections/02-webrtc/repo",
+  "depends_on": [
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::05-openapi-postman",
+    "middleware::mw-06-adapters::04-messaging",
+    "middleware::mw-07-provisioning::01-reserve-adopt"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

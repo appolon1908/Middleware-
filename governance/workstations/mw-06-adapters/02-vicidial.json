@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-06-adapters::02-vicidial",
+  "product": "middleware",
+  "section": "mw-06-adapters",
+  "subsection": "02-vicidial",
+  "branch": "subsection/mw-06-adapters--02-vicidial",
+  "parent_branch": "section/mw-06-adapters",
+  "order": 2,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-06-adapters/subsections/02-vicidial/repo",
+  "depends_on": [
+    "middleware::mw-03-connectors::05-control-api",
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::05-openapi-postman",
+    "middleware::mw-06-adapters::01-odoo"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
