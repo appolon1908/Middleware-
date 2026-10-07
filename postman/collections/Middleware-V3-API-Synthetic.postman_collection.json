@@ -1,0 +1,628 @@
+{
+  "info": {
+    "name": "Middleware V3 API Synthetic",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Localhost-only, in-memory API certification. Uses TEST_SYN commands and never runs a command worker or provider effect."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8095"
+    },
+    {
+      "key": "bearer_token",
+      "value": ""
+    },
+    {
+      "key": "command_id",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!/^http:\\/\\/(127\\.0\\.0\\.1|localhost):8095$/.test(pm.variables.get(\"base_url\"))) { throw new Error(\"Synthetic certification requires localhost:8095\"); }",
+          "if (!pm.collectionVariables.get(\"command_id\")) { pm.collectionVariables.set(\"command_id\", pm.variables.replaceIn(\"{{$guid}}\")); }"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Submit synthetic command",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/commands",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"command_id\": \"{{command_id}}\", \"command_type\": \"test.syn.execute.v1\", \"tenant_id\": \"TEST_SYN\", \"requested_by\": \"user-1\", \"correlation_id\": \"corr-{{command_id}}\", \"idempotency_key\": \"idem-{{command_id}}\", \"payload\": {\"probe\": true}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(202); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Operation correlation is stable\", function () { pm.expect(pm.response.json().correlation_id || pm.response.headers.get(\"X-Correlation-ID\")).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exact duplicate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/commands",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"command_id\": \"{{command_id}}\", \"command_type\": \"test.syn.execute.v1\", \"tenant_id\": \"TEST_SYN\", \"requested_by\": \"user-1\", \"correlation_id\": \"corr-{{command_id}}\", \"idempotency_key\": \"idem-{{command_id}}\", \"payload\": {\"probe\": true}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Operation correlation is stable\", function () { pm.expect(pm.response.json().correlation_id || pm.response.headers.get(\"X-Correlation-ID\")).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conflicting duplicate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/commands",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"command_id\": \"{{command_id}}\", \"command_type\": \"test.syn.execute.v1\", \"tenant_id\": \"TEST_SYN\", \"requested_by\": \"user-1\", \"correlation_id\": \"corr-{{command_id}}\", \"idempotency_key\": \"idem-{{command_id}}\", \"payload\": {\"probe\": \"changed\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Canonical error envelope\", function () { const e = pm.response.json().error; pm.expect(e).to.have.all.keys(\"code\", \"message\", \"correlation_id\", \"retryable\", \"details\"); pm.expect(e.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operation readback",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/operations/{{command_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Operation correlation is stable\", function () { pm.expect(pm.response.json().correlation_id || pm.response.headers.get(\"X-Correlation-ID\")).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Timeline",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/operations/{{command_id}}/timeline"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Operation correlation is stable\", function () { pm.expect(pm.response.json().correlation_id || pm.response.headers.get(\"X-Correlation-ID\")).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Foreign tenant denied",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "X-Tenant-ID",
+            "value": "foreign-tenant"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/operations/{{command_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(403); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Canonical error envelope\", function () { const e = pm.response.json().error; pm.expect(e).to.have.all.keys(\"code\", \"message\", \"correlation_id\", \"retryable\", \"details\"); pm.expect(e.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Malformed operation identifier",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/operations/not-a-uuid"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Canonical error envelope\", function () { const e = pm.response.json().error; pm.expect(e).to.have.all.keys(\"code\", \"message\", \"correlation_id\", \"retryable\", \"details\"); pm.expect(e.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Malformed request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/commands",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"unexpected\": true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Canonical error envelope\", function () { const e = pm.response.json().error; pm.expect(e).to.have.all.keys(\"code\", \"message\", \"correlation_id\", \"retryable\", \"details\"); pm.expect(e.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cancel synthetic command",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/operations/{{command_id}}/cancel",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"expected_version\": 1, \"reason\": \"synthetic-test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Operation correlation is stable\", function () { pm.expect(pm.response.json().correlation_id || pm.response.headers.get(\"X-Correlation-ID\")).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay missing scope denied",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/operations/{{command_id}}/replay",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"mode\": \"REEXECUTE\", \"expected_version\": 2, \"reason\": \"synthetic-test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(401); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+              "pm.test(\"Canonical error envelope\", function () { const e = pm.response.json().error; pm.expect(e).to.have.all.keys(\"code\", \"message\", \"correlation_id\", \"retryable\", \"details\"); pm.expect(e.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kernel description",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearer_token}}"
+          },
+          {
+            "key": "X-Correlation-ID",
+            "value": "corr-{{command_id}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "idem-{{command_id}}"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/kernel/describe"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Correlation is present\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Command malformed identity boundary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Correlation-ID",
+            "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/commands"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Malformed identity rejected\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Canonical correlated error\", function () { const error = pm.response.json().error; pm.expect(error.code).to.eql(\"invalid_request\"); pm.expect(error.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Service malformed identity boundary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Correlation-ID",
+            "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/services"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Malformed identity rejected\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Canonical correlated error\", function () { const error = pm.response.json().error; pm.expect(error.code).to.eql(\"invalid_request\"); pm.expect(error.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connector malformed identity boundary",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Correlation-ID",
+            "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        "url": "{{base_url}}/v1/connectors"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Malformed identity rejected\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Canonical correlated error\", function () { const error = pm.response.json().error; pm.expect(error.code).to.eql(\"invalid_request\"); pm.expect(error.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Automation malformed identity boundary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Correlation-ID",
+            "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        "url": "{{base_url}}/v2/automation/commands"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Malformed identity rejected\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Canonical correlated error\", function () { const error = pm.response.json().error; pm.expect(error.code).to.eql(\"invalid_request\"); pm.expect(error.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Oversized body rejected before JSON parsing",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/platform/v1/commands",
+        "body": {
+          "mode": "raw",
+          "raw": "{{oversized_body}}"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set(\"oversized_body\", \"{\".repeat(1048577));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Body limit precedes parsing\", function () { pm.response.to.have.status(413); pm.expect(pm.response.json().error.code).to.eql(\"payload_too_large\"); });",
+              "pm.test(\"Error correlation matches\", function () { pm.expect(pm.response.json().error.correlation_id).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

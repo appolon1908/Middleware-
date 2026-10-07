@@ -43,8 +43,10 @@ from app.core.request_guard import RequestGuard, install_request_guard
 from app.core.runtime import RuntimeContainer
 from app.observability import MiddlewareObservability
 from app.platform.api import router as platform_kernel_router
+from app.connector_api import router as connector_management_router
 from app.router_registry import (
     APPOLON_ROUTERS,
+    API_BOUNDARY_ROUTERS,
     LEGACY_MONOLITH_ONLY_ROUTERS,
     assert_unique_routes,
     mount_appolon_routers,
@@ -99,7 +101,11 @@ def create_app(
         profile = AppProfile.MONOLITH
     profile = AppProfile(profile)
     service_name = service or _DEFAULT_SERVICE[profile]
-    resolved = settings if settings is not None else validate_configuration(process_settings)[0]
+    resolved = (
+        settings
+        if settings is not None
+        else validate_configuration(process_settings)[0]
+    )
 
     state = RuntimeState(settings=resolved, runtime=runtime, owns_runtime=False)
 
@@ -139,16 +145,24 @@ def create_app(
     # deprecated n8n aliases are the same handlers under their legacy paths.
     # The kernel router verifies the Keycloak JWT as the first statement of
     # every handler, on every profile.
-    handler_authenticated: tuple = (platform_kernel_router,)
+    handler_authenticated: tuple = (platform_kernel_router, connector_management_router)
     if profile in {AppProfile.CONTROL_PLANE, AppProfile.MONOLITH}:
-        handler_authenticated = (platform_kernel_router,) + APPOLON_ROUTERS
+        handler_authenticated = (
+            platform_kernel_router,
+            connector_management_router,
+        ) + APPOLON_ROUTERS
     if profile is AppProfile.MONOLITH:
-        handler_authenticated = (platform_kernel_router,) + APPOLON_ROUTERS + LEGACY_MONOLITH_ONLY_ROUTERS
+        handler_authenticated = (
+            (platform_kernel_router, connector_management_router)
+            + APPOLON_ROUTERS
+            + LEGACY_MONOLITH_ONLY_ROUTERS
+        )
     install_request_guard(
         app,
         RequestGuard(
             resolved,
             handler_authenticated_routers=handler_authenticated,
+            boundary_routers=API_BOUNDARY_ROUTERS,
             telemetry=telemetry,
             runtime_available=runtime_available,
         ),

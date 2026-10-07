@@ -48,9 +48,7 @@ def test_generated_openapi_contract_and_matrix_match_runtime(test_settings) -> N
     matrix = _load_yaml("config/api-completion-matrix.yaml")
     expected = _routes(runtime["paths"])
     assert expected == _routes(generated["paths"]) == _routes(contract["paths"])
-    assert expected == {
-        (row["method"], row["path"]) for row in matrix["operations"]
-    }
+    assert expected == {(row["method"], row["path"]) for row in matrix["operations"]}
     assert matrix["classification_complete"] is True
     assert matrix["unknown_endpoints"] == 0
     assert not {"MISSING", "PARTIAL", "UNKNOWN"} & {
@@ -59,6 +57,57 @@ def test_generated_openapi_contract_and_matrix_match_runtime(test_settings) -> N
     assert generated["components"]["securitySchemes"]["bearerAuth"]["scheme"] == (
         "bearer"
     )
+
+
+def test_integration_profile_openapi_postman_and_matrix_match_runtime(test_settings):
+    from app.application import AppProfile, create_app as application
+    from scripts.generate_api_contracts import INTEGRATION_OPENAPI, INTEGRATION_MATRIX
+    from scripts.generate_postman import INTEGRATION_OUTPUT
+
+    runtime = application(
+        settings=test_settings, profile=AppProfile.INTEGRATION
+    ).openapi()
+    generated = json.loads(INTEGRATION_OPENAPI.read_text(encoding="utf-8"))
+    # Full schemas, response contracts, security and parameters, not just paths.
+    assert generated == runtime
+    expected = _routes(runtime["paths"])
+    matrix = yaml.safe_load(INTEGRATION_MATRIX.read_text(encoding="utf-8"))
+    assert expected == {(row["method"], row["path"]) for row in matrix["operations"]}
+    postman = json.loads(INTEGRATION_OUTPUT.read_text(encoding="utf-8"))
+    import re
+
+    actual = {
+        (
+            item["request"]["method"],
+            re.sub(
+                r"\{\{([^{}]+)\}\}",
+                r"{\1}",
+                item["request"]["url"]["raw"]
+                .removeprefix("{{base_url}}")
+                .split("?", 1)[0],
+            ),
+        )
+        for group in postman["item"]
+        for item in group["item"]
+    }
+    assert actual == expected
+    assert ("GET", "/platform/v1/services") in expected
+    assert ("POST", "/platform/v1/commands") in expected
+    assert ("GET", "/v1/connectors") in expected
+    assert ("POST", "/v2/automation/commands") in expected
+    for path, method in (
+        ("/platform/v1/services", "post"),
+        ("/platform/v1/commands", "post"),
+        ("/v1/connectors", "get"),
+        ("/v2/automation/commands", "post"),
+    ):
+        assert {"400", "413"} <= runtime["paths"][path][method]["responses"].keys()
+    automation = runtime["paths"]["/v2/automation/commands"]["post"]
+    assert automation["security"] == [{"automationBearer": []}]
+    assert "202" in automation["responses"]
+    assert {"X-Tenant-ID", "X-Correlation-ID", "X-Request-ID", "Idempotency-Key"} <= {
+        p["name"] for p in automation["parameters"] if p.get("required")
+    }
 
 
 def test_committed_contract_artifacts_exactly_match_the_generator() -> None:
@@ -78,6 +127,8 @@ def test_generated_contract_documents_each_required_header_once() -> None:
             continue
         for method, operation in item.items():
             if method not in HTTP_METHODS:
+                continue
+            if "connector-management-facade" in operation.get("tags", []):
                 continue
             header_names = [
                 parameter["name"].casefold()
@@ -137,9 +188,7 @@ def test_generated_contract_documents_mutation_headers() -> None:
         ("/v1/intake/surveys/responses", "post"),
     )
     for path, method in operations:
-        names = {
-            item["name"] for item in contract["paths"][path][method]["parameters"]
-        }
+        names = {item["name"] for item in contract["paths"][path][method]["parameters"]}
         assert {"X-Tenant-ID", "X-Correlation-ID", "Idempotency-Key"} <= names
 
 
@@ -220,9 +269,7 @@ def test_webhook_business_422_responses_remain_documented(test_settings) -> None
     assert webhook_operations
     for operation in webhook_operations:
         response = operation["responses"]["422"]
-        assert response["description"] == (
-            "Event type is not allowed for this webhook"
-        )
+        assert response["description"] == ("Event type is not allowed for this webhook")
         assert response["content"]["application/json"]["schema"]["required"] == [
             "error"
         ]

@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/validate_staging_intake_observability_contract.py"
 BOUND_FILES = (
+    "contracts/connectors/connector-management-api.v1.yaml",
     "contracts/staging-intake-observability-runtime.v1.json",
     "config/runtime-profiles.v1.json",
     "config/api-webhook-contracts.json",
@@ -75,6 +76,9 @@ def _replace_once(path: Path, marker: str, replacement: str) -> None:
         "constructor_middleware",
         "middleware_status_rewrite",
         "middleware_path_rewrite",
+        "middleware_unbounded_body",
+        "middleware_boundary_success",
+        "connector_governed_shadow",
         "second_middleware",
         "registry_extra_router",
     ],
@@ -292,6 +296,20 @@ def test_staging_contract_fails_closed(
             "        started = self.telemetry.start_request()",
             '        request.scope["path"] = "/health"\n'
             "        started = self.telemetry.start_request()",
+        )
+    elif mutation == "middleware_unbounded_body":
+        _replace_once(
+            guard_path, "request._body = await read_limited_body(",
+            "request._body = await unbounded_body_reader(",
+        )
+    elif mutation == "middleware_boundary_success":
+        _replace_once(
+            guard_path, "status_code=status_code,", "status_code=200,",
+        )
+    elif mutation == "connector_governed_shadow":
+        _replace_once(
+            tmp_path / "contracts/connectors/connector-management-api.v1.yaml",
+            "  /v1/connectors:", "  /metrics:",
         )
     elif mutation == "second_middleware":
         _replace_once(

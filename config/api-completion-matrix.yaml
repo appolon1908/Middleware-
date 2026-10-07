@@ -1257,6 +1257,60 @@ operations:
   canonical_operation_id: get_communication_usage_v1_communications_usage_get
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
+- domain: connectors
+  method: GET
+  path: /v1/connectors
+  canonical_operation_id: listConnectors
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: POST
+  path: /v1/connectors/install
+  canonical_operation_id: installConnectorDisabled
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: POST
+  path: /v1/connectors/validate
+  canonical_operation_id: validateConnectorManifest
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: GET
+  path: /v1/connectors/{connector_id}
+  canonical_operation_id: getConnector
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: POST
+  path: /v1/connectors/{connector_id}/disable
+  canonical_operation_id: disableConnector
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: GET
+  path: /v1/connectors/{connector_id}/health
+  canonical_operation_id: getConnectorHealth
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: GET
+  path: /v1/connectors/{connector_id}/manifest
+  canonical_operation_id: getConnectorManifest
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: POST
+  path: /v1/connectors/{connector_id}/test
+  canonical_operation_id: testConnectorConnection
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: connectors
+  method: POST
+  path: /v1/connectors/{connector_id}/upgrade
+  canonical_operation_id: upgradeConnectorDisabled
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
 - domain: crm
   method: POST
   path: /v1/crm/commands
@@ -1375,6 +1429,18 @@ operations:
   method: POST
   path: /v1/intake/surveys/responses
   canonical_operation_id: submit_survey_response_v1_intake_surveys_responses_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: integrations
+  method: GET
+  path: /v1/integrations/connections/{connection_id}/webhooks
+  canonical_operation_id: listConnectionWebhooks
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: integrations
+  method: POST
+  path: /v1/integrations/connections/{connection_id}/webhooks
+  canonical_operation_id: createConnectionWebhook
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: marketing
@@ -1893,10 +1959,58 @@ operations:
   canonical_operation_id: reconcile_telephony_operation_v1_telephony_operations__operation_id__reconcile_post
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
+- domain: webhook-deliveries
+  method: GET
+  path: /v1/webhook-deliveries/{delivery_id}
+  canonical_operation_id: getWebhookDelivery
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhook-deliveries
+  method: POST
+  path: /v1/webhook-deliveries/{delivery_id}/replay-request
+  canonical_operation_id: requestWebhookDeliveryReplay
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
 - domain: webhooks
   method: POST
   path: /v1/webhooks/{connector_id}/{endpoint_key}/{webhook_id}
   canonical_operation_id: generic_webhook_v1_webhooks__connector_id___endpoint_key___webhook_id__post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhooks
+  method: DELETE
+  path: /v1/webhooks/{webhook_id}
+  canonical_operation_id: disableWebhook
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhooks
+  method: GET
+  path: /v1/webhooks/{webhook_id}
+  canonical_operation_id: getWebhook
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhooks
+  method: PATCH
+  path: /v1/webhooks/{webhook_id}
+  canonical_operation_id: updateWebhook
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhooks
+  method: GET
+  path: /v1/webhooks/{webhook_id}/deliveries
+  canonical_operation_id: listWebhookDeliveries
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhooks
+  method: POST
+  path: /v1/webhooks/{webhook_id}/rotate-secret
+  canonical_operation_id: rotateWebhookSecretReference
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: webhooks
+  method: POST
+  path: /v1/webhooks/{webhook_id}/test
+  canonical_operation_id: testWebhook
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: v2

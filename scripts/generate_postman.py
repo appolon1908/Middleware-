@@ -6,12 +6,19 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 OPENAPI = ROOT / "contracts/platform/middleware-openapi.generated.json"
 OUTPUT = ROOT / "postman/generated/Middleware-OpenAPI.postman_collection.json"
+INTEGRATION_OPENAPI = (
+    ROOT / "contracts/platform/middleware-integration-openapi.generated.json"
+)
+INTEGRATION_OUTPUT = (
+    ROOT / "postman/generated/Middleware-Integration-API.postman_collection.json"
+)
 HTTP_METHODS = ("get", "post", "put", "patch", "delete", "options", "head")
 
 
@@ -53,8 +60,13 @@ def _resolve_ref(doc: dict[str, Any], value: dict[str, Any]) -> dict[str, Any]:
     return node if isinstance(node, dict) else value
 
 
-def _request(doc: dict[str, Any], path: str, method: str, op: dict[str, Any]) -> dict[str, Any]:
-    raw = "{{base_url}}" + path
+def _request(
+    doc: dict[str, Any], path: str, method: str, op: dict[str, Any]
+) -> dict[str, Any]:
+    executable_path = re.sub(
+        r"\{([^{}]+)\}", lambda match: "{{" + match.group(1) + "}}", path
+    )
+    raw = "{{base_url}}" + executable_path
     headers = []
     query = []
     for param in op.get("parameters", []):
@@ -67,34 +79,51 @@ def _request(doc: dict[str, Any], path: str, method: str, op: dict[str, Any]) ->
         loc = param.get("in")
         value = "{{" + name.lower().replace("-", "_") + "}}"
         if loc == "header":
-            headers.append({"key": name, "value": value, "type": "text"})
+            headers.append(
+                {
+                    "key": name,
+                    "value": value,
+                    "type": "text",
+                    "disabled": not bool(param.get("required")),
+                }
+            )
         elif loc == "query":
-            query.append({
-                "key": name,
-                "value": value,
-                "disabled": not bool(param.get("required")),
-            })
+            query.append(
+                {
+                    "key": name,
+                    "value": value,
+                    "disabled": not bool(param.get("required")),
+                }
+            )
     if path.startswith("/internal/v1/database"):
-        headers.append({
-            "key": "Authorization",
-            "value": "Bearer {{db_read_token}}",
-            "type": "text",
-        })
+        headers.append(
+            {
+                "key": "Authorization",
+                "value": "Bearer {{db_read_token}}",
+                "type": "text",
+            }
+        )
     elif path not in {
-        "/health", "/health/live", "/health/ready", "/healthz", "/readyz"
+        "/health",
+        "/health/live",
+        "/health/ready",
+        "/healthz",
+        "/readyz",
     }:
-        headers.append({
-            "key": "Authorization",
-            "value": "Bearer {{bearer_token}}",
-            "type": "text",
-        })
+        headers.append(
+            {
+                "key": "Authorization",
+                "value": "Bearer {{bearer_token}}",
+                "type": "text",
+            }
+        )
     request: dict[str, Any] = {
         "method": method.upper(),
         "header": headers,
         "url": {
             "raw": raw,
             "host": ["{{base_url}}"],
-            "path": [p for p in path.split("/") if p],
+            "path": [p for p in executable_path.split("/") if p],
             "query": query,
         },
     }
@@ -107,16 +136,16 @@ def _request(doc: dict[str, Any], path: str, method: str, op: dict[str, Any]) ->
             schema = _resolve_ref(doc, media.get("schema") or {})
             request["body"] = {
                 "mode": "raw",
-                "raw": json.dumps(
-                    _example(schema), indent=2, ensure_ascii=False
-                ),
+                "raw": json.dumps(_example(schema), indent=2, ensure_ascii=False),
                 "options": {"raw": {"language": "json"}},
             }
-            request["header"].append({
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text",
-            })
+            request["header"].append(
+                {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text",
+                }
+            )
     return {
         "name": op.get("summary")
         or op.get("operationId")
@@ -125,9 +154,9 @@ def _request(doc: dict[str, Any], path: str, method: str, op: dict[str, Any]) ->
     }
 
 
-def build() -> tuple[dict[str, Any], str]:
-    doc = json.loads(OPENAPI.read_text(encoding="utf-8"))
-    digest = hashlib.sha256(OPENAPI.read_bytes()).hexdigest()
+def build(openapi: Path = OPENAPI) -> tuple[dict[str, Any], str]:
+    doc = json.loads(openapi.read_text(encoding="utf-8"))
+    digest = hashlib.sha256(openapi.read_bytes()).hexdigest()
     groups: dict[str, list[dict[str, Any]]] = {}
     for path in sorted(doc.get("paths", {})):
         item = doc["paths"][path]
@@ -137,20 +166,17 @@ def build() -> tuple[dict[str, Any], str]:
                 continue
             tags = op.get("tags") or ["untagged"]
             tag = str(tags[0])
-            groups.setdefault(tag, []).append(
-                _request(doc, path, method, op)
-            )
+            groups.setdefault(tag, []).append(_request(doc, path, method, op))
     collection = {
         "info": {
             "_postman_id": "middleware-openapi-generated",
             "name": "Middleware OpenAPI - Generated",
             "description": (
-                "Generated from contracts/platform/middleware-openapi.generated.json. "
+                f"Generated from {openapi.relative_to(ROOT).as_posix()}. "
                 "Do not edit by hand; use scripts/generate_postman.py."
             ),
             "schema": (
-                "https://schema.getpostman.com/json/collection/"
-                "v2.1.0/collection.json"
+                "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
             ),
         },
         "variable": [
@@ -159,10 +185,7 @@ def build() -> tuple[dict[str, Any], str]:
             {"key": "db_read_token", "value": ""},
             {"key": "db_verify_token", "value": ""},
         ],
-        "item": [
-            {"name": tag, "item": groups[tag]}
-            for tag in sorted(groups)
-        ],
+        "item": [{"name": tag, "item": groups[tag]} for tag in sorted(groups)],
     }
     return collection, digest
 
@@ -171,16 +194,25 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    collection, digest = build()
-    rendered = _json(collection)
-    if args.check:
-        if not OUTPUT.exists() or OUTPUT.read_text(encoding="utf-8") != rendered:
-            raise SystemExit("generated Postman collection drift")
-    else:
-        OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-        OUTPUT.write_text(rendered, encoding="utf-8", newline="\n")
-    print(f"POSTMAN_OPENAPI_DIGEST={digest}")
-    print(f"POSTMAN_COLLECTION={OUTPUT.relative_to(ROOT)}")
+    for openapi, output in (
+        (OPENAPI, OUTPUT),
+        (INTEGRATION_OPENAPI, INTEGRATION_OUTPUT),
+    ):
+        collection, digest = build(openapi)
+        if openapi == INTEGRATION_OPENAPI:
+            collection["info"]["name"] = "Middleware Integration API :8095 - Generated"
+            collection["info"]["_postman_id"] = (
+                "middleware-integration-openapi-generated"
+            )
+        rendered = _json(collection)
+        if args.check:
+            if not output.exists() or output.read_text(encoding="utf-8") != rendered:
+                raise SystemExit(f"generated Postman collection drift: {output}")
+        else:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(rendered, encoding="utf-8", newline="\n")
+        print(f"POSTMAN_OPENAPI_DIGEST={digest}")
+        print(f"POSTMAN_COLLECTION={output.relative_to(ROOT)}")
     return 0
 
 
