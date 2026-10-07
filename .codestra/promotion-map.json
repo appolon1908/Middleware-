@@ -1,0 +1,6 @@
+{
+  "prefix": "mw",
+  "testing": "testing",
+  "staging": "staging",
+  "production": "production/environment"
+}
