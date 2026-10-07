@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-import os,re,sys
+from __future__ import annotations
+
+import os
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from governance.promotion_guard import exception_reason, load_policy  # noqa: E402
+
 repo=os.environ.get("GITHUB_REPOSITORY","").split("/")[-1]
 head=sys.argv[1]
 base=sys.argv[2]
@@ -14,16 +26,17 @@ maps={
 if repo not in maps:
     print("PROMOTION_ALLOWED=NO unknown_repository")
     raise SystemExit(2)
+
+if repo == "Middleware-":
+    reason = exception_reason(load_policy(ROOT / "governance/promotion-policy.json"), head, base)
+    if reason is not None:
+        print(f"PROMOTION_ALLOWED=YES {reason}")
+        raise SystemExit(0)
+
 prefix,testing,staging,production=maps[repo]
 section_re=re.compile(rf"^{re.escape(prefix)}-[0-9]{{2}}-[a-z0-9][a-z0-9-]*$")
 ok=False
 reason=""
-if head=="governance/agent-hierarchy-main-v1" and base=="main":
-    print("PROMOTION_ALLOWED=YES governance_main_bootstrap")
-    raise SystemExit(0)
-if head=="governance/agent-hierarchy-v1" and base=="development":
-    print("PROMOTION_ALLOWED=YES governance_development_bootstrap")
-    raise SystemExit(0)
 if head.startswith("subsection/"):
     name=head.split("/",1)[1]
     section=name.split("--",1)[0]

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "accepted_promotions": [
     {
       "head": "subsection/*",
@@ -23,10 +23,46 @@
       "base": "production"
     }
   ],
-  "bootstrap_exception": {
-    "head": "governance/development-control-plane-v1",
-    "base": "main"
-  },
+  "bootstrap_exceptions": [
+    {
+      "head": "governance/development-control-plane-v1",
+      "base": "main"
+    },
+    {
+      "head": "governance/agent-hierarchy-main-v1",
+      "base": "main"
+    },
+    {
+      "head": "governance/agent-hierarchy-v1",
+      "base": "development"
+    }
+  ],
+  "migration_exceptions": [
+    {
+      "head": "fix/source-hygiene-post430-20261005",
+      "base": "main",
+      "expires_on": "2026-10-15",
+      "reason": "pre-hierarchy-open-pr-432"
+    },
+    {
+      "head": "trust/governance-control-plane-successor-20261007",
+      "base": "main",
+      "expires_on": "2026-10-15",
+      "reason": "pre-hierarchy-open-pr-438"
+    },
+    {
+      "head": "dependabot/npm_and_yarn/agent_desktop/source-map-js-1.2.2",
+      "base": "main",
+      "expires_on": "2026-10-15",
+      "reason": "pre-hierarchy-open-pr-439"
+    },
+    {
+      "head": "dependabot/pip/mako-1.4.2",
+      "base": "main",
+      "expires_on": "2026-10-15",
+      "reason": "pre-hierarchy-open-pr-440"
+    }
+  ],
   "protected": [
     "main",
     "development",
