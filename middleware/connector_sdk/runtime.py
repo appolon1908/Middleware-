@@ -236,7 +236,9 @@ class ConnectorRuntime:
             snapshot = lease.snapshot
             result = snapshot.result
             if result is not None:
-                result = _validate_result(result)
+                result = _validate_result(
+                    result, prior_operation_id=request.command_id
+                )
                 if result.outcome in {
                     CommandOutcome.COMPLETED,
                     CommandOutcome.FAILED,
@@ -277,7 +279,9 @@ class ConnectorRuntime:
                     result = self._invoke(
                         adapter.execute_command, request, None, "ADAPTER_EXCEPTION"
                     )
-                    result = _validate_result(result)
+                    result = _validate_result(
+                        result, prior_operation_id=request.command_id
+                    )
                     journal_result = result
                     if (
                         policy.readback_required
