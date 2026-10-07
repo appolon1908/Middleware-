@@ -33,18 +33,14 @@ jobs:
 
   control-plane-certification:
     name: control-plane-certification
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, codestra-control-plane]
     timeout-minutes: 5
-    env:
-      GH_TOKEN: ${{ github.token }}
-      EXACT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Require external Codestra control-plane certification
-        shell: bash
+      - name: Verify exact SHA in Codestra development control plane
         run: |
-          set -euo pipefail
-          state="$(
-            gh api "repos/${GITHUB_REPOSITORY}/commits/${EXACT_SHA}/status"               --jq '[.statuses[] | select(.context=="codestra-control-plane")][0].state // ""'
-          )"
-          test "$state" = "success"
-          echo "CONTROL_PLANE_CERTIFICATION=PASS exact_sha=${EXACT_SHA}"
+          /srv/codestra/dev-platform/control-plane/bin/codestra-github-check \
+            --product 'Middleware-' \
+            --repo-path '/srv/codestra/apps/Middleware-' \
+            --head-ref '${{ github.head_ref }}' \
+            --base-ref '${{ github.base_ref }}' \
+            --head-sha '${{ github.event.pull_request.head.sha }}'
