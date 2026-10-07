@@ -62,7 +62,7 @@ class RuntimeSettings(BaseSettings):
     webhook_secret_rotation_enabled: bool = False
     webhook_replay_request_enabled: bool = False
 
-    readiness_requires_migration: str = "20260828_0004"
+    readiness_requires_migration: str = "20261007_0005"
 
     @field_validator("release_sha")
     @classmethod

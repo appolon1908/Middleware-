@@ -70,7 +70,12 @@ def install_problem_handlers(app: FastAPI) -> None:
                 code="VALIDATION_ERROR",
                 title="Request validation failed",
                 detail="One or more request fields are invalid.",
-                extensions={"errors": error.errors()},
+                extensions={
+                    "errors": [
+                        {"type": item["type"], "loc": item["loc"]}
+                        for item in error.errors()
+                    ]
+                },
             ),
         )
 
@@ -94,7 +99,7 @@ def install_problem_handlers(app: FastAPI) -> None:
     async def handle_unexpected(request: Request, error: Exception) -> JSONResponse:
         # The exception is intentionally not exposed in the response. Runtime
         # logging records the correlation ID and safe exception class only.
-        request.app.state.logger.exception(
+        request.app.state.logger.error(
             "unhandled_connector_runtime_error",
             error_type=type(error).__name__,
             correlation_id=_correlation_id(request),

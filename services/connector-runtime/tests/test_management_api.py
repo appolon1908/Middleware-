@@ -55,9 +55,7 @@ def _principal(tenant_id: UUID) -> Principal:
 
 
 def _manifest() -> dict[str, object]:
-    raw = json.loads(
-        (MANIFESTS / "klyrow-email.connector.json").read_text()
-    )
+    raw = json.loads((MANIFESTS / "klyrow-email.connector.json").read_text())
     suffix = uuid.uuid4().hex[:10]
     raw["connector_id"] = f"api-test-{suffix}"
     raw["display_name"] = f"API Test {suffix}"
@@ -103,7 +101,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     tenant_id = uuid.uuid4()
     key_file = tmp_path / "body-key"
     key_file.write_bytes(b"b" * 32)
-    monkeypatch.setenv("CONNECTOR_RUNTIME_DATABASE_URL", os.environ["ADMIN_DATABASE_URL"])
+    monkeypatch.setenv(
+        "CONNECTOR_RUNTIME_DATABASE_URL", os.environ["ADMIN_DATABASE_URL"]
+    )
     monkeypatch.setenv("CONNECTOR_RUNTIME_CURSOR_HMAC_KEY", "c" * 48)
     monkeypatch.setenv("CONNECTOR_RUNTIME_BODY_ENCRYPTION_KEY_FILE", str(key_file))
     monkeypatch.setenv("CONNECTOR_RUNTIME_WEBHOOK_BODY_ROOT", str(tmp_path / "bodies"))
@@ -232,21 +232,27 @@ def test_signed_webhook_is_durable_before_202_and_replay_safe(client) -> None:
     manifest = _manifest()
     connector_id = str(manifest["connector_id"])
     digest = manifest_digest(manifest)
-    assert test_client.post(
-        "/v1/connectors/install",
-        json={"manifest": manifest, "expected_manifest_digest": digest},
-        headers={"Idempotency-Key": "install-" + uuid.uuid4().hex},
-    ).status_code == 202
-    assert test_client.post(
-        "/v1/integrations/connections",
-        json={
-            "connector_id": connector_id,
-            "external_account_reference": "provider-account-2",
-            "configuration": {},
-            "secret_references": ["CONNECTOR_TEST_SECRET"],
-        },
-        headers={"Idempotency-Key": "connection-" + uuid.uuid4().hex},
-    ).status_code == 202
+    assert (
+        test_client.post(
+            "/v1/connectors/install",
+            json={"manifest": manifest, "expected_manifest_digest": digest},
+            headers={"Idempotency-Key": "install-" + uuid.uuid4().hex},
+        ).status_code
+        == 202
+    )
+    assert (
+        test_client.post(
+            "/v1/integrations/connections",
+            json={
+                "connector_id": connector_id,
+                "external_account_reference": "provider-account-2",
+                "configuration": {},
+                "secret_references": ["CONNECTOR_TEST_SECRET"],
+            },
+            headers={"Idempotency-Key": "connection-" + uuid.uuid4().hex},
+        ).status_code
+        == 202
+    )
 
     with app.state.database.session(tenant_id) as session:
         connection_id = session.execute(
@@ -261,14 +267,17 @@ def test_signed_webhook_is_durable_before_202_and_replay_safe(client) -> None:
             ),
             {"tenant_id": tenant_id, "connector_id": connector_id},
         ).scalar_one()
-    assert test_client.post(
-        f"/v1/integrations/connections/{connection_id}/webhooks",
-        json={
-            "endpoint_key": "provider-events",
-            "secret_reference_current": "WEBHOOK_TEST_SECRET",
-        },
-        headers={"Idempotency-Key": "webhook-" + uuid.uuid4().hex},
-    ).status_code == 202
+    assert (
+        test_client.post(
+            f"/v1/integrations/connections/{connection_id}/webhooks",
+            json={
+                "endpoint_key": "provider-events",
+                "secret_reference_current": "WEBHOOK_TEST_SECRET",
+            },
+            headers={"Idempotency-Key": "webhook-" + uuid.uuid4().hex},
+        ).status_code
+        == 202
+    )
 
     with app.state.database.session(tenant_id) as session:
         row = session.execute(
@@ -335,16 +344,20 @@ def test_signed_webhook_is_durable_before_202_and_replay_safe(client) -> None:
     inbox_id = accepted.json()["data"]["inbox_id"]
 
     with app.state.database.session(tenant_id) as session:
-        inbox = session.execute(
-            text(
-                """
+        inbox = (
+            session.execute(
+                text(
+                    """
                 SELECT processing_state, encrypted_body_reference
                   FROM connector_sdk.connector_webhook_inbox
                  WHERE tenant_id=:tenant_id AND inbox_id=:inbox_id
                 """
-            ),
-            {"tenant_id": tenant_id, "inbox_id": inbox_id},
-        ).mappings().one()
+                ),
+                {"tenant_id": tenant_id, "inbox_id": inbox_id},
+            )
+            .mappings()
+            .one()
+        )
         outbox_count = session.execute(
             text(
                 """
@@ -358,7 +371,9 @@ def test_signed_webhook_is_durable_before_202_and_replay_safe(client) -> None:
         ).scalar_one()
     assert inbox["processing_state"] == "PENDING"
     assert outbox_count == 1
-    encrypted_path = tmp_path / "bodies" / inbox["encrypted_body_reference"].removeprefix("file:")
+    encrypted_path = (
+        tmp_path / "bodies" / inbox["encrypted_body_reference"].removeprefix("file:")
+    )
     assert encrypted_path.is_file()
     assert body not in encrypted_path.read_bytes()
 
@@ -370,11 +385,14 @@ def test_signed_webhook_is_durable_before_202_and_replay_safe(client) -> None:
     concurrent_event = "evt-api-concurrent-first"
     concurrent_headers = dict(webhook_headers)
     concurrent_headers["X-Test-Event-Id"] = concurrent_event
-    concurrent_headers["X-Test-Signature"] = "v1=" + hmac.new(
-        ("s" * 48).encode(),
-        str(now).encode() + b"." + body,
-        hashlib.sha256,
-    ).hexdigest()
+    concurrent_headers["X-Test-Signature"] = (
+        "v1="
+        + hmac.new(
+            ("s" * 48).encode(),
+            str(now).encode() + b"." + body,
+            hashlib.sha256,
+        ).hexdigest()
+    )
 
     def deliver_once(_index: int):
         return test_client.post(
@@ -415,16 +433,26 @@ def test_cross_tenant_connection_read_is_denied(client) -> None:
     manifest = _manifest()
     connector_id = str(manifest["connector_id"])
     digest = manifest_digest(manifest)
-    assert test_client.post(
-        "/v1/connectors/install",
-        json={"manifest": manifest, "expected_manifest_digest": digest},
-        headers={"Idempotency-Key": "install-" + uuid.uuid4().hex},
-    ).status_code == 202
-    assert test_client.post(
-        "/v1/integrations/connections",
-        json={"connector_id": connector_id, "configuration": {}, "secret_references": []},
-        headers={"Idempotency-Key": "connection-" + uuid.uuid4().hex},
-    ).status_code == 202
+    assert (
+        test_client.post(
+            "/v1/connectors/install",
+            json={"manifest": manifest, "expected_manifest_digest": digest},
+            headers={"Idempotency-Key": "install-" + uuid.uuid4().hex},
+        ).status_code
+        == 202
+    )
+    assert (
+        test_client.post(
+            "/v1/integrations/connections",
+            json={
+                "connector_id": connector_id,
+                "configuration": {},
+                "secret_references": [],
+            },
+            headers={"Idempotency-Key": "connection-" + uuid.uuid4().hex},
+        ).status_code
+        == 202
+    )
     with app.state.database.session(tenant_id) as session:
         connection_id = session.execute(
             text(
@@ -441,3 +469,139 @@ def test_cross_tenant_connection_read_is_denied(client) -> None:
     app.dependency_overrides[principal_dependency] = other_principal
     denied = test_client.get(f"/v1/integrations/connections/{connection_id}")
     assert denied.status_code == 404
+
+
+def test_platform_connector_controls_and_discovery(client):
+    test_client, _, _, _ = client
+    raw = _manifest()
+    installed = test_client.post(
+        "/platform/v1/connectors/install",
+        json={"manifest": raw, "expected_manifest_digest": manifest_digest(raw)},
+        headers={"Idempotency-Key": "platform-install-" + uuid.uuid4().hex},
+    )
+    assert installed.status_code == 202, installed.text
+    path = "/platform/v1/connectors/" + str(raw["connector_id"])
+    status = test_client.get(path + "/status")
+    assert status.status_code == 200
+    assert status.json()["data"]["execution_available"] is False
+    capabilities = test_client.get(path + "/capabilities")
+    assert capabilities.status_code == 200
+    assert all(
+        item["enabled"] is False for item in capabilities.json()["data"]["commands"]
+    )
+    assert test_client.get(path + "/manifest").status_code == 200
+
+
+def test_concurrent_registry_ownership_is_serialized(client):
+    _, app, tenant_id, _ = client
+    first = _manifest()
+    second = _manifest()
+    second["commands"][0]["prefix"] = first["commands"][0]["prefix"]
+
+    def install(raw):
+        try:
+            return app.state.repository.install_disabled(
+                tenant_id=tenant_id,
+                manifest_raw=raw,
+                expected_digest=manifest_digest(raw),
+                idempotency_key="race-install-" + uuid.uuid4().hex,
+                actor_subject="api-test-subject",
+                correlation_id=uuid.uuid4(),
+                request_id=None,
+                traceparent=None,
+            )[0]
+        except Exception as error:
+            from codestra_connector_runtime.api.problems import ProblemError
+
+            assert isinstance(error, ProblemError)
+            return error.status
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(install, [first, second]))
+    assert sorted(results) == [202, 409]
+
+
+def test_disabled_upgrade_is_versioned_audited_and_idempotent(client):
+    test_client, app, _, _ = client
+    app.state.settings.connector_upgrade_enabled = True
+    raw = _manifest()
+    installed = test_client.post(
+        "/v1/connectors/install",
+        json={"manifest": raw, "expected_manifest_digest": manifest_digest(raw)},
+        headers={"Idempotency-Key": "upgrade-seed-" + uuid.uuid4().hex},
+    )
+    assert installed.status_code == 202
+    raw["version"] = "1.1.0"
+    path = "/platform/v1/connectors/" + str(raw["connector_id"])
+    headers = {"Idempotency-Key": "upgrade-" + uuid.uuid4().hex, "If-Match": '"v1"'}
+    payload = {"manifest": raw, "expected_manifest_digest": manifest_digest(raw)}
+    upgraded = test_client.post(path + "/upgrade", json=payload, headers=headers)
+    assert upgraded.status_code == 202, upgraded.text
+    assert (
+        test_client.post(path + "/upgrade", json=payload, headers=headers).json()
+        == upgraded.json()
+    )
+    current = test_client.get(path)
+    assert current.headers["etag"] == '"v2"'
+    assert current.json()["data"]["version"] == "1.1.0"
+    assert current.json()["data"]["state"] == "INSTALLED_DISABLED"
+
+
+def test_connection_probe_uses_only_trusted_digest_bound_adapter(client):
+    from middleware.connector_sdk import ConnectorRegistry
+    from tests.test_connector_sdk_v1 import FakeAdapter
+
+    test_client, app, tenant_id, _ = client
+    raw = _manifest()
+    response = test_client.post(
+        "/v1/connectors/install",
+        json={"manifest": raw, "expected_manifest_digest": manifest_digest(raw)},
+        headers={"Idempotency-Key": "probe-install-" + uuid.uuid4().hex},
+    )
+    assert response.status_code == 202
+    connector_id = raw["connector_id"]
+    connection = app.state.repository.create_connection(
+        tenant_id=tenant_id,
+        connector_id=connector_id,
+        external_account_reference="probe-account",
+        configuration={"account_id": "probe-account"},
+        secret_references=[],
+        idempotency_key="probe-connection-" + uuid.uuid4().hex,
+        actor_subject="test",
+        correlation_id=uuid.uuid4(),
+        request_id=None,
+    )
+    assert connection[0] == 202
+    with app.state.database.session(tenant_id) as session:
+        connection_id = session.execute(
+            text(
+                "SELECT connection_id FROM connector_sdk.connector_connections c JOIN connector_sdk.connector_installations i USING (installation_id) WHERE i.connector_id=:id AND c.tenant_id=:tenant"
+            ),
+            {"id": connector_id, "tenant": tenant_id},
+        ).scalar_one()
+    registry = ConnectorRegistry()
+    registry.register_manifest(raw)
+    registry.register_adapter_factory(connector_id, FakeAdapter)
+    app.state.adapter_registry = registry
+    tested = test_client.post(
+        f"/platform/v1/connectors/{connector_id}/test",
+        json={"connection_id": str(connection_id)},
+    )
+    assert tested.status_code == 200, tested.text
+    assert tested.json()["data"]["ok"] is True
+    assert (
+        test_client.get(f"/platform/v1/connectors/{connector_id}/health").json()[
+            "data"
+        ]["status"]
+        == "HEALTHY"
+    )
+    with app.state.database.session(tenant_id) as session:
+        assert (
+            session.execute(
+                text(
+                    "SELECT last_test_code FROM connector_sdk.connector_connections WHERE connection_id=:id"
+                ),
+                {"id": connection_id},
+            ).scalar_one()
+            == "READ_ONLY_TEST_PASS"
+        )

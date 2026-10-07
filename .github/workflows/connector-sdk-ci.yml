@@ -63,4 +63,4 @@ jobs:
       - name: Validate isolated connector contracts
         run: python3 scripts/validate_connector_contracts.py
       - name: Run Connector SDK regression and review tests
-        run: python3 -m unittest discover -v -s tests -p 'test_connector_sdk*.py'
+        run: python3 -m pytest --noconftest -q tests/test_connector_sdk*.py

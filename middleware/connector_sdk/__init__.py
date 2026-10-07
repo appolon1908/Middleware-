@@ -52,6 +52,7 @@ from .models import (
     WebhookProcessResult,
     WebhookRequest,
 )
+from .operations import InMemoryOperationStore, OperationStore
 from .registry import ConnectorRegistry, RegisteredConnector
 from .runtime import ConnectorRuntime, StaticCapabilityProvider
 from .standards import (
@@ -93,6 +94,8 @@ __all__ = [
     "ConnectorStateError",
     "ConnectorVersionConflictError",
     "InMemoryReplayStore",
+    "InMemoryOperationStore",
+    "OperationStore",
     "ManifestValidationError",
     "MappingSecretResolver",
     "MappingTenantResolver",

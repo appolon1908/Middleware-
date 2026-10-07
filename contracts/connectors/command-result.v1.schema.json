@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.codestra.co/connectors/command-result.v1.schema.json",
+  "title": "Middleware normalized connector command result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "operation_id", "provider_reference", "safe_result", "retryable", "error_code"],
+  "properties": {
+    "outcome": {"enum": ["ACCEPTED", "SUBMITTED", "UNKNOWN", "COMPLETED", "FAILED", "CANCELLED"]},
+    "operation_id": {"type": "string", "pattern": "^[A-Za-z0-9._:/-]{1,256}$"},
+    "provider_reference": {"anyOf": [{"type": "null"}, {"type": "string", "pattern": "^[A-Za-z0-9._:/-]{1,256}$"}]},
+    "safe_result": {"type": "object", "description": "Finite JSON, maximum 1 MiB, with recursive SDK forbidden-secret-key enforcement."},
+    "retryable": {"type": "boolean"},
+    "error_code": {"anyOf": [{"type": "null"}, {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,127}$"}]}
+  },
+  "allOf": [{"if": {"properties": {"retryable": {"const": true}}}, "then": {"properties": {"outcome": {"const": "FAILED"}}}}]
+}
