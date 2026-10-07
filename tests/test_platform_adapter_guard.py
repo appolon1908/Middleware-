@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -139,12 +139,13 @@ def test_registry_hands_out_the_guard_and_never_double_wraps() -> None:
     guard = registry.register(adapter)
     assert registry.adapter("guard-probe") is guard and registry.owner_for(PREFIX + "x.v1") is guard
     assert unwrap(guard) is adapter
+    typed_guard = cast(Any, guard)
     # fixture-style state stays reachable through the guard
-    assert guard.calls is adapter.calls
-    guard.answer = "scripted"
+    assert typed_guard.calls is adapter.calls
+    typed_guard.answer = "scripted"
     assert adapter.answer == "scripted"
     with pytest.raises(AttributeError):
-        guard.inner = ScriptedAdapter()
+        typed_guard.inner = ScriptedAdapter()
     again = AdapterRegistry(policies(enabled=True)).register(guard)
     assert unwrap(again) is adapter
 

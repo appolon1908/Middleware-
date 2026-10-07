@@ -574,7 +574,7 @@ async def test_chaos_worker_crash_after_commit_produces_no_duplicate_effect(harn
 @pytest.mark.asyncio
 async def test_adapters_receive_the_authenticated_client_on_execute_and_reconcile(harness: Harness) -> None:
     seen: list[tuple[str, str | None]] = []
-    adapter = unwrap(harness.test_syn)
+    adapter = cast(Any, unwrap(harness.test_syn))
     execute, reconcile = adapter.execute, adapter.reconcile
 
     async def recording_execute(command: CommandEnvelope, context: Any) -> Any:

@@ -10,7 +10,7 @@ duplicates the e-mail / SMS / CRM write.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import httpx
@@ -262,11 +262,14 @@ def test_every_configured_provider_bridge_declares_its_unknown_outcome_error(tes
     }
     for adapter_id, unknown in expected.items():
         assert adapter_id in bridges, adapter_id
-        assert bridges[adapter_id].unknown_errors == (unknown,), adapter_id
+        bridge = cast(Any, bridges[adapter_id])
+        assert bridge.unknown_errors == (unknown,), adapter_id
     # The subclasses are what make the declaration necessary: without it the
     # pre-send parent class would classify them.
     assert issubclass(KlyrowEmailUnknownOutcomeError, KlyrowEmailAdapterError)
     assert issubclass(TelnexaUnknownOutcomeError, TelnexaProviderAdapterError)
     assert issubclass(OdooProviderUnknownOutcomeError, OdooProviderAdapterError)
-    if "odoo-19" in bridges and bridges["odoo-19"].legacy is not None:
-        assert bridges["odoo-19"].unknown_errors == (OdooProviderUnknownOutcomeError,)
+    if "odoo-19" in bridges:
+        odoo_bridge = cast(Any, bridges["odoo-19"])
+        if odoo_bridge.legacy is not None:
+            assert odoo_bridge.unknown_errors == (OdooProviderUnknownOutcomeError,)
