@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-07-provisioning::03-sync-disable",
+  "product": "middleware",
+  "section": "mw-07-provisioning",
+  "subsection": "03-sync-disable",
+  "branch": "subsection/mw-07-provisioning--03-sync-disable",
+  "parent_branch": "section/mw-07-provisioning",
+  "order": 3,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-07-provisioning/subsections/03-sync-disable/repo",
+  "depends_on": [
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::05-openapi-postman",
+    "middleware::mw-06-adapters::04-messaging",
+    "middleware::mw-07-provisioning::02-webrtc"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

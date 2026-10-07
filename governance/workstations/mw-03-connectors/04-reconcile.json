@@ -1,0 +1,24 @@
+{
+  "workstation": "middleware::mw-03-connectors::04-reconcile",
+  "product": "middleware",
+  "section": "mw-03-connectors",
+  "subsection": "04-reconcile",
+  "branch": "subsection/mw-03-connectors--04-reconcile",
+  "parent_branch": "section/mw-03-connectors",
+  "order": 4,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-03-connectors/subsections/04-reconcile/repo",
+  "depends_on": [
+    "middleware::mw-02-command-kernel::07-recovery",
+    "middleware::mw-03-connectors::03-readback"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

@@ -8,16 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_BASE = (
-    "python:3.14.7-slim-bookworm@"
-    "sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56"
+    "python:3.14.8-slim-bookworm@"
+    "sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83"
 )
 TEST_BASE = (
     "python:3.14.7-bookworm@"
     "sha256:4121f1893084fd19c71df52b7a48565d47f5bf36173d2c2ce8bca626512ef3db"
 )
 FINAL_BASE = (
-    "python:3.14.7-slim-bookworm@"
-    "sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56"
+    "python:3.14.8-slim-bookworm@"
+    "sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83"
 )
 REQUIRED = (
     "requirements-runtime.in",
