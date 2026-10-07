@@ -27,21 +27,45 @@ from app.storage import MemoryInboxStore
 TENANT = "TEST_SYN"
 
 
-def token(*, azp: str = "middleware-api", scope: str = "platform.command platform.command.read", sub: str = "user-1", tenants: tuple[str, ...] = (TENANT,), roles: tuple[str, ...] = ()) -> str:
+def token(
+    *,
+    azp: str = "middleware-api",
+    scope: str = "platform.command platform.command.read",
+    sub: str = "user-1",
+    tenants: tuple[str, ...] = (TENANT,),
+    roles: tuple[str, ...] = (),
+) -> str:
     now = int(time.time())
-    claims: dict[str, Any] = {"iss": "fake", "aud": "middleware-api", "azp": azp, "sub": sub, "iat": now, "exp": now + 120, "scope": scope, "tenant_ids": list(tenants), "realm_access": {"roles": list(roles)}}
+    claims: dict[str, Any] = {
+        "iss": "fake",
+        "aud": "middleware-api",
+        "azp": azp,
+        "sub": sub,
+        "iat": now,
+        "exp": now + 120,
+        "scope": scope,
+        "tenant_ids": list(tenants),
+        "realm_access": {"roles": list(roles)},
+    }
     return jwt.encode(claims, "unit-test-only", algorithm="HS256")
 
 
 class ClaimsVerifier:
     """Decodes the unit-test token and enforces azp + scope like Keycloak would."""
 
-    async def verify(self, authorization: str, *, expected_client_id: str, required_scope: str) -> dict[str, Any]:
+    async def verify(
+        self, authorization: str, *, expected_client_id: str, required_scope: str
+    ) -> dict[str, Any]:
         scheme, _, raw = authorization.partition(" ")
         if scheme.lower() != "bearer" or not raw:
             raise AuthenticationError("Authorization must be a Bearer token")
         try:
-            claims = jwt.decode(raw, "unit-test-only", algorithms=["HS256"], options={"verify_aud": False})
+            claims = jwt.decode(
+                raw,
+                "unit-test-only",
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
         except Exception as exc:  # noqa: BLE001
             raise AuthenticationError("invalid bearer token") from exc
         if claims.get("azp") != expected_client_id:
@@ -58,10 +82,24 @@ class Stack:
     def __init__(self, settings: Settings) -> None:
         self.store = MemoryCommandStore()
         commands = CommandService(store=self.store, policies=command_policies(settings))
-        self.runtime = RuntimeContainer(settings=settings, inbox=MemoryInboxStore(), replay=MemoryReplayGuard(), tokens=ClaimsVerifier(), commands=commands)
-        self.runtime.platform = build_platform_runtime(settings, commands=commands, http=None, pool=None, service_id="middleware-integration-api")
+        self.runtime = RuntimeContainer(
+            settings=settings,
+            inbox=MemoryInboxStore(),
+            replay=MemoryReplayGuard(),
+            tokens=ClaimsVerifier(),
+            commands=commands,
+        )
+        self.runtime.platform = build_platform_runtime(
+            settings,
+            commands=commands,
+            http=None,
+            pool=None,
+            service_id="middleware-integration-api",
+        )
         self.bus = MemoryExecutionBus(self.store, self.runtime.platform.dispatch)
-        self.app = create_app(settings=settings, runtime=self.runtime, profile=AppProfile.INTEGRATION)
+        self.app = create_app(
+            settings=settings, runtime=self.runtime, profile=AppProfile.INTEGRATION
+        )
 
     @property
     def test_syn(self):
@@ -90,83 +128,177 @@ def command_body(**updates: Any) -> dict[str, Any]:
     return value
 
 
-def headers(body: dict[str, Any], *, bearer: str | None = None, **extra: str) -> dict[str, str]:
-    value = {"Authorization": f"Bearer {bearer or token()}", "X-Correlation-ID": body["correlation_id"], "Idempotency-Key": body["idempotency_key"], "Content-Type": "application/json"}
+def headers(
+    body: dict[str, Any], *, bearer: str | None = None, **extra: str
+) -> dict[str, str]:
+    value = {
+        "Authorization": f"Bearer {bearer or token()}",
+        "X-Correlation-ID": body["correlation_id"],
+        "Idempotency-Key": body["idempotency_key"],
+        "Content-Type": "application/json",
+    }
     value.update(extra)
     return value
 
 
 def submit(client: TestClient, body: dict[str, Any] | None = None, **kwargs: Any):
     body = body or command_body()
-    return client.post("/platform/v1/commands", json=body, headers=headers(body, **kwargs)), body
+    return client.post(
+        "/platform/v1/commands", json=body, headers=headers(body, **kwargs)
+    ), body
 
 
 # ----------------------------------------------------------------------------
 # identity matrix
 # ----------------------------------------------------------------------------
-def test_submission_requires_bearer_scope_registered_client_and_tenant(stack: Stack) -> None:
+def test_submission_requires_bearer_scope_registered_client_and_tenant(
+    stack: Stack,
+) -> None:
     with TestClient(stack.app) as client:
         body = command_body()
         assert client.post("/platform/v1/commands", json=body).status_code == 401
-        no_scope = client.post("/platform/v1/commands", json=body, headers=headers(body, bearer=token(scope="platform.command.read")))
+        no_scope = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers=headers(body, bearer=token(scope="platform.command.read")),
+        )
         assert no_scope.status_code == 401
-        unknown_client = client.post("/platform/v1/commands", json=body, headers=headers(body, bearer=token(azp="not-a-registered-client")))
+        unknown_client = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers=headers(body, bearer=token(azp="not-a-registered-client")),
+        )
         assert unknown_client.status_code == 401
-        foreign_tenant = client.post("/platform/v1/commands", json=body, headers=headers(body, bearer=token(tenants=("tenant-b",))))
+        foreign_tenant = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers=headers(body, bearer=token(tenants=("tenant-b",))),
+        )
         assert foreign_tenant.status_code == 403
-        wrong_subject = client.post("/platform/v1/commands", json=body, headers=headers(body, bearer=token(sub="someone-else")))
+        wrong_subject = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers=headers(body, bearer=token(sub="someone-else")),
+        )
         assert wrong_subject.status_code == 403
-        assert wrong_subject.json()["error"]["code"] == "authorization_denied" or wrong_subject.json()["error"]["correlation_id"]
+        assert (
+            wrong_subject.json()["error"]["code"] == "authorization_denied"
+            or wrong_subject.json()["error"]["correlation_id"]
+        )
 
 
 def test_header_and_body_bindings_are_enforced(stack: Stack) -> None:
     with TestClient(stack.app) as client:
         body = command_body()
-        mismatch = client.post("/platform/v1/commands", json=body, headers={**headers(body), "Idempotency-Key": "different-key-0001"})
+        mismatch = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers={**headers(body), "Idempotency-Key": "different-key-0001"},
+        )
         assert mismatch.status_code == 400
-        mismatch = client.post("/platform/v1/commands", json=body, headers={**headers(body), "X-Correlation-ID": "other"})
+        mismatch = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers={**headers(body), "X-Correlation-ID": "other"},
+        )
         assert mismatch.status_code == 400
-        missing = client.post("/platform/v1/commands", json=body, headers={"Authorization": headers(body)["Authorization"]})
+        missing = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers={"Authorization": headers(body)["Authorization"]},
+        )
         assert missing.status_code == 400
-        tenant_header = client.post("/platform/v1/commands", json=body, headers={**headers(body), "X-Tenant-ID": "tenant-b"})
+        tenant_header = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers={**headers(body), "X-Tenant-ID": "tenant-b"},
+        )
         assert tenant_header.status_code == 400
-        extra_field = client.post("/platform/v1/commands", json={**body, "role": "admin"}, headers=headers(body))
-        assert extra_field.status_code == 400  # canonical control-plane envelope for schema violations
+        extra_field = client.post(
+            "/platform/v1/commands",
+            json={**body, "role": "admin"},
+            headers=headers(body),
+        )
+        assert (
+            extra_field.status_code == 400
+        )  # canonical control-plane envelope for schema violations
 
 
 # ----------------------------------------------------------------------------
 # submission semantics
 # ----------------------------------------------------------------------------
-def test_submission_is_accepted_asynchronously_and_replayed_exactly(stack: Stack) -> None:
+def test_submission_is_accepted_asynchronously_and_replayed_exactly(
+    stack: Stack,
+) -> None:
     with TestClient(stack.app) as client:
         response, body = submit(client)
         assert response.status_code == 202
-        assert response.headers["Location"] == f"/platform/v1/operations/{body['command_id']}"
+        assert (
+            response.headers["Location"]
+            == f"/platform/v1/operations/{body['command_id']}"
+        )
         assert response.headers["X-Correlation-ID"] == body["correlation_id"]
         accepted = response.json()
-        assert accepted == {"operation_id": body["command_id"], "command_id": body["command_id"], "state": "RECEIVED", "correlation_id": body["correlation_id"], "duplicate": False}
+        assert accepted == {
+            "operation_id": body["command_id"],
+            "command_id": body["command_id"],
+            "state": "RECEIVED",
+            "correlation_id": body["correlation_id"],
+            "duplicate": False,
+        }
         assert stack.test_syn.provider_effects == 0
         replay, _ = submit(client, body)
         assert replay.status_code == 200 and replay.json()["duplicate"] is True
-        conflict = client.post("/platform/v1/commands", json={**body, "payload": {"probe": "changed"}}, headers=headers(body))
+        conflict = client.post(
+            "/platform/v1/commands",
+            json={**body, "payload": {"probe": "changed"}},
+            headers=headers(body),
+        )
         assert conflict.status_code == 409
         assert conflict.json()["error"]["code"] == "command_conflict"
         assert len(stack.store._outbox) == 1
 
 
-def test_policy_safety_and_capability_denials_are_403_with_the_error_envelope(stack: Stack) -> None:
+def test_policy_safety_and_capability_denials_are_403_with_the_error_envelope(
+    stack: Stack,
+) -> None:
     with TestClient(stack.app) as client:
-        body = command_body(command_type="crm.contact.create.v1", target="odoo-19", capability="ODOO_WRITE")
+        body = command_body(
+            command_type="crm.contact.create.v1",
+            target="odoo-19",
+            capability="ODOO_WRITE",
+        )
         denied = client.post("/platform/v1/commands", json=body, headers=headers(body))
         assert denied.status_code == 403
         envelope = denied.json()["error"]
-        assert envelope["code"] == "policy_denied"  # middleware-api has no crm authority
-        assert set(envelope) == {"code", "message", "correlation_id", "retryable", "details"}
+        assert (
+            envelope["code"] == "policy_denied"
+        )  # middleware-api has no crm authority
+        assert set(envelope) == {
+            "code",
+            "message",
+            "correlation_id",
+            "retryable",
+            "details",
+        }
         assert envelope["correlation_id"] == body["correlation_id"]
-        odoo = client.post("/platform/v1/commands", json=body, headers=headers(body, bearer=token(azp="odoo-integration")))
-        assert odoo.status_code == 403 and odoo.json()["error"]["code"] == "safety_denied"
+        odoo = client.post(
+            "/platform/v1/commands",
+            json=body,
+            headers=headers(body, bearer=token(azp="odoo-integration")),
+        )
+        assert (
+            odoo.status_code == 403 and odoo.json()["error"]["code"] == "safety_denied"
+        )
         wrong_target = command_body(target="odoo-19")
-        assert client.post("/platform/v1/commands", json=wrong_target, headers=headers(wrong_target)).json()["error"]["code"] == "capability_disabled"
+        assert (
+            client.post(
+                "/platform/v1/commands",
+                json=wrong_target,
+                headers=headers(wrong_target),
+            ).json()["error"]["code"]
+            == "capability_disabled"
+        )
 
 
 # ----------------------------------------------------------------------------
@@ -175,18 +307,52 @@ def test_policy_safety_and_capability_denials_are_403_with_the_error_envelope(st
 def test_operation_read_is_tenant_scoped_and_redacted(stack: Stack) -> None:
     with TestClient(stack.app) as client:
         _, body = submit(client)
-        read = client.get(f"/platform/v1/operations/{body['command_id']}", headers={"Authorization": f"Bearer {token()}"})
+        read = client.get(
+            f"/platform/v1/operations/{body['command_id']}",
+            headers={"Authorization": f"Bearer {token()}"},
+        )
         assert read.status_code == 200
         status = read.json()
         assert status["state"] == "RECEIVED" and status["resource_version"] == 1
-        assert "payload" not in status and "readback_evidence" not in status and "last_error" not in status
-        assert client.get(f"/platform/v1/operations/{body['command_id']}", headers={"Authorization": f"Bearer {token(tenants=('tenant-b',))}"}).status_code == 404
-        assert client.get(f"/platform/v1/operations/{body['command_id']}", headers={"Authorization": f"Bearer {token(scope='platform.command')}"}).status_code == 401
-        multi = client.get(f"/platform/v1/operations/{body['command_id']}", headers={"Authorization": f"Bearer {token(tenants=(TENANT, 'tenant-b'))}"})
+        assert (
+            "payload" not in status
+            and "readback_evidence" not in status
+            and "last_error" not in status
+        )
+        assert (
+            client.get(
+                f"/platform/v1/operations/{body['command_id']}",
+                headers={"Authorization": f"Bearer {token(tenants=('tenant-b',))}"},
+            ).status_code
+            == 404
+        )
+        assert (
+            client.get(
+                f"/platform/v1/operations/{body['command_id']}",
+                headers={"Authorization": f"Bearer {token(scope='platform.command')}"},
+            ).status_code
+            == 401
+        )
+        multi = client.get(
+            f"/platform/v1/operations/{body['command_id']}",
+            headers={"Authorization": f"Bearer {token(tenants=(TENANT, 'tenant-b'))}"},
+        )
         assert multi.status_code == 400
-        scoped = client.get(f"/platform/v1/operations/{body['command_id']}", headers={"Authorization": f"Bearer {token(tenants=(TENANT, 'tenant-b'))}", "X-Tenant-ID": TENANT})
+        scoped = client.get(
+            f"/platform/v1/operations/{body['command_id']}",
+            headers={
+                "Authorization": f"Bearer {token(tenants=(TENANT, 'tenant-b'))}",
+                "X-Tenant-ID": TENANT,
+            },
+        )
         assert scoped.status_code == 200
-        assert client.get(f"/platform/v1/operations/{uuid4()}", headers={"Authorization": f"Bearer {token()}"}).status_code == 404
+        assert (
+            client.get(
+                f"/platform/v1/operations/{uuid4()}",
+                headers={"Authorization": f"Bearer {token()}"},
+            ).status_code
+            == 404
+        )
 
 
 def test_timeline_is_append_only_and_monotonic_after_execution(stack: Stack) -> None:
@@ -195,31 +361,81 @@ def test_timeline_is_append_only_and_monotonic_after_execution(stack: Stack) -> 
         import asyncio
 
         asyncio.run(stack.bus.run_once())
-        status = client.get(f"/platform/v1/operations/{body['command_id']}", headers={"Authorization": f"Bearer {token()}"}).json()
+        status = client.get(
+            f"/platform/v1/operations/{body['command_id']}",
+            headers={"Authorization": f"Bearer {token()}"},
+        ).json()
         assert status["state"] == "COMPLETED"
-        assert status["readback_status"] == "MATCHED" and status["readback_evidence_sha256"]
+        assert (
+            status["readback_status"] == "MATCHED"
+            and status["readback_evidence_sha256"]
+        )
         assert status["provider_operation_id"].startswith("test-syn:")
-        timeline = client.get(f"/platform/v1/operations/{body['command_id']}/timeline", headers={"Authorization": f"Bearer {token()}"}).json()
+        timeline = client.get(
+            f"/platform/v1/operations/{body['command_id']}/timeline",
+            headers={"Authorization": f"Bearer {token()}"},
+        ).json()
         ids = [item["event_id"] for item in timeline["items"]]
         assert ids == sorted(ids) and len(set(ids)) == len(ids)
-        assert [item["new_state"] for item in timeline["items"]] == ["RECEIVED", "QUEUED", "SUBMITTED", "ACCEPTED", "UNKNOWN", "COMPLETED"]
+        assert [item["new_state"] for item in timeline["items"]] == [
+            "RECEIVED",
+            "QUEUED",
+            "SUBMITTED",
+            "ACCEPTED",
+            "UNKNOWN",
+            "COMPLETED",
+        ]
         first = timeline["items"][0]["safe_metadata"]
-        assert first["policy_allow"] is True and first["safety_allow"] is True and first["adapter_id"] == "test-syn"
+        assert (
+            first["policy_allow"] is True
+            and first["safety_allow"] is True
+            and first["adapter_id"] == "test-syn"
+        )
         assert stack.test_syn.provider_effects == 1
 
 
 def test_cancel_uses_optimistic_concurrency_and_idempotency(stack: Stack) -> None:
     with TestClient(stack.app) as client:
         _, body = submit(client)
-        auth = {"Authorization": f"Bearer {token()}", "X-Correlation-ID": "cancel-corr", "Idempotency-Key": "cancel-key-0001"}
-        cancelled = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "operator request"}, headers=auth)
-        assert cancelled.status_code == 200 and cancelled.json()["state"] == "CANCELLED" and cancelled.json()["resource_version"] == 2
+        auth = {
+            "Authorization": f"Bearer {token()}",
+            "X-Correlation-ID": "cancel-corr",
+            "Idempotency-Key": "cancel-key-0001",
+        }
+        cancelled = client.post(
+            f"/platform/v1/operations/{body['command_id']}/cancel",
+            json={"expected_version": 1, "reason": "operator request"},
+            headers=auth,
+        )
+        assert (
+            cancelled.status_code == 200
+            and cancelled.json()["state"] == "CANCELLED"
+            and cancelled.json()["resource_version"] == 2
+        )
         assert cancelled.json()["cancelled_at"] is not None
-        replay = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "operator request"}, headers=auth)
+        replay = client.post(
+            f"/platform/v1/operations/{body['command_id']}/cancel",
+            json={"expected_version": 1, "reason": "operator request"},
+            headers=auth,
+        )
         assert replay.status_code == 200
-        stale = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "again"}, headers={**auth, "Idempotency-Key": "cancel-key-0002"})
+        stale = client.post(
+            f"/platform/v1/operations/{body['command_id']}/cancel",
+            json={"expected_version": 1, "reason": "again"},
+            headers={**auth, "Idempotency-Key": "cancel-key-0002"},
+        )
         assert stale.status_code == 409
-        assert client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 2, "reason": "x"}, headers={**auth, "Authorization": f"Bearer {token(scope='platform.command.read')}"}).status_code == 401
+        assert (
+            client.post(
+                f"/platform/v1/operations/{body['command_id']}/cancel",
+                json={"expected_version": 2, "reason": "x"},
+                headers={
+                    **auth,
+                    "Authorization": f"Bearer {token(scope='platform.command.read')}",
+                },
+            ).status_code
+            == 401
+        )
 
 
 def test_replay_requires_replay_scope_and_operator_role(stack: Stack) -> None:
@@ -229,35 +445,96 @@ def test_replay_requires_replay_scope_and_operator_role(stack: Stack) -> None:
         import asyncio
 
         asyncio.run(stack.bus.run_once())
+        version = client.get(
+            f"/platform/v1/operations/{body['command_id']}",
+            headers={"Authorization": f"Bearer {token()}"},
+        ).json()["resource_version"]
         base = {"X-Correlation-ID": "replay-corr", "Idempotency-Key": "replay-key-0001"}
-        no_scope = client.post(f"/platform/v1/operations/{body['command_id']}/replay", json={"mode": "REEXECUTE", "expected_version": 1, "reason": "r", "new_idempotency_key": "idem-new-0000001"}, headers={**base, "Authorization": f"Bearer {token()}"})
+        no_scope = client.post(
+            f"/platform/v1/operations/{body['command_id']}/replay",
+            json={
+                "mode": "REEXECUTE",
+                "expected_version": version,
+                "reason": "r",
+                "new_idempotency_key": "idem-new-0000001",
+            },
+            headers={**base, "Authorization": f"Bearer {token()}"},
+        )
         assert no_scope.status_code == 401
-        no_role = client.post(f"/platform/v1/operations/{body['command_id']}/replay", json={"mode": "REEXECUTE", "expected_version": 1, "reason": "r", "new_idempotency_key": "idem-new-0000001"}, headers={**base, "Authorization": f"Bearer {token(scope='platform.command platform.command.read platform.command.replay')}"})
-        assert no_role.status_code == 409 and no_role.json()["error"]["code"] == "replay_not_allowed"
-        operator = token(scope="platform.command platform.command.read platform.command.replay", roles=("platform-operator",))
-        reexecuted = client.post(f"/platform/v1/operations/{body['command_id']}/replay", json={"mode": "REEXECUTE", "expected_version": 1, "reason": "r", "new_idempotency_key": "idem-new-0000001"}, headers={**base, "Authorization": f"Bearer {operator}"})
+        no_role = client.post(
+            f"/platform/v1/operations/{body['command_id']}/replay",
+            json={
+                "mode": "REEXECUTE",
+                "expected_version": version,
+                "reason": "r",
+                "new_idempotency_key": "idem-new-0000001",
+            },
+            headers={
+                **base,
+                "Authorization": f"Bearer {token(scope='platform.command platform.command.read platform.command.replay')}",
+            },
+        )
+        assert (
+            no_role.status_code == 409
+            and no_role.json()["error"]["code"] == "replay_not_allowed"
+        )
+        operator = token(
+            scope="platform.command platform.command.read platform.command.replay",
+            roles=("platform-operator",),
+        )
+        reexecuted = client.post(
+            f"/platform/v1/operations/{body['command_id']}/replay",
+            json={
+                "mode": "REEXECUTE",
+                "expected_version": version,
+                "reason": "r",
+                "new_idempotency_key": "idem-new-0000001",
+            },
+            headers={**base, "Authorization": f"Bearer {operator}"},
+        )
         assert reexecuted.status_code == 202
         assert reexecuted.json()["operation_id"] != body["command_id"]
         assert reexecuted.headers["Location"].startswith("/platform/v1/operations/")
-        bad_mode = client.post(f"/platform/v1/operations/{body['command_id']}/replay", json={"mode": "AGAIN", "expected_version": 1, "reason": "r"}, headers={**base, "Authorization": f"Bearer {operator}"})
-        assert bad_mode.status_code == 400  # canonical control-plane envelope for schema violations
+        bad_mode = client.post(
+            f"/platform/v1/operations/{body['command_id']}/replay",
+            json={"mode": "AGAIN", "expected_version": version, "reason": "r"},
+            headers={**base, "Authorization": f"Bearer {operator}"},
+        )
+        assert (
+            bad_mode.status_code == 400
+        )  # canonical control-plane envelope for schema violations
 
 
 def test_kernel_describe_is_authenticated_and_secret_free(stack: Stack) -> None:
     with TestClient(stack.app) as client:
         assert client.get("/platform/v1/kernel/describe").status_code == 401
-        described = client.get("/platform/v1/kernel/describe", headers={"Authorization": f"Bearer {token()}"})
+        described = client.get(
+            "/platform/v1/kernel/describe",
+            headers={"Authorization": f"Bearer {token()}"},
+        )
         assert described.status_code == 200
         body = described.json()
-        assert body["canonical_service"] == "middleware-integration-api" and body["canonical_port"] == 8095
+        assert (
+            body["canonical_service"] == "middleware-integration-api"
+            and body["canonical_port"] == 8095
+        )
         assert body["runtime_schema_version"] == 11
         assert body["alembic_schema_head"] == stack.runtime.settings.schema_head
         assert body["provider_effects_enabled"] is False
         assert body["public_contract_digest"]
-        assert {row["adapter_id"] for row in body["adapters"]} >= {"test-syn", "odoo-fixture"}
+        assert {row["adapter_id"] for row in body["adapters"]} >= {
+            "test-syn",
+            "odoo-fixture",
+        }
         assert body["safety"]["global_kill_switch"] is False
         text = described.text.lower()
-        for forbidden in ("password", "client_secret", "bearer ", "private_key", "hvs."):
+        for forbidden in (
+            "password",
+            "client_secret",
+            "bearer ",
+            "private_key",
+            "hvs.",
+        ):
             assert forbidden not in text
 
 
@@ -269,7 +546,9 @@ def test_persistence_outage_is_a_safe_503(stack: Stack) -> None:
         assert response.json()["error"]["retryable"] is True
 
 
-def test_chaos_a_persistence_failure_before_acceptance_is_never_a_202(stack: Stack) -> None:
+def test_chaos_a_persistence_failure_before_acceptance_is_never_a_202(
+    stack: Stack,
+) -> None:
     """Chaos A: the ledger fails before acceptance -> safe 503, no operation, no intent."""
     from app.storage import StorageError
 

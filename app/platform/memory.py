@@ -12,11 +12,17 @@ budget, dead-lettered afterwards.
 from __future__ import annotations
 
 import time
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Callable
 from uuid import UUID
 
-from app.commands import ADAPTER_COMMAND_DESTINATION, MemoryCommandStore, MemoryOutboxIntent
+from app.commands import (
+    ADAPTER_COMMAND_DESTINATION,
+    MemoryCommandStore,
+    MemoryOutboxIntent,
+)
 from app.platform.bus import AdapterDispatch, UnknownOutcomeError
 from app.platform.reconciler import ReconciliationClaim
 from app.storage import DEFAULT_MAX_OUTBOX_ATTEMPTS, OutboxRecord
@@ -55,7 +61,9 @@ class MemoryExecutionBus:
         )
 
     async def run_once(self) -> bool:
-        intent = next((item for item in self.store._outbox if self._claimable(item)), None)
+        intent = next(
+            (item for item in self.store._outbox if self._claimable(item)), None
+        )
         if intent is None:
             return False
         intent.attempt_count += 1
@@ -83,7 +91,9 @@ class MemoryExecutionBus:
                 intent.dead_lettered_at = self.clock()
                 self.processed.append((intent.id, "dead_lettered"))
             else:
-                intent.next_attempt_at = self.clock() + min(3600.0, float(2 ** min(intent.attempt_count, 10)))
+                intent.next_attempt_at = self.clock() + min(
+                    3600.0, float(2 ** min(intent.attempt_count, 10))
+                )
                 self.processed.append((intent.id, "retry"))
         except UnknownOutcomeError as exc:
             # Stays quarantined; the lease keeps other bus instances away until
@@ -108,11 +118,27 @@ class MemoryExecutionBus:
         return count
 
     def stats(self) -> MemoryBusStats:
-        rows = [item for item in self.store._outbox if item.destination == ADAPTER_COMMAND_DESTINATION]
+        rows = [
+            item
+            for item in self.store._outbox
+            if item.destination == ADAPTER_COMMAND_DESTINATION
+        ]
         return MemoryBusStats(
             pending=sum(1 for item in rows if self._claimable(item)),
-            leased=sum(1 for item in rows if item.lease_until is not None and item.lease_until >= self.clock() and item.completed_at is None),
-            quarantined=sum(1 for item in rows if item.reconciliation_required_at is not None and item.completed_at is None and item.dead_lettered_at is None),
+            leased=sum(
+                1
+                for item in rows
+                if item.lease_until is not None
+                and item.lease_until >= self.clock()
+                and item.completed_at is None
+            ),
+            quarantined=sum(
+                1
+                for item in rows
+                if item.reconciliation_required_at is not None
+                and item.completed_at is None
+                and item.dead_lettered_at is None
+            ),
             completed=sum(1 for item in rows if item.completed_at is not None),
             dead_lettered=sum(1 for item in rows if item.dead_lettered_at is not None),
         )
@@ -132,14 +158,34 @@ class MemoryReconciliationSource:
     store: MemoryCommandStore
     clock: Callable[[], float] = time.monotonic
     resolutions: list[tuple[int, str, str]] = field(default_factory=list)
+    _guarded: dict[int, str] = field(default_factory=dict)
 
-    async def claim(self, *, reconciler_id: str, lease_seconds: float) -> ReconciliationClaim | None:
+    @asynccontextmanager
+    async def guard(
+        self, claim: ReconciliationClaim, *, reconciler_id: str
+    ) -> AsyncIterator[None]:
+        self._item(claim, reconciler_id)
+        if claim.outbox_id in self._guarded:
+            raise RuntimeError("reconciliation claim is already guarded")
+        self._guarded[claim.outbox_id] = reconciler_id
+        try:
+            yield
+        finally:
+            self._guarded.pop(claim.outbox_id, None)
+
+    async def claim(
+        self, *, reconciler_id: str, lease_seconds: float
+    ) -> ReconciliationClaim | None:
+        if lease_seconds <= 0:
+            raise ValueError("lease_seconds must be positive")
         for item in self.store._outbox:
             if (
                 item.destination == ADAPTER_COMMAND_DESTINATION
+                and item.id not in self._guarded
                 and item.reconciliation_required_at is not None
                 and item.completed_at is None
                 and item.dead_lettered_at is None
+                and item.cancelled_at is None
                 and (item.lease_until is None or item.lease_until < self.clock())
             ):
                 item.lease_owner = reconciler_id
@@ -150,18 +196,44 @@ class MemoryReconciliationSource:
                     tenant_id=item.tenant_id,
                     command_id=UUID(str(item.payload["command_id"])),
                     reconciliation_attempts=item.reconciliation_attempts,
+                    dispatch_attempts=item.attempt_count,
                 )
         return None
 
-    def _item(self, claim: ReconciliationClaim, reconciler_id: str) -> MemoryOutboxIntent:
+    def _item(
+        self, claim: ReconciliationClaim, reconciler_id: str
+    ) -> MemoryOutboxIntent:
         for item in self.store._outbox:
             if item.id == claim.outbox_id:
-                if item.lease_owner != reconciler_id:
-                    raise RuntimeError("reconciliation lease is owned by another reconciler")
+                if (
+                    item.lease_owner != reconciler_id
+                    or item.lease_until is None
+                    or (
+                        item.lease_until <= self.clock()
+                        and self._guarded.get(item.id) != reconciler_id
+                    )
+                    or item.tenant_id != claim.tenant_id
+                    or item.command_id != str(claim.command_id)
+                    or item.cancelled_at is not None
+                    or item.completed_at is not None
+                    or item.dead_lettered_at is not None
+                ):
+                    raise RuntimeError(
+                        "reconciliation lease is owned by another reconciler"
+                    )
                 return item
         raise RuntimeError("outbox intent does not exist")
 
-    async def resolve(self, claim: ReconciliationClaim, *, reconciler_id: str, action: str, reason: str) -> None:
+    async def resolve(
+        self,
+        claim: ReconciliationClaim,
+        *,
+        reconciler_id: str,
+        action: str,
+        reason: str,
+    ) -> None:
+        if action not in {"complete", "dead_letter", "retry"}:
+            raise ValueError(action)
         item = self._item(claim, reconciler_id)
         item.lease_owner = None
         item.lease_until = None
@@ -177,7 +249,9 @@ class MemoryReconciliationSource:
             raise ValueError(action)
         self.resolutions.append((item.id, action, reason))
 
-    async def release(self, claim: ReconciliationClaim, *, reconciler_id: str, reason: str) -> None:
+    async def release(
+        self, claim: ReconciliationClaim, *, reconciler_id: str, reason: str
+    ) -> None:
         item = self._item(claim, reconciler_id)
         item.lease_owner = None
         item.lease_until = None

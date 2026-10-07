@@ -1279,9 +1279,13 @@ class PostgresOutboxStore:
                     )
 
                 if action == "retry" and row["attempt_count"] >= max_attempts:
-                    raise ReconciliationError(
-                        "attempt limit is exhausted; choose complete or dead_letter"
-                    )
+                    if safe_worker is None:
+                        raise ReconciliationError(
+                            "attempt limit is exhausted; choose complete or dead_letter"
+                        )
+                    # The live lease owner certified that no effect occurred.
+                    # Exhaustion is a terminal resolution, never another retry.
+                    action = "dead_letter"
 
                 await conn.execute(
                     """
@@ -1304,12 +1308,16 @@ class PostgresOutboxStore:
                         SET reconciliation_required_at=NULL,
                             lease_owner=NULL,
                             lease_until=NULL,
-                            next_attempt_at=now(),
+                            next_attempt_at=CASE WHEN $3 THEN now() + (
+                                LEAST(3600, power(2, LEAST(attempt_count, 10))::int)
+                                * interval '1 second'
+                            ) ELSE now() END,
                             last_error='reconciliation approved retry: ' || $2
                         WHERE id=$1
                         """,
                         record_id,
                         safe_reason,
+                        safe_worker is not None,
                     )
                 elif action == "complete":
                     await conn.execute(
