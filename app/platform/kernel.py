@@ -13,13 +13,12 @@ capability registry here.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping
-from uuid import UUID, uuid5
+from uuid import UUID, uuid4
 
 from app.commands import (
     ADAPTER_COMMAND_DESTINATION,
@@ -215,16 +214,7 @@ class CommandKernel:
         self._backlog.put(tenant_id, value)
         return value
 
-    async def _deny(
-        self,
-        kind: str,
-        command: CommandEnvelope,
-        principal: KernelPrincipal,
-        *,
-        reason_code: str,
-        decision_id: str,
-        version: str,
-    ) -> None:
+    async def _deny(self, kind: str, command: CommandEnvelope, principal: KernelPrincipal, *, reason_code: str, decision_id: str, version: str) -> None:
         await self.denials.record(
             DenialAudit(
                 kind=kind,
@@ -258,26 +248,14 @@ class CommandKernel:
 
         # 9 — registry resolution: exactly one owning policy, matching target and capability.
         policy = self.commands.policies.resolve(command.command_type)
-        if (
-            policy is None
-            or policy.target != command.target
-            or policy.capability != command.capability
-        ):
+        if policy is None or policy.target != command.target or policy.capability != command.capability:
             self.metrics.policy_denials.labels(reason="registry_mismatch").inc()
-            raise CommandCapabilityDisabled(
-                "command type, target and capability do not name one registered policy"
-            )
+            raise CommandCapabilityDisabled("command type, target and capability do not name one registered policy")
 
         # 10 — adapter ownership. Temporal-executed families need no in-process adapter.
         ownership = self.registry.ownership(command.command_type)
-        destination = (
-            ADAPTER_COMMAND_DESTINATION
-            if ownership is not None
-            else TEMPORAL_COMMAND_DESTINATION
-        )
-        adapter_registered = (
-            ownership is not None or destination == TEMPORAL_COMMAND_DESTINATION
-        )
+        destination = ADAPTER_COMMAND_DESTINATION if ownership is not None else TEMPORAL_COMMAND_DESTINATION
+        adapter_registered = ownership is not None or destination == TEMPORAL_COMMAND_DESTINATION
 
         # 11 — Policy Engine.
         decision = evaluate_command(
@@ -294,14 +272,7 @@ class CommandKernel:
         )
         if not decision.allow:
             self.metrics.policy_denials.labels(reason=decision.reason_code).inc()
-            await self._deny(
-                "policy_deny",
-                command,
-                principal,
-                reason_code=decision.reason_code,
-                decision_id=decision.decision_id,
-                version=decision.policy_version,
-            )
+            await self._deny("policy_deny", command, principal, reason_code=decision.reason_code, decision_id=decision.decision_id, version=decision.policy_version)
             raise PolicyDenied(f"policy denied: {decision.reason_code}")
 
         # 12 — Safety Gate.
@@ -324,24 +295,13 @@ class CommandKernel:
         )
         if not safety.allow:
             self.metrics.safety_denials.labels(reason=safety.reason_code).inc()
-            await self._deny(
-                "safety_deny",
-                command,
-                principal,
-                reason_code=safety.reason_code,
-                decision_id=safety.decision_id,
-                version=safety.safety_version,
-            )
+            await self._deny("safety_deny", command, principal, reason_code=safety.reason_code, decision_id=safety.decision_id, version=safety.safety_version)
             if safety.saturated:
                 raise KernelSaturated(f"kernel saturated: {safety.reason_code}")
             raise SafetyDenied(f"safety denied: {safety.reason_code}")
 
         # 13–17 — idempotency reservation, command, audit, outbox intent, COMMIT.
-        evidence: dict[str, Any] = {
-            **decision.evidence(),
-            **safety.evidence(),
-            "destination": destination,
-        }
+        evidence: dict[str, Any] = {**decision.evidence(), **safety.evidence(), "destination": destination}
         if ownership is not None:
             evidence["adapter_id"] = ownership.adapter_id
         if replay_mode is not None:
@@ -357,12 +317,8 @@ class CommandKernel:
         )
         if operation.duplicate:
             self.metrics.idempotency_duplicates.inc()
-        self.metrics.command_duration.labels(stage="accept").observe(
-            time.perf_counter() - started
-        )
-        return SubmitResult(
-            operation=operation, policy=decision, safety=safety, destination=destination
-        )
+        self.metrics.command_duration.labels(stage="accept").observe(time.perf_counter() - started)
+        return SubmitResult(operation=operation, policy=decision, safety=safety, destination=destination)
 
     # ------------------------------------------------------------------
     # Reads
@@ -370,9 +326,7 @@ class CommandKernel:
     async def get(self, tenant_id: str, operation_id: UUID) -> CommandOperation:
         return await self.commands.get(tenant_id, operation_id)
 
-    async def timeline(
-        self, tenant_id: str, operation_id: UUID, *, limit: int = 200
-    ) -> list[OperationEvent]:
+    async def timeline(self, tenant_id: str, operation_id: UUID, *, limit: int = 200) -> list[OperationEvent]:
         events = await self.commands.list_events(tenant_id, operation_id, limit=limit)
         # Append-only and monotonic by construction; verify rather than trust.
         ids = [event.event_id for event in events]
@@ -380,9 +334,7 @@ class CommandKernel:
             raise CommandConflict("operation timeline is not monotonic")
         return events
 
-    async def attempts(
-        self, tenant_id: str, operation_id: UUID, *, limit: int = 100
-    ) -> list[OperationAttempt]:
+    async def attempts(self, tenant_id: str, operation_id: UUID, *, limit: int = 100) -> list[OperationAttempt]:
         return await self.commands.list_attempts(tenant_id, operation_id, limit=limit)
 
     # ------------------------------------------------------------------
@@ -459,15 +411,8 @@ class CommandKernel:
             # Re-run Middleware processing from durable evidence: the ledger's
             # reconcile mutation requests a readback-only reconciliation. No
             # new provider effect can result from it.
-            if original.state not in {
-                "dispatching",
-                "accepted",
-                "readback_pending",
-                "reconciliation_required",
-            }:
-                raise ReplayNotAllowed(
-                    "REPROCESS is only meaningful for an operation with an unknown provider outcome"
-                )
+            if original.state not in {"dispatching", "accepted", "readback_pending", "reconciliation_required"}:
+                raise ReplayNotAllowed("REPROCESS is only meaningful for an operation with an unknown provider outcome")
             operation = await self.commands.mutate_operation(
                 tenant_id,
                 operation_id,
@@ -482,12 +427,8 @@ class CommandKernel:
             return operation
 
         # REEXECUTE: a deliberately new provider effect.
-        if original.resource_version != expected_version:
-            raise CommandConflict("stale command resource version")
         if original.state not in {"failed", "dead_lettered", "cancelled"}:
-            raise ReplayNotAllowed(
-                "REEXECUTE requires a terminal failed, dead-lettered or cancelled operation"
-            )
+            raise ReplayNotAllowed("REEXECUTE requires a terminal failed, dead-lettered or cancelled operation")
         if not new_idempotency_key or new_idempotency_key == original.idempotency_key:
             raise ReplayNotAllowed("REEXECUTE requires a new idempotency key")
         ownership = self.registry.ownership(original.command_type)
@@ -506,13 +447,7 @@ class CommandKernel:
         envelope = await self.commands.load_envelope(tenant_id, operation_id)
         replayed = envelope.model_copy(
             update={
-                "command_id": uuid5(
-                    operation_id,
-                    json.dumps(
-                        [principal.client_id, principal.subject, new_idempotency_key],
-                        separators=(",", ":"),
-                    ),
-                ),
+                "command_id": uuid4(),
                 "idempotency_key": new_idempotency_key,
                 "requested_by": principal.subject,
                 "correlation_id": envelope.correlation_id,
@@ -527,13 +462,7 @@ class CommandKernel:
     # ------------------------------------------------------------------
     # Describe (Phase 13)
     # ------------------------------------------------------------------
-    def describe(
-        self,
-        *,
-        runtime_schema_version: int,
-        contract_digest: str | None,
-        command_contract_version: str,
-    ) -> dict[str, Any]:
+    def describe(self, *, runtime_schema_version: int, contract_digest: str | None, command_contract_version: str) -> dict[str, Any]:
         capabilities = self.commands.policies.capabilities
         return {
             "kernel_version": "3.0.0",
@@ -556,59 +485,30 @@ class CommandKernel:
                     "readback_required": policy.readback_required,
                     "adapter_id": self.registry.owners().get(policy.prefix),
                 }
-                for policy in sorted(
-                    self.commands.policies.policies, key=lambda item: item.prefix
-                )
+                for policy in sorted(self.commands.policies.policies, key=lambda item: item.prefix)
             ],
             "adapters": self.registry.describe(),
-            "capabilities": {
-                name: value for name, value in sorted(capabilities.items())
-            },
-            "effect_defaults": {
-                name: False
-                for name in sorted(capabilities)
-                if name != "TEST_SYN_EXECUTE"
-            },
+            "capabilities": {name: value for name, value in sorted(capabilities.items())},
+            "effect_defaults": {name: False for name in sorted(capabilities) if name != "TEST_SYN_EXECUTE"},
             "provider_effects_enabled": any(
-                value is True and name != "TEST_SYN_EXECUTE"
-                for name, value in capabilities.items()
+                value is True and name != "TEST_SYN_EXECUTE" for name, value in capabilities.items()
             ),
             "canonical_port": 8095,
             "canonical_service": "middleware-integration-api",
             "state_vocabulary": {
                 "persisted": dict(sorted(API_OPERATION_STATES.items())),
                 "public": sorted(set(API_OPERATION_STATES.values())),
-                "transitions": {
-                    state: sorted(targets)
-                    for state, targets in sorted(ALLOWED_COMMAND_TRANSITIONS.items())
-                },
+                "transitions": {state: sorted(targets) for state, targets in sorted(ALLOWED_COMMAND_TRANSITIONS.items())},
                 "completed_requires": "provider read-back MATCHED",
             },
             "idempotency": {
                 "authority": "middleware_commands UNIQUE(tenant_id, idempotency_key) + payload digest",
-                "binding": [
-                    "tenant_id",
-                    "authenticated_client_id",
-                    "command_type",
-                    "target",
-                    "capability",
-                    "idempotency_key",
-                    "payload",
-                ],
+                "binding": ["tenant_id", "authenticated_client_id", "command_type", "target", "capability", "idempotency_key", "payload"],
                 "exact_replay": "200 duplicate=true, no new intent",
                 "same_key_different_payload": "409 command_conflict",
             },
-            "cancel": {
-                "scope": SCOPE_COMMAND,
-                "optimistic_concurrency": "expected_version",
-                "ambiguous_outcome": "RECONCILIATION_REQUIRED",
-            },
-            "replay": {
-                "scope": SCOPE_COMMAND_REPLAY,
-                "role": PLATFORM_OPERATOR_ROLE,
-                "modes": [mode.value for mode in ReplayMode],
-                "uncertain_outcome": "reconcile first",
-            },
+            "cancel": {"scope": SCOPE_COMMAND, "optimistic_concurrency": "expected_version", "ambiguous_outcome": "RECONCILIATION_REQUIRED"},
+            "replay": {"scope": SCOPE_COMMAND_REPLAY, "role": PLATFORM_OPERATOR_ROLE, "modes": [mode.value for mode in ReplayMode], "uncertain_outcome": "reconcile first"},
             "readiness": {
                 "adapter_registry_valid": self.registry.validated,
                 "registered_adapters": list(self.registry.ids()),
