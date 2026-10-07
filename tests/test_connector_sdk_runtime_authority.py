@@ -61,7 +61,7 @@ def test_incremental_directory_load_checks_existing_authority(tmp_path):
 @pytest.mark.parametrize(
     "result",
     [
-        CommandResult(outcome="COMPLETED", operation_id="op-1"),
+        CommandResult(outcome=CommandOutcome.COMPLETED, operation_id="op-1"),
         CommandResult(
             outcome=CommandOutcome.COMPLETED, operation_id="op-1", retryable=True
         ),
