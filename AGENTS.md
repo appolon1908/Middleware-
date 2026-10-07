@@ -12,3 +12,14 @@
 10. COMPLETE requires clean tree, pushed branch, tests, docs, zero unresolved blockers, and local/remote SHA match.
 11. CERTIFIED additionally requires exact-SHA CI, independent review, regression/security gates, and stored evidence.
 12. If safety or correctness cannot be proven, mark BLOCKED and stop.
+
+## Canonical platform authorities
+
+- Public traffic remains Client -> Caddy -> Kong -> Middleware on the canonical Middleware service port.
+- Preserve authentication and tenant authority on every governed request; the canonical tenant header is `X-Tenant-ID` where a header form is required.
+- Preserve `X-Correlation-ID` end to end for request tracing and evidence linkage.
+- Preserve `X-Causation-ID` where command/event causality is carried across boundaries.
+- Require `Idempotency-Key` for effect-capable commands and do not introduce alternate spellings.
+- `/metrics` and `/internal/*` remain private.
+- Do not introduce direct provider, direct SMTP, direct Odoo database, or other paths that bypass Middleware ledger/outbox authority.
+- Production and provider effects remain fail-closed unless a separately approved activation mission authorizes them.
