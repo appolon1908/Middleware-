@@ -25,7 +25,6 @@ WORKFLOWS = ROOT / ".github/workflows"
 MIDDLEWARE_CI = WORKFLOWS / "middleware-ci.yml"
 
 GOVERNED_LABELS = ["self-hosted", "Linux", "X64", "middleware-ci"]
-CONTROL_PLANE_LABELS = ["self-hosted", "linux", "x64", "codestra-control-plane"]
 HOSTED_RUNNER = "ubuntu-24.04"
 # Jobs pinned to the governed host by exact labels. Required exact-SHA CI owns
 # the host-only egress guard; portable governance and protected-base trust
@@ -33,7 +32,6 @@ HOSTED_RUNNER = "ubuntu-24.04"
 EXACT_LABEL_JOBS = {
     ("required-ci.yml", "test"): GOVERNED_LABELS,
     ("required-ci.yml", "publish-final-status"): GOVERNED_LABELS,
-    ("codestra-hierarchy-governance.yml", "control-plane-certification"): CONTROL_PLANE_LABELS,
 }
 # Branch-protection contexts plus the push-only main gate: rerouting must not
 # rename, drop or add a job.
