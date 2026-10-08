@@ -396,7 +396,6 @@
     "face-liveness-operator": {
       "command_scope": "platform.command",
       "status_scope": "platform.command.read",
-      "connector_commands_allowed": true,
       "allowed_command_prefixes": [
         "face-liveness.verify."
       ],
@@ -409,7 +408,6 @@
     "camera-gateway-capture-operator": {
       "command_scope": "platform.command",
       "status_scope": "platform.command.read",
-      "connector_commands_allowed": true,
       "allowed_command_prefixes": [
         "camera-gateway.capture."
       ],
@@ -422,7 +420,6 @@
     "postgresql-backup-operator": {
       "command_scope": "platform.command",
       "status_scope": "platform.command.read",
-      "connector_commands_allowed": true,
       "allowed_command_prefixes": [
         "postgresql.backup."
       ],
