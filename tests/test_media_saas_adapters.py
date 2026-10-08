@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from uuid import uuid4
+from pathlib import Path
+import json
 
 import httpx
 import pytest
@@ -308,3 +310,17 @@ def test_media_command_registry_is_wired_but_render_capability_defaults_closed()
     # runtime adapter behavior is covered by the HTTP tests above.
     registry = AdapterRegistry(policies)
     assert registry.ownership("media.blender.render.frame.v1") is None
+
+
+def test_render_capability_has_explicit_default_deny_safety_authority() -> None:
+    root = Path(__file__).resolve().parents[1]
+    safety = json.loads((root / "config/platform-safety.v1.json").read_text())
+    capabilities = json.loads((root / "config/capabilities.v2.json").read_text())
+    assert capabilities["capabilities"]["MEDIA_RENDER"] is False
+    gate = safety["capability_gates"]["MEDIA_RENDER"]
+    assert gate["classification"] == "external_effect"
+    assert gate["umbrella_controls"] == ["EXTERNAL_DELIVERY_ENABLED"]
+    assert gate["environments"] == ["staging", "production"]
+    assert gate["campaign_scoped"] is False
+    for provider in ("blender-render", "kdenlive-render", "natron-compositor"):
+        assert safety["provider_kill_switches"][provider] is True

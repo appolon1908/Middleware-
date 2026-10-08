@@ -23,7 +23,10 @@
     "face-id": true,
     "face-liveness": true,
     "camera-gateway": true,
-    "postgresql": true
+    "postgresql": true,
+    "blender-render": true,
+    "kdenlive-render": true,
+    "natron-compositor": true
   },
   "synthetic_tenants": [
     "TEST_SYN"
@@ -311,6 +314,18 @@
       ],
       "environments": [
         "staging"
+      ],
+      "campaign_scoped": false
+    },
+    "MEDIA_RENDER": {
+      "classification": "external_effect",
+      "effect_flags": [],
+      "umbrella_controls": [
+        "EXTERNAL_DELIVERY_ENABLED"
+      ],
+      "environments": [
+        "staging",
+        "production"
       ],
       "campaign_scoped": false
     },

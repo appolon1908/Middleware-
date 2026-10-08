@@ -351,7 +351,9 @@ async def test_every_production_command_is_denied_with_zero_provider_or_business
             contract_refused.add(policy.prefix)
             continue
         command = envelope(f"{policy.prefix}probe.v1", policy.target, policy.capability)
-        with pytest.raises(SafetyDenied, match="capability_disabled"):
+        # A deliberately quarantined provider may be denied even earlier by
+        # its kill switch; both refusals are required fail-closed controls.
+        with pytest.raises(SafetyDenied, match="capability_disabled|provider_kill_switch"):
             await platform.kernel.submit(command, everyone())
         denied[policy.prefix] = policy.capability
         # The ledger itself refuses a disabled capability even without the kernel.
