@@ -75,6 +75,7 @@ from app.api.v1.events import router as events_router
 from app.api.v1.integrations import router as integrations_router
 from app.api.v1.lead_automation import router as lead_automation_router
 from app.api.v1.lead_reconciliation import router as lead_reconciliation_router
+from app.api.v1.leads_workstation import router as leads_workstation_router
 from app.api.v1.mappings import router as mappings_router
 from app.api.v1.n8n_runtime import router as n8n_runtime_router
 from app.api.v1.n8n_staging import router as n8n_staging_router
@@ -156,6 +157,7 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     presence_router,
     queues_router,
     contacts_router,
+    leads_workstation_router,
     opportunities_router,
     tickets_router,
     tenants_router,

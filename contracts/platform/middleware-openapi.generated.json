@@ -23608,6 +23608,1146 @@
         ]
       }
     },
+    "/platform/v1/leads": {
+      "get": {
+        "operationId": "list_leads_platform_v1_leads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campaign_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assigned_agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assigned Agent"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Leads",
+        "tags": [
+          "leads-workstation"
+        ]
+      },
+      "post": {
+        "operationId": "create_lead_platform_v1_leads_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Request-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Request-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Correlation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Correlation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Causation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Causation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Traceparent",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/campaigns": {
+      "get": {
+        "operationId": "list_campaigns_platform_v1_leads_campaigns_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Campaigns",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/{lead_id}": {
+      "get": {
+        "operationId": "get_lead_platform_v1_leads__lead_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      },
+      "patch": {
+        "operationId": "update_lead_platform_v1_leads__lead_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "If-Match",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Request-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Request-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Correlation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Correlation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Causation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Causation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Traceparent",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/{lead_id}/assign": {
+      "post": {
+        "operationId": "assign_lead_platform_v1_leads__lead_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Request-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Request-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Correlation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Correlation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Causation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Causation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Traceparent",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Assign Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/{lead_id}/consent": {
+      "post": {
+        "operationId": "consent_lead_platform_v1_leads__lead_id__consent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Request-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Request-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Correlation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Correlation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Causation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Causation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Traceparent",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Consent Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/{lead_id}/contacts": {
+      "get": {
+        "operationId": "get_contacts_platform_v1_leads__lead_id__contacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get Contacts",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/{lead_id}/suppress": {
+      "post": {
+        "operationId": "suppress_lead_platform_v1_leads__lead_id__suppress_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Request-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Request-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Correlation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Correlation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Causation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Causation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Traceparent",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Suppress Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
+    "/platform/v1/leads/{lead_id}/transition": {
+      "post": {
+        "operationId": "transition_lead_platform_v1_leads__lead_id__transition_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Request-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Request-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Correlation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Correlation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Codestra-Causation-ID",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Codestra-Causation-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Traceparent",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Invalid canonical request"
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Scope or tenant denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Version, state, or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Required durable dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Transition Lead",
+        "tags": [
+          "leads-workstation"
+        ]
+      }
+    },
     "/platform/v1/me/presence": {
       "get": {
         "operationId": "get_my_presence_platform_v1_me_presence_get",

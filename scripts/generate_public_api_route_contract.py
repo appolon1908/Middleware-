@@ -74,6 +74,10 @@ def _platform_scope(path: str, method: str) -> tuple[str, str]:
         return "production-operator", (
             "email.production.read" if method == "GET" else "email.production.write"
         )
+    if path.startswith("/platform/v1/leads"):
+        return "platform-operator", (
+            "platform.leads.read" if method == "GET" else "platform.leads.write"
+        )
     if path == "/platform/v1/tenants":
         return "platform-operator", "platform.tenants.read"
     if path.startswith("/platform/v1/repositories") or path.startswith(
