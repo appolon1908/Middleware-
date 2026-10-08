@@ -39,6 +39,21 @@ jobs:
       - uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
         with:
           python-version: "3.13"
+      - name: Install hash-locked PyYAML for contract verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          rows = Path("requirements-test.lock").read_text(encoding="utf-8").splitlines(keepends=True)
+          start = next(i for i, row in enumerate(rows) if row.startswith("pyyaml==6.0.3 "))
+          block = [rows[start]]
+          while block[-1].rstrip().endswith(chr(92)):
+              block.append(rows[start + len(block)])
+          assert len(block) > 1
+          Path("/tmp/staging-intake-pyyaml.lock").write_text("".join(block), encoding="utf-8")
+          PY
+          python -m pip install --no-deps --require-hashes -r /tmp/staging-intake-pyyaml.lock
       - run: python -m py_compile scripts/validate_staging_intake_observability_contract.py
       - run: python scripts/validate_staging_intake_observability_contract.py
       - run: python -O scripts/validate_staging_intake_observability_contract.py
