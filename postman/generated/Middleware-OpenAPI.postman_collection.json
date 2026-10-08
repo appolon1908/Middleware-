@@ -14049,7 +14049,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "const allowedSuccessStatuses = [202];",
+                  "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
                 "type": "text/javascript"
@@ -14058,15 +14058,6 @@
           ],
           "name": "N8N Dead Letter",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -14087,11 +14078,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -14117,7 +14103,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "const allowedSuccessStatuses = [202];",
+                  "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
                 "type": "text/javascript"
@@ -14126,31 +14112,7 @@
           ],
           "name": "N8N Dispatch",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
-              {
-                "key": "X-Timestamp",
-                "type": "text",
-                "value": "{{x_timestamp}}"
-              },
-              {
-                "key": "X-Nonce",
-                "type": "text",
-                "value": "{{x_nonce}}"
-              },
-              {
-                "key": "X-Signature",
-                "type": "text",
-                "value": "{{x_signature}}"
-              },
               {
                 "key": "X-Tenant-ID",
                 "type": "text",
@@ -14170,11 +14132,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -14200,7 +14157,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "const allowedSuccessStatuses = [202];",
+                  "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
                 "type": "text/javascript"
@@ -14209,15 +14166,6 @@
           ],
           "name": "N8N Error",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -14238,11 +14186,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -14268,7 +14211,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "const allowedSuccessStatuses = [202];",
+                  "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
                 "type": "text/javascript"
@@ -14277,15 +14220,6 @@
           ],
           "name": "N8N Progress",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -14306,11 +14240,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -14336,7 +14265,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "const allowedSuccessStatuses = [202];",
+                  "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
                 "type": "text/javascript"
@@ -14345,15 +14274,6 @@
           ],
           "name": "N8N Reconciliation",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
               {
                 "key": "X-Tenant-ID",
@@ -14374,11 +14294,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -14650,7 +14565,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "const allowedSuccessStatuses = [202];",
+                  "const allowedSuccessStatuses = [200];",
                   "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
                 ],
                 "type": "text/javascript"
@@ -14659,31 +14574,7 @@
           ],
           "name": "Odoo Command",
           "request": {
-            "body": {
-              "mode": "raw",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
-            },
             "header": [
-              {
-                "key": "X-Timestamp",
-                "type": "text",
-                "value": "{{x_timestamp}}"
-              },
-              {
-                "key": "X-Nonce",
-                "type": "text",
-                "value": "{{x_nonce}}"
-              },
-              {
-                "key": "X-Signature",
-                "type": "text",
-                "value": "{{x_signature}}"
-              },
               {
                 "key": "X-Tenant-ID",
                 "type": "text",
@@ -14703,11 +14594,6 @@
                 "key": "Authorization",
                 "type": "text",
                 "value": "Bearer {{bearer_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "type": "text",
-                "value": "application/json"
               }
             ],
             "method": "POST",
@@ -20713,10 +20599,6 @@
     },
     {
       "key": "x_event_id",
-      "value": ""
-    },
-    {
-      "key": "x_nonce",
       "value": ""
     },
     {

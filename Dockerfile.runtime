@@ -190,6 +190,9 @@ RUN printf '%s\n' \
       'credentials' \
       'private_keys' \
       'reports' \
+      '!reports/' \
+      'reports/*' \
+      '!reports/mcr-l-staging-evidence.json' \
       'logs' \
       'runtime' \
       'backups' \
