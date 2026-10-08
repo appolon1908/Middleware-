@@ -8,6 +8,7 @@
   "adapters": [
     {"id": "ai-provider", "registered": true, "effect_capabilities": ["EXTERNAL_MODEL_CALLS"]},
     {"id": "beyvra-nonfinancial", "registered": true, "effect_capabilities": ["BEYVRA_OPERATIONS_WRITE"]},
+    {"id": "blender-render", "registered": true, "effect_capabilities": ["MEDIA_RENDER"]},
     {
       "id": "camera-gateway",
       "registered": true,
@@ -44,10 +45,12 @@
       ]
     },
     {"id": "face-liveness", "registered": true, "effect_capabilities": ["FACE_LIVENESS_VERIFY"]},
+    {"id": "kdenlive-render", "registered": true, "effect_capabilities": ["MEDIA_RENDER"]},
     {"id": "klyrow-alert-email", "registered": true, "effect_capabilities": ["OBSERVABILITY_ALERT_EMAIL_DELIVERY"]},
     {"id": "klyrow-email", "registered": true, "effect_capabilities": ["EMAIL_DELIVERY"]},
     {"id": "kyqra-crawler", "registered": true, "effect_capabilities": ["CRAWLER_EXECUTION", "CRAWLER_WRITEBACK"]},
     {"id": "marketing-provider", "registered": true, "effect_capabilities": ["LIVE_ADVERTISING"]},
+    {"id": "natron-compositor", "registered": true, "effect_capabilities": ["MEDIA_RENDER"]},
     {"id": "odoo-19", "registered": true, "effect_capabilities": ["ODOO_WRITE"]},
     {"id": "postgresql", "registered": true, "effect_capabilities": ["POSTGRESQL_BACKUP"]},
     {"id": "postly-social", "registered": true, "effect_capabilities": ["SOCIAL_PUBLISH"]},

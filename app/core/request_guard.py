@@ -374,7 +374,7 @@ class RequestGuard:
                     intake_context=getattr(request.state, "intake_metrics", None),
                 )
         response.headers["X-Correlation-ID"] = correlation_id
-        response.headers[header_authority.REQUEST_ID] = request.state.request_id
+        response.headers["X-Request-ID"] = request.state.request_id
         response.headers["Cache-Control"] = "no-store"
         # A valid client traceparent is echoed, an invalid one is dropped, and
         # a request without one gets a fresh trace context.

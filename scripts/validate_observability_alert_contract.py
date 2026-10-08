@@ -538,13 +538,22 @@ def validate(root: Path = ROOT) -> tuple[int, int]:
         if not connector_commands_allowed and (allowed_prefixes or allowed_targets):
             fail(f"denied_caller_has_connector_authority:{caller_id}")
         for prefix in allowed_prefixes:
-            owner = command_prefixes.get(prefix)
-            if owner is None or owner not in allowed_targets:
+            # A caller can narrow a command family (e.g. postgresql.backup.
+            # beneath postgresql.) but must never broaden it. Requiring an
+            # exact registry prefix would reject a least-privilege caller.
+            owners = {
+                owner
+                for command_prefix, owner in command_prefixes.items()
+                if prefix.startswith(command_prefix)
+            }
+            if len(owners) != 1 or not owners.issubset(allowed_targets):
                 fail(f"caller_prefix_target_mismatch:{caller_id}:{prefix}")
         for target in allowed_targets:
             target_prefixes = adapters_by_id.get(target)
-            if target_prefixes is None or not target_prefixes.intersection(
-                allowed_prefixes
+            if target_prefixes is None or not any(
+                requested.startswith(registered)
+                for requested in allowed_prefixes
+                for registered in target_prefixes
             ):
                 fail(f"caller_target_prefix_mismatch:{caller_id}:{target}")
     for caller_id, expected in CALLER_CONTRACTS.items():
