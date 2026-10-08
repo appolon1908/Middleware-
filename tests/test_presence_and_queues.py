@@ -25,6 +25,7 @@ import pytest_asyncio
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -199,24 +200,28 @@ def _unique_campaign_code() -> str:
 
 
 async def _seed_queue(session_factory, campaign_code: str | None = None) -> tuple[str, str]:
-    campaign_code = campaign_code or _unique_campaign_code()
-    # The valid extension range [6100, 9999] is small and shared with other
-    # test modules in this suite that also seed campaign_extension_allocation
-    # (a permanent table with a GiST no-overlap exclusion constraint), so a
-    # collision with data another test file already committed is a real,
-    # observed possibility - retry with a fresh random block rather than
-    # assume one random pick is enough.
-    last_error: Exception | None = None
-    for _attempt in range(20):
-        block = _random.randint(0, 38)
+    """Seed allocation, registry and hopper event atomically.
+
+    The extension blocks and three-letter campaign codes are unique in the
+    append-only database. CI can encounter legitimate collisions with rows
+    from other tests; a collision must rollback *all* three rows before a
+    fresh attempt, not leave an orphaned allocation behind.
+    """
+    last_error: IntegrityError | None = None
+    start_block = _random.randint(0, 38)
+    # Visit each legal extension block before repeating the sweep. A second
+    # sweep is needed because a valid block can coincide with an already-used
+    # three-letter campaign code on the first visit.
+    for attempt in range(39 * 3):
+        block = (start_block + attempt) % 39
+        code = campaign_code if campaign_code is not None else _unique_campaign_code()
         vicidial_campaign_id = str(_run_base + next(_extension_block))[-8:]
-        campaign_number = (_run_base + block + 1) * 100 + _random.randint(0, 99)
-        campaign_number -= campaign_number % 100
+        campaign_number = (_run_base + block + 1) * 100
         extension_start = 6100 + block * 100
         extension_end = extension_start + 99
+        allocation_id = uuid4()
         try:
             async with session_factory() as session:
-                allocation_id = uuid4()
                 session.add(
                     CampaignExtensionAllocation(
                         id=allocation_id,
@@ -232,52 +237,48 @@ async def _seed_queue(session_factory, campaign_code: str | None = None) -> tupl
                     )
                 )
                 await session.flush()
+                session.add(
+                    CampaignRegistry(
+                        campaign_number=campaign_number,
+                        campaign_code=code,
+                        campaign_public_id=f"CMP-{campaign_number}-{code}",
+                        name=f"{code} test campaign",
+                        vicidial_campaign_id=vicidial_campaign_id,
+                        agent_group=f"grp_{vicidial_campaign_id}",
+                        dialplan_context=f"ctx_{vicidial_campaign_id}",
+                        extension_allocation_id=allocation_id,
+                        registry_status="ACTIVE",
+                        policy_hash=uuid4().hex,
+                        source_change_id=str(uuid4()),
+                    )
+                )
+                session.add(
+                    IntegrationEvent(
+                        idempotency_key=str(uuid4()),
+                        event_type="vicidial.hopper.low",
+                        schema_version="1.0",
+                        original_event_id=str(uuid4()),
+                        entity_key=f"campaign_id:{vicidial_campaign_id}",
+                        source_system="vicidial",
+                        correlation_id=str(uuid4()),
+                        payload_json={
+                            "campaign_id": vicidial_campaign_id,
+                            "remaining": 3,
+                            "observed_at": datetime.now(timezone.utc).isoformat(),
+                        },
+                        payload_hash=uuid4().hex,
+                        state="accepted",
+                    )
+                )
                 await session.commit()
-                break
-        except Exception as exc:  # noqa: BLE001 - retry on any constraint clash
+            return vicidial_campaign_id, code
+        except IntegrityError as exc:
+            # Session context rolls back the transaction on failure. Retry
+            # only known database constraint collisions, never application bugs.
             last_error = exc
-            continue
-    else:
-        raise AssertionError(
-            f"could not find a free extension block after 20 attempts: {last_error}"
-        )
-
-    async with session_factory() as session:
-        session.add(
-            CampaignRegistry(
-                campaign_number=campaign_number,
-                campaign_code=campaign_code,
-                campaign_public_id=f"CMP-{campaign_number}-{campaign_code}",
-                name=f"{campaign_code} test campaign",
-                vicidial_campaign_id=vicidial_campaign_id,
-                agent_group=f"grp_{vicidial_campaign_id}",
-                dialplan_context=f"ctx_{vicidial_campaign_id}",
-                extension_allocation_id=allocation_id,
-                registry_status="ACTIVE",
-                policy_hash=uuid4().hex,
-                source_change_id=str(uuid4()),
-            )
-        )
-        session.add(
-            IntegrationEvent(
-                idempotency_key=str(uuid4()),
-                event_type="vicidial.hopper.low",
-                schema_version="1.0",
-                original_event_id=str(uuid4()),
-                entity_key=f"campaign_id:{vicidial_campaign_id}",
-                source_system="vicidial",
-                correlation_id=str(uuid4()),
-                payload_json={
-                    "campaign_id": vicidial_campaign_id,
-                    "remaining": 3,
-                    "observed_at": datetime.now(timezone.utc).isoformat(),
-                },
-                payload_hash=uuid4().hex,
-                state="accepted",
-            )
-        )
-        await session.commit()
-    return vicidial_campaign_id, campaign_code
+    raise AssertionError(
+        f"could not seed a unique campaign after 117 attempts: {last_error}"
+    )
 
 
 @pytest.mark.asyncio
