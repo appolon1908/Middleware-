@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -19,13 +19,21 @@ from app.core.platform_auth import require_platform_scope
 router = APIRouter(prefix="/platform/v1/leads", tags=["leads-workstation"])
 
 
+class RequestContext(TypedDict):
+    idempotency_key: str
+    request_id: str
+    correlation_id: str
+    causation_id: str
+    traceparent: str
+
+
 def _ctx(
     idempotency_key: str = "",
     request_id: str = "",
     correlation_id: str = "",
     causation_id: str = "",
     traceparent: str = "",
-) -> dict[str, str]:
+) -> RequestContext:
     request_id = request_id.strip() or str(uuid4())
     correlation_id = correlation_id.strip() or request_id
     causation_id = causation_id.strip() or request_id
@@ -197,7 +205,7 @@ async def _action(
     action: str,
     body: dict[str, Any],
     client: LeadsWorkstationClient,
-    context: dict[str, str],
+    context: RequestContext,
 ):
     try:
         return _response(

@@ -33,7 +33,7 @@ def _schema(operation_id: str, operation: dict[str, Any], *, request: bool) -> s
         side = "request"
     else:
         responses = operation.get("responses", {})
-        successful = next(
+        successful: dict[str, Any] = next(
             (value for code, value in responses.items() if str(code).startswith("2")),
             {},
         )
