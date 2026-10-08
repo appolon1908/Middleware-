@@ -25,6 +25,7 @@ import ast
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
@@ -280,6 +281,19 @@ GUARD_REFUSAL_STATUSES = {400, 401, 413, 415, 429, 503}
 # routing state. Any executable change requires a new review, including changes
 # inside its nested refusal helper. Formatting does not affect this fingerprint.
 GUARD_BOUNDARY_AST_SHA256 = "6d93b7c3090a4ef33440b425188e2a24538ce5cec7cc0d98a8028c7c50a605e8"
+
+def reviewed_ast_dump(node: ast.AST) -> str:
+    """Serialize reviewed executable syntax consistently on Python 3.12+.
+
+    Python 3.13 changed ast.dump to omit empty fields by default. Setting
+    show_empty=True retains the reviewed 3.12 representation and therefore
+    preserves this fail-closed hash without reauthorizing guard semantics.
+    Older runtimes do not support that argument and already include the fields.
+    """
+    if sys.version_info >= (3, 13):
+        return ast.dump(node, include_attributes=False, show_empty=True)
+    return ast.dump(node, include_attributes=False)
+
 # Reviewed facade registers only paths from its local connector contract. The
 # contract paths are still checked below for governed-route shadowing.
 CONNECTOR_FACADE_AST_SHA256 = "babd8242548693c6e99ce16ccec3b3c370c7f2027a8a7a574cd4a434c5ef52e1"
@@ -739,7 +753,7 @@ def registered_paths(
         path_argument = registration_path_argument(candidate)
         if module_name == "connector_api":
             require(
-                hashlib.sha256(ast.dump(module_tree, include_attributes=False).encode()).hexdigest()
+                hashlib.sha256(reviewed_ast_dump(module_tree).encode()).hexdigest()
                 == CONNECTOR_FACADE_AST_SHA256,
                 "connector facade registration changed without review",
             )
@@ -1121,7 +1135,7 @@ def verify_guard(sources: Sources) -> None:
     ]
     require(len(boundaries) == 1, "canonical request boundary is missing or ambiguous")
     require(
-        hashlib.sha256(ast.dump(boundaries[0], include_attributes=False).encode()).hexdigest()
+        hashlib.sha256(reviewed_ast_dump(boundaries[0]).encode()).hexdigest()
         == GUARD_BOUNDARY_AST_SHA256,
         "canonical request boundary changed without review",
     )

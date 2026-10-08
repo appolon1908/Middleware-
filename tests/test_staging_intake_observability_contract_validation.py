@@ -340,6 +340,47 @@ def test_staging_contract_fails_closed(
     assert "ContractError" in result.stderr
 
 
+
+def test_reviewed_ast_pins_preserve_empty_fields_and_reject_executable_edits() -> None:
+    import ast
+    import hashlib
+    import runpy
+
+    validator = runpy.run_path(str(SCRIPT), run_name="reviewed_ast_portability_test")
+    dump = validator["reviewed_ast_dump"]
+
+    guard_tree = ast.parse((ROOT / GUARD).read_text(encoding="utf-8"))
+    guard = next(
+        node for node in guard_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "RequestGuard"
+    )
+    handler = next(
+        node for node in guard.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "__call__"
+    )
+    boundaries = [
+        node for node in ast.walk(handler)
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "control_plane"
+    ]
+    assert len(boundaries) == 1
+    digest = lambda node: hashlib.sha256(dump(node).encode()).hexdigest()
+    assert digest(boundaries[0]) == validator["GUARD_BOUNDARY_AST_SHA256"]
+
+    connector_tree = ast.parse(
+        (ROOT / "app" / "connector_api.py").read_text(encoding="utf-8")
+    )
+    assert digest(connector_tree) == validator["CONNECTOR_FACADE_AST_SHA256"]
+
+    # Keep the reviewed hash fail-closed for executable changes, even when
+    # the Python minor version emits AST dumps with different default fields.
+    boundaries[0].body.append(ast.Pass())
+    connector_tree.body.append(ast.Pass())
+    assert digest(boundaries[0]) != validator["GUARD_BOUNDARY_AST_SHA256"]
+    assert digest(connector_tree) != validator["CONNECTOR_FACADE_AST_SHA256"]
+
+
 def test_committed_staging_contract_is_valid() -> None:
     result = subprocess.run(
         [sys.executable, str(SCRIPT)],
