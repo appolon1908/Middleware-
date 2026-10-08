@@ -223,3 +223,55 @@ def test_repaired_candidate_requires_independent_protected_trust_transition(monk
         {repaired: {repaired: policy}},
     )
     assert launcher.validate_candidate(ROOT) == ORCHESTRATOR
+
+
+def test_protected_validator_generation_matches_exact_main_bytes() -> None:
+    """Never approve a launcher whose root validator differs from its pin."""
+    import hashlib
+
+    launcher = load_launcher()
+    observed = hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest()
+    assert observed == "dcfd8738b2186e38a1d61c3f4c322705735af4bf760f86a070156dd842fce2ea"
+    assert launcher.CURRENT_VALIDATOR_SHA256 == observed
+    assert launcher.SUCCESSOR_VALIDATOR_SHA256 == (
+        "a0464ee3ac87ed1127d8ca349b821ab861d40451f595d74d40cd47e7f1f72dac"
+    )
+
+
+def test_mw447_trust_successor_is_one_way_and_fingerprint_bound() -> None:
+    """The proposed successor is not a wildcard or a downgrade path."""
+    launcher = load_launcher()
+    current = launcher.CURRENT_VALIDATOR_SHA256
+    successor = launcher.SUCCESSOR_VALIDATOR_SHA256
+    security_fingerprint = (
+        "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548"
+    )
+    orchestrator = runpy.run_path(str(ORCHESTRATOR), run_name="trusted_validator_test")
+    actual_fingerprint = orchestrator["release_validator_security_fingerprint"](
+        (ROOT / ".codestra/validate-release-intent.py").read_text(encoding="utf-8")
+    )
+    assert actual_fingerprint == security_fingerprint
+    assert launcher.APPROVED_VALIDATOR_TRANSITIONS == {
+        current: {
+            current: ("security-fingerprint", security_fingerprint),
+            successor: ("security-fingerprint", security_fingerprint),
+        },
+        successor: {successor: ("security-fingerprint", security_fingerprint)},
+    }
+    assert launcher.validate_candidate(ROOT) == ORCHESTRATOR
+
+
+def test_unapproved_validator_remains_rejected_after_successor_pin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    real_digest = launcher.digest
+
+    def forged_digest(root: Path, relative: Path) -> str:
+        if relative == launcher.ORCHESTRATOR_PATH and root.resolve() == ROOT.resolve():
+            return "0" * 64
+        return real_digest(root, relative)
+
+    monkeypatch.setattr(launcher, "digest", forged_digest)
+    with pytest.raises(launcher.TrustError, match="not an approved generation"):
+        launcher.validate_candidate(ROOT)
