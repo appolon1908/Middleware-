@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import ipaddress
-import os
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+
+from app.core.config import Settings, settings
 
 
 class LeadsWorkstationConfigurationError(RuntimeError):
@@ -29,25 +30,28 @@ class LeadsWorkstationConfig:
     timeout_seconds: float = 10.0
 
     @classmethod
-    def from_env(cls) -> "LeadsWorkstationConfig":
-        base_url = os.getenv("LEADS_WORKSTATION_URL", "").strip()
-        token = os.getenv("LEADS_WORKSTATION_SERVICE_TOKEN", "").strip()
+    def from_settings(
+        cls,
+        value: Settings | None = None,
+    ) -> "LeadsWorkstationConfig":
+        resolved = value or settings
+        base_url = resolved.leads_workstation_url.strip()
+        token = resolved.leads_workstation_service_token.strip()
         if not base_url or not token:
             raise LeadsWorkstationConfigurationError(
                 "Leads Workstation URL and service token must be configured"
             )
         _validate_internal_origin(base_url)
-        try:
-            timeout = float(os.getenv("LEADS_WORKSTATION_TIMEOUT_SECONDS", "10"))
-        except ValueError as exc:
-            raise LeadsWorkstationConfigurationError(
-                "invalid Leads Workstation timeout"
-            ) from exc
+        timeout = float(resolved.leads_workstation_timeout_seconds)
         if timeout <= 0 or timeout > 60:
             raise LeadsWorkstationConfigurationError(
                 "Leads Workstation timeout must be between 0 and 60 seconds"
             )
-        return cls(base_url=base_url.rstrip("/"), service_token=token, timeout_seconds=timeout)
+        return cls(
+            base_url=base_url.rstrip("/"),
+            service_token=token,
+            timeout_seconds=timeout,
+        )
 
 
 def _validate_internal_origin(base_url: str) -> None:
@@ -149,7 +153,7 @@ class LeadsWorkstationClient:
 
 
 async def get_leads_workstation_client():
-    client = LeadsWorkstationClient(LeadsWorkstationConfig.from_env())
+    client = LeadsWorkstationClient(LeadsWorkstationConfig.from_settings())
     try:
         yield client
     finally:

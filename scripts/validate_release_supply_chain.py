@@ -151,6 +151,7 @@ def main() -> int:
         ("libpcre2-8-0=10.42-1+deb12u2", "fixed PCRE2 runtime package"),
         ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
         ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
+        ("perl-base=5.36.0-7+deb12u4", "fixed Perl runtime package"),
     ):
         require(dockerfile, package_pin, label, errors)
     require(dockerfile, "--require-hashes", "hashed dependency install", errors)
@@ -194,7 +195,7 @@ def main() -> int:
         "only-fixed: true": "actionable vulnerability gate",
         "cosign sign --yes": "image signature",
         '--annotations "codestra.source_sha=$RELEASE_SOURCE_SHA"': "source annotation",
-        '--annotations "codestra.schema_head=0071_defer_unbound_tenant_rls"': "schema annotation",
+        '--annotations "codestra.schema_head=0067_service_catalog_monitoring_state"': "schema annotation",
         "cosign attest --yes": "SBOM attestation",
         "--type slsaprovenance1": "signed SLSA provenance v1 attestation",
         "cosign sign-blob --yes": "manifest signature",

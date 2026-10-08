@@ -171,6 +171,15 @@ def classify(method: str, path: str, route, overrides: dict[str, Any]) -> dict[s
         row["classification"] = "READ_ONLY"
         row["justification"] = "computes or looks up; no durable mutation"
         return row
+    if path.startswith("/platform/v1/leads"):
+        row["classification"] = "INTERNAL_DOMAIN_SERVICE"
+        row["effectful"] = True
+        row["provider"] = "leads-workstation"
+        row["justification"] = (
+            "mutates the standalone Codestra Leads domain authority; "
+            "no external-provider effect"
+        )
+        return row
     if any(needle in source for needle in ("OutboxEvent(", "INSERT INTO middleware_outbox", "await _enqueue(", ".enqueue(")):
         row["classification"] = "DURABLE_OUTBOX_INTENT"
         row["effectful"] = True
@@ -232,7 +241,7 @@ def build() -> dict[str, Any]:
     bypasses = [
         f"{row['method']} {row['path']}"
         for row in rows
-        if row["effectful"] and row["classification"] not in {"KERNEL_WRAPPER", "DURABLE_OUTBOX_INTENT", "DIRECT_INTERNAL_SERVICE"}
+        if row["effectful"] and row["classification"] not in {"KERNEL_WRAPPER", "DURABLE_OUTBOX_INTENT", "DIRECT_INTERNAL_SERVICE", "INTERNAL_DOMAIN_SERVICE"}
     ]
     internal_direct = [f"{row['method']} {row['path']}" for row in rows if row["classification"] == "DIRECT_INTERNAL_SERVICE"]
     pending = [f"{row['method']} {row['path']}" for row in rows if row["classification"] == "DURABLE_OUTBOX_INTENT"]

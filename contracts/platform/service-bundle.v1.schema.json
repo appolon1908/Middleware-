@@ -237,27 +237,29 @@
           "properties": {
             "read": {
               "type": "array",
-              "minItems": 2,
+              "minItems": 3,
               "uniqueItems": true,
               "items": {
                 "enum": [
                   "platform.services.read",
-                  "platform.provisioning.read"
+                  "platform.provisioning.read",
+                  "platform.leads.read"
                 ]
               },
-              "maxItems": 2
+              "maxItems": 3
             },
             "write": {
               "type": "array",
-              "minItems": 2,
+              "minItems": 3,
               "uniqueItems": true,
               "items": {
                 "enum": [
                   "platform.services.write",
-                  "platform.provisioning.request"
+                  "platform.provisioning.request",
+                  "platform.leads.write"
                 ]
               },
-              "maxItems": 2
+              "maxItems": 3
             },
             "review": {
               "type": "array",

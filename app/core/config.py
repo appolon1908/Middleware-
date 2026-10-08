@@ -353,6 +353,28 @@ class Settings(BaseSettings):
     odoo_timeout_seconds: int = Field(
         default=20, validation_alias=AliasChoices("ODOO_19_TIMEOUT_SECONDS", "odoo_timeout_seconds")
     )
+    # Standalone Leads Workstation internal service integration.
+    leads_workstation_url: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "LEADS_WORKSTATION_URL",
+            "leads_workstation_url",
+        ),
+    )
+    leads_workstation_service_token: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "LEADS_WORKSTATION_SERVICE_TOKEN",
+            "leads_workstation_service_token",
+        ),
+    )
+    leads_workstation_timeout_seconds: float = Field(
+        default=10.0,
+        validation_alias=AliasChoices(
+            "LEADS_WORKSTATION_TIMEOUT_SECONDS",
+            "leads_workstation_timeout_seconds",
+        ),
+    )
     # NATS JetStream
     nats_url: str | None = None
     nats_stream: str = "CODESTRA_EVENTS"

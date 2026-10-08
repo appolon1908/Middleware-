@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = ROOT / "config" / "route-authority-report.v1.json"
 GENERATOR = ROOT / "scripts" / "generate_route_authority_report.py"
-ALLOWED = {"READ_ONLY", "KERNEL_WRAPPER", "INTERNAL_EVENT_INGRESS", "DURABLE_OUTBOX_INTENT", "DIRECT_INTERNAL_SERVICE", "DENIED_LEGACY"}
+ALLOWED = {"READ_ONLY", "KERNEL_WRAPPER", "INTERNAL_EVENT_INGRESS", "DURABLE_OUTBOX_INTENT", "DIRECT_INTERNAL_SERVICE", "INTERNAL_DOMAIN_SERVICE", "DENIED_LEGACY"}
 KERNEL_ROUTES = {
     ("POST", "/platform/v1/commands"): "KERNEL_WRAPPER",
     ("GET", "/platform/v1/operations/{operation_id}"): "READ_ONLY",
@@ -51,6 +51,18 @@ def test_every_operation_is_classified_and_no_direct_effect_bypass_exists() -> N
     # The kernel-convergence backlog may only shrink.
     assert report["summary"]["KERNEL_CONVERGENCE_PENDING"] <= 5
     assert report["summary"]["DIRECT_INTERNAL_SERVICE_CALLS"] <= 3
+    internal_domain = [
+        row
+        for row in rows
+        if row["classification"] == "INTERNAL_DOMAIN_SERVICE"
+    ]
+    assert internal_domain
+    assert all(
+        row["path"].startswith("/platform/v1/leads")
+        and row["method"] in {"POST", "PATCH"}
+        and row["provider"] == "leads-workstation"
+        for row in internal_domain
+    )
 
 
 def test_kernel_and_crm_routes_are_kernel_wrappers() -> None:

@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import httpx
 import pytest
 
@@ -9,19 +11,35 @@ from app.adapters.leads_workstation.client import (
 )
 
 
-def test_config_rejects_public_origin(monkeypatch):
-    monkeypatch.setenv("LEADS_WORKSTATION_URL", "https://example.com")
-    monkeypatch.setenv("LEADS_WORKSTATION_SERVICE_TOKEN", "secret")
+def _settings(url: str, token: str, timeout: float = 10.0):
+    return SimpleNamespace(
+        leads_workstation_url=url,
+        leads_workstation_service_token=token,
+        leads_workstation_timeout_seconds=timeout,
+    )
+
+
+def test_config_rejects_public_origin():
     with pytest.raises(LeadsWorkstationConfigurationError, match="internal host"):
-        LeadsWorkstationConfig.from_env()
+        LeadsWorkstationConfig.from_settings(
+            _settings("https://example.com", "secret")
+        )
 
 
-def test_config_accepts_private_service_name(monkeypatch):
-    monkeypatch.setenv("LEADS_WORKSTATION_URL", "http://leads-workstation:8765")
-    monkeypatch.setenv("LEADS_WORKSTATION_SERVICE_TOKEN", "secret")
-    config = LeadsWorkstationConfig.from_env()
+def test_config_accepts_private_service_name():
+    config = LeadsWorkstationConfig.from_settings(
+        _settings("http://leads-workstation:8765", "secret")
+    )
     assert config.base_url == "http://leads-workstation:8765"
     assert config.service_token == "secret"
+
+
+def test_config_requires_url_and_token():
+    with pytest.raises(
+        LeadsWorkstationConfigurationError,
+        match="URL and service token",
+    ):
+        LeadsWorkstationConfig.from_settings(_settings("", ""))
 
 
 @pytest.mark.asyncio
