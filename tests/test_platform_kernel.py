@@ -315,7 +315,7 @@ def test_safety_gate_bounds_backlog_and_tenant_rate(test_settings: Settings) -> 
 def test_safety_switch_table_is_well_formed() -> None:
     switches = SafetySwitches.load()
     assert switches.global_kill_switch is False
-    quarantined = {"face-id", "face-liveness", "camera-gateway", "postgresql"}
+    quarantined = {"face-id", "face-liveness", "camera-gateway", "postgresql", "blender-render", "kdenlive-render", "natron-compositor"}
     assert all(value is (name in quarantined) for name, value in switches.provider_kill_switches.items())
     assert quarantined <= switches.provider_kill_switches.keys()
     for name, gate in switches.gates.items():
