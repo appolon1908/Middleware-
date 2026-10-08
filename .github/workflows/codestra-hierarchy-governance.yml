@@ -35,7 +35,7 @@ jobs:
     name: development-ci-admission
     needs: promotion-guard
     runs-on: ubuntu-latest
-    timeout-minutes: 32
+    timeout-minutes: 90
     steps:
       - name: Require exact-SHA CI before Development Department admission
         shell: bash
@@ -46,7 +46,9 @@ jobs:
           set -Eeuo pipefail
           api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
           state=""
-          for _ in {1..120}; do
+          # Exact-SHA CI may wait in the self-hosted runner queue longer than its runtime budget.
+          # Keep admission fail-closed while waiting for its authoritative final status.
+          for attempt in {1..320}; do
             state="$(
               curl --fail --silent --show-error \
                 --header "Authorization: Bearer ${GH_TOKEN}" \
@@ -65,6 +67,9 @@ jobs:
                 exit 1
                 ;;
               pending|"")
+                if (( attempt % 20 == 0 )); then
+                  echo "Waiting for exact-SHA CI: attempt=${attempt} state=${state:-unpublished} sha=${HEAD_SHA}"
+                fi
                 sleep 15
                 ;;
               *)
