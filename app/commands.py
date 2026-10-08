@@ -824,6 +824,8 @@ class MemoryCommandStore:
                     else operation.readback_evidence_sha256
                 ),
                 "last_error": reason if new_state in {"failed", "reconciliation_required"} else None,
+                # Each durable transition must invalidate stale mutation versions.
+                "resource_version": operation.resource_version + 1,
                 "updated_at": now,
             }
         )
