@@ -655,8 +655,8 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
         ".github/workflows/codestra-hierarchy-governance.yml": (
-            "1fd7ab66359de998f5d0ee892d969c15"
-            "ec52954b583d540f7b8f5cb8d864b1dc"
+            "af299523d858eef83a99b818b3246237"
+            "a4eaac3b5a293068d56b7873b4ce6733"
         ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
