@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
 from app.commands import CommandConflict, CommandEnvelope, CommandNotFound, CommandPolicyRegistry, CommandService, MemoryCommandStore
-from app.control_plane_auth import ControlPlaneCaller
+from app.control_plane_auth import caller_for_client_id
 from app.core.config import CANONICAL_SCHEMA_HEAD
 from app.platform.adapter import AdapterContext
 from app.platform.adapters.fixtures import FixtureAdapter, test_syn_adapter
@@ -55,7 +55,7 @@ from app.platform.bus import AdapterDispatch
 from app.platform.kernel import SCOPE_COMMAND, CommandKernel, MemoryDenialAuditSink, PolicyDenied, SafetyDenied
 from app.platform.memory import MemoryExecutionBus, MemoryReconciliationSource
 from app.platform.metrics import KernelMetrics
-from app.platform.principal import KernelPrincipal
+from app.platform.principal import KernelPrincipal, with_synthetic_authority
 from app.platform.reconciler import Reconciler
 from app.platform.registry import AdapterRegistry
 from app.platform.safety import SafetyContext, SafetyGate, SafetySubject
@@ -65,7 +65,7 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle guard (core.runtime imports
 
 REHEARSAL_VERSION = "no-effect-rehearsal.v1"
 REHEARSAL_TENANT = "TEST_SYN"
-REHEARSAL_CLIENT_ID = "middleware-rehearsal"
+REHEARSAL_CLIENT_ID = "middleware-api"
 REHEARSAL_CAMPAIGN = "rehearsal-no-effect"
 HISTORY_LIMIT = 50
 SANDBOX_LEASE_SECONDS = 60.0
@@ -174,14 +174,11 @@ class _Sandbox:
             tenants=(REHEARSAL_TENANT,),
             roles=(),
             scopes=(SCOPE_COMMAND,),
-            caller=ControlPlaneCaller(
-                client_id=REHEARSAL_CLIENT_ID,
-                command_scope=SCOPE_COMMAND,
-                status_scope="platform.command.read",
-                allowed_command_prefixes=("test.syn.",),
-                allowed_targets=frozenset({"test-syn"}),
-                connector_commands_allowed=True,
-                compatibility_only=False,
+            # Use the same registered identity and environment-bounded
+            # synthetic grants as execution-time reauthorization. A separate
+            # invented client would fail closed after command acceptance.
+            caller=with_synthetic_authority(
+                caller_for_client_id(REHEARSAL_CLIENT_ID), live_settings.app_env
             ),
         )
         self.generation = 0

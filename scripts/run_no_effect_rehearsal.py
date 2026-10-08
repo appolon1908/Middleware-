@@ -12,7 +12,7 @@ runtime could not be assembled.
     python -m scripts.run_no_effect_rehearsal \\
         --reason "release rehearsal" \\
         --expected-source-sha "$SOURCE_SHA" \\
-        --expected-schema-head 0071_defer_unbound_tenant_rls \\
+        --expected-schema-head 0074_mcr_odoo_handoff \\
         --output evidence/rehearsal.json
 """
 

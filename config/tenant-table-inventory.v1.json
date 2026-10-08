@@ -463,6 +463,78 @@
       "tenant_representation": "none_explicit"
     },
     {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0072_campaign_recycling_core.py",
+      "table": "mcr_channel_health",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0073_campaign_recycling_delivery_events.py",
+      "table": "mcr_delivery_events",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0072_campaign_recycling_core.py",
+      "table": "mcr_exposures",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0072_campaign_recycling_core.py",
+      "table": "mcr_lead_lifecycle_current",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0072_campaign_recycling_core.py",
+      "table": "mcr_lead_lifecycle_events",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0074_mcr_odoo_handoff.py",
+      "table": "mcr_odoo_handoff_reconciliations",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0074_mcr_odoo_handoff.py",
+      "table": "mcr_odoo_handoffs",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
+      "family": "mcr",
+      "ownership": "tenant_owned",
+      "parent_table": null,
+      "remediation": null,
+      "source": "migrations/versions/0072_campaign_recycling_core.py",
+      "table": "mcr_suppressions",
+      "tenant_representation": "tenant_id_not_null"
+    },
+    {
       "family": "automation",
       "ownership": "tenant_owned",
       "parent_table": null,

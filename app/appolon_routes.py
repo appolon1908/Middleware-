@@ -15,10 +15,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, FastAPI, Query, Request
-from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError as FastApiValidationError
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, Field, ValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api_inputs import (
     authenticated_tenant,
@@ -44,6 +45,7 @@ from .communications import (
 )
 from .contracts import WEBHOOK_ROUTES, WebhookRoute
 from .control_plane_auth import authorize_command, caller_for_authorization
+from .core.problem_details import PROBLEM_MEDIA_TYPE, problem_document, wants_problem
 from .core.providers import get_runtime
 from .lead_intake import (
     INTAKE_PRODUCER_CLIENT_ID,
@@ -109,18 +111,21 @@ def error_response(
     message: str,
     retryable: bool,
 ) -> JSONResponse:
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": {
-                "code": code,
-                "message": message,
-                "correlation_id": correlation_id_for(request),
-                "retryable": retryable,
-                "details": {},
-            }
-        },
-    )
+    envelope = {
+        "error": {
+            "code": code,
+            "message": message,
+            "correlation_id": correlation_id_for(request),
+            "retryable": retryable,
+            "details": {},
+        }
+    }
+    if wants_problem(request.scope):
+        document = problem_document(
+            status_code, envelope, instance=request.url.path, correlation_id=None
+        )
+        return JSONResponse(status_code=status_code, content=document, media_type=PROBLEM_MEDIA_TYPE)
+    return JSONResponse(status_code=status_code, content=envelope)
 
 
 async def read_limited_body(request: Request, maximum: int) -> bytes:
@@ -244,6 +249,20 @@ def install_error_handlers(app: FastAPI) -> None:
             message=str(exc),
             retryable=exc.retryable,
         )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def unmatched_route(request: Request, exc: StarletteHTTPException) -> JSONResponse | Response:
+        # A request no route matched gets the canonical envelope; handler-raised
+        # HTTPExceptions keep the documented FastAPI body of their contracts.
+        if exc.status_code == 404 and request.scope.get("endpoint") is None:
+            return error_response(
+                request,
+                status_code=404,
+                code="not_found",
+                message="no route matches the request",
+                retryable=False,
+            )
+        return await http_exception_handler(request, exc)
 
     @app.exception_handler(FastApiValidationError)
     async def validation_error(

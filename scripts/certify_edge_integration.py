@@ -407,7 +407,8 @@ def static_middleware(report: Report) -> str | None:
     report.add(
         phase,
         "both_entrypoints_share_route_matcher",
-        "from app.core import route_policy" in guard_src
+        ("from app.core import route_policy" in guard_src
+         or "from app.core import header_authority, route_policy" in guard_src)
         and shared_call in guard_src
         and "def install_request_guard(" in guard_src
         # Both entry modules build on the single guard and keep no matcher.

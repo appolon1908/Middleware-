@@ -130,6 +130,7 @@ EXPECTED_REGISTRY_ROUTERS = {
     "calls_router": ("api.v1.calls", "router"),
     "campaign_search_router": ("api.v1.campaign_search", "router"),
     "campaigns_router": ("api.v1.campaigns", "router"),
+    "campaign_recycling_router": ("api.v1.campaign_recycling", "router"),
     "commands_router": ("api.v1.commands", "router"),
     "contacts_router": ("api.v1.contacts", "router"),
     "control_legacy_events_router": ("api.v1.control", "legacy_events_router"),
@@ -208,6 +209,7 @@ EXPECTED_REGISTRY_TUPLES = {
             "tickets_router",
             "tenants_router",
             "campaigns_router",
+            "campaign_recycling_router",
             "monitoring_router",
             "observability_sync_router",
             "integrations_router",
@@ -294,12 +296,15 @@ EXPECTED_FACTORY_APP_CALLS: dict[str, str | None] = {
     "install_request_guard": None,
     "register_health_routes": None,
     "assert_unique_routes": None,
+    # Legacy effect denial authority (config/legacy-effect-registry.v1.json).
+    "install_legacy_effect_handler": None,
+    "enforce_legacy_effect_registry": None,
     "install_error_handlers": "appolon_routes",
     "install_canonical_openapi": "appolon_routes",
 }
 # Statuses the guard may answer with before routing (fail-closed refusals).
 GUARD_REFUSAL_STATUSES = {400, 401, 413, 415, 429, 503}
-GUARD_RESPONSE_HEADERS = {"X-Correlation-ID", "Cache-Control", "traceparent"}
+GUARD_RESPONSE_HEADERS = {"X-Correlation-ID", "X-Request-ID", "Cache-Control", "traceparent"}
 GUARD_REQUEST_READS = {
     ("request", "headers", "get"),
     ("request", "headers", "getlist"),
@@ -945,7 +950,8 @@ def verify_factory(sources: Sources) -> None:
         and statement.targets[0].id == "app"
         and isinstance(statement.value, ast.Call)
         and isinstance(statement.value.func, ast.Name)
-        and statement.value.func.id == "FastAPI"
+        # app.factory.build_application is the repository's one FastAPI constructor.
+        and statement.value.func.id == "build_application"
     ]
     require(len(app_assignments) == 1, "FastAPI app binding is missing or ambiguous")
     constructor = app_assignments[0].value

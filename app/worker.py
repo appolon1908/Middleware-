@@ -6,8 +6,17 @@ import os
 import socket
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import replace
 
-from .storage import DEFAULT_MAX_OUTBOX_ATTEMPTS, OutboxRecord, PostgresOutboxStore
+from .storage import (
+    DEFAULT_MAX_OUTBOX_ATTEMPTS,
+    ActiveLease,
+    LeaseLostError,
+    OutboxRecord,
+    PostgresOutboxStore,
+    ReconciliationError,
+    StorageError,
+)
 
 
 Handler = Callable[[OutboxRecord], Awaitable[None]]
@@ -34,6 +43,11 @@ class OutboxWorker:
     a full lease window. A background heartbeat continues renewing that ownership
     until the provider task actually terminates, including any time spent waiting
     for a cancellation-suppressing coroutine to finish after the timeout.
+
+    The handler executes under the lease it was given (``record.lease``): when
+    the heartbeat proves ownership or fencing was lost, the lease is marked lost,
+    a handler that has not yet reached the provider must not call it, and this
+    worker resolves nothing — the row belongs to its new owner or the reconciler.
 
     Timeout is sticky: once the configured deadline is crossed, a later normal
     return or KnownSafeRetryError from a cancellation-suppressing handler cannot
@@ -74,6 +88,7 @@ class OutboxWorker:
         record_id: int,
         fencing_token: int,
         stop: asyncio.Event,
+        lease: ActiveLease,
     ) -> None:
         interval = max(0.01, min(5.0, self.lease_seconds / 3.0))
         while not stop.is_set():
@@ -89,6 +104,16 @@ class OutboxWorker:
                     lease_seconds=self.lease_seconds,
                     fencing_token=fencing_token,
                 )
+            except StorageError:
+                # Ownership or fencing was lost: another actor owns this row.
+                # The handler must not reach the provider from here on, and
+                # this worker must not resolve the row's outcome.
+                lease.lost = True
+                log.error(
+                    "active dispatch lease lost during heartbeat; handler outcome will not be resolved by this worker",
+                    extra={"outbox_id": record_id},
+                )
+                return
             except Exception:
                 # Keep retrying while provider code is alive. The row remains
                 # reconciliation-required and therefore excluded from claims even
@@ -97,6 +122,25 @@ class OutboxWorker:
                     "active dispatch lease heartbeat failed; will retry",
                     extra={"outbox_id": record_id},
                 )
+
+    async def _resolve(self, record: OutboxRecord, *, action: str, reason: str) -> None:
+        """Resolve the quarantined row as its owner; a refusal leaves the row
+        quarantined for the reconciler instead of stopping the worker loop."""
+        try:
+            await self.store.resolve_reconciliation(
+                record.id,
+                operator_id=f"worker:{self.worker_id}",
+                action=action,  # type: ignore[arg-type]
+                reason=reason,
+                max_attempts=self.max_attempts,
+                worker_id=self.worker_id,
+                fencing_token=record.fencing_token,
+            )
+        except ReconciliationError:
+            log.exception(
+                "outbox outcome could not be resolved by the worker; reconciliation quarantine retained",
+                extra={"outbox_id": record.id, "result": action},
+            )
 
     async def run_once(self) -> bool:
         record = await self.store.claim(
@@ -147,10 +191,12 @@ class OutboxWorker:
             fencing_token=record.fencing_token,
         )
 
+        lease = ActiveLease(owner=self.worker_id, fencing_token=record.fencing_token)
+        record = replace(record, lease_owner=self.worker_id, lease=lease)
         heartbeat_stop = asyncio.Event()
         heartbeat_task = asyncio.create_task(
             self._heartbeat_active_dispatch(
-                record.id, record.fencing_token, heartbeat_stop
+                record.id, record.fencing_token, heartbeat_stop, lease
             )
         )
         handler_task = asyncio.ensure_future(handler(record))
@@ -170,6 +216,12 @@ class OutboxWorker:
                 except asyncio.CancelledError:
                     if not timed_out:
                         raise
+                except LeaseLostError:
+                    log.error(
+                        "outbox handler stopped before the provider effect because the lease was lost; "
+                        "row left to its owner or the reconciler",
+                        extra={"outbox_id": record.id},
+                    )
                 except KnownSafeRetryError as exc:
                     if timed_out:
                         log.error(
@@ -177,19 +229,34 @@ class OutboxWorker:
                             "unknown outcome remains quarantined",
                             extra={"outbox_id": record.id},
                         )
+                    elif lease.lost:
+                        log.error(
+                            "outbox handler reported safe retry after the lease was lost; "
+                            "not resolved by this worker",
+                            extra={"outbox_id": record.id},
+                        )
+                    elif record.attempt_count >= self.max_attempts:
+                        # The last permitted attempt failed without an effect:
+                        # the row is terminal, not retried into a budget it no
+                        # longer has.
+                        log.warning(
+                            "outbox handler certified failure as safe to retry on the final attempt; dead-lettering",
+                            extra={"outbox_id": record.id},
+                        )
+                        await self._resolve(
+                            record,
+                            action="dead_letter",
+                            reason=f"retry budget exhausted after known-safe failure: {exc}",
+                        )
                     else:
                         log.warning(
                             "outbox handler certified failure as safe to retry",
                             extra={"outbox_id": record.id},
                         )
-                        await self.store.resolve_reconciliation(
-                            record.id,
-                            operator_id=f"worker:{self.worker_id}",
+                        await self._resolve(
+                            record,
                             action="retry",
                             reason=f"handler certified known-safe retry: {exc}",
-                            max_attempts=self.max_attempts,
-                            worker_id=self.worker_id,
-                            fencing_token=record.fencing_token,
                         )
                 except Exception:
                     if timed_out:
@@ -210,15 +277,17 @@ class OutboxWorker:
                             "unknown outcome remains quarantined",
                             extra={"outbox_id": record.id},
                         )
+                    elif lease.lost:
+                        log.error(
+                            "outbox handler returned after the lease was lost; "
+                            "outcome not resolved by this worker",
+                            extra={"outbox_id": record.id},
+                        )
                     else:
-                        await self.store.resolve_reconciliation(
-                            record.id,
-                            operator_id=f"worker:{self.worker_id}",
+                        await self._resolve(
+                            record,
                             action="complete",
                             reason="handler returned successfully and confirmed delivery outcome",
-                            max_attempts=self.max_attempts,
-                            worker_id=self.worker_id,
-                            fencing_token=record.fencing_token,
                         )
             except asyncio.CancelledError:
                 # A worker shutdown must not orphan live provider code while the

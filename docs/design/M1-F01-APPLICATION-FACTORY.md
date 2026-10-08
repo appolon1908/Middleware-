@@ -11,6 +11,12 @@
 
 The factory owns composition. Domain modules own handlers and services. The router registry owns route grouping. Entry points select a profile and may supply the service identity, but they must not reconstruct the application.
 
+## Construction authority (M1-F01-I01)
+
+`app/factory.py` is the only module that constructs a FastAPI object. `app/application.py::create_app` composes the Middleware API on :8095 and obtains its FastAPI object from `app.factory.build_application`; `app.factory.create_app` resolves to it. Every separately deployed internal service (event gateway, policy engine, controller, extension allocator, telephony provisioning, webphone issuer, Server A agent, email, observability alerts, Qwen verifier, workers' operational endpoints) is constructed through `app.factory.create_service_app`, with interactive documentation off unless the service opts in. `app/factory.py` imports only FastAPI so service images do not load the API router graph.
+
+The deployed API entrypoint is `app.entrypoints.integration_api` on :8095; no second API entry module exists. `websocket_gateway/` and `services/connector-runtime/` are separate deployables with their own packaging and are outside `app/`.
+
 ## Factory contract
 
 Inputs are canonical Settings, an optional injected RuntimeContainer, AppProfile, the compatibility-only legacy_monolith switch, and an optional service identity. Production callers inject neither settings nor runtime.

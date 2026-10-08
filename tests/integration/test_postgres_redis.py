@@ -1038,3 +1038,46 @@ async def test_redis_replay_lock_owner_and_tuple_isolation(redis_client: Redis) 
     await guard.release("tenant:a", "event:b", token)
     token2 = await guard.acquire("tenant:a", "event:b")
     await guard.release("tenant:a", "event:b", token2)
+
+
+@pytest.mark.asyncio
+async def test_postgres_reconciliation_resolution_is_idempotent_and_content_bound(pool: asyncpg.Pool) -> None:
+    store = PostgresCommandStore(pool)
+    command = CommandEnvelope.model_validate({
+        "command_id": "00000000-0000-4000-8000-000000000016",
+        "command_type": "crm.contact.create.v1", "command_version": "1.0",
+        "target": "odoo-19", "tenant_id": "tenant-resolve", "requested_by": "user-1",
+        "correlation_id": "correlation-resolve-16", "idempotency_key": "test-idem-16",
+        "capability": "ODOO_WRITE", "payload": {"contact_id": "contact-16"},
+    })
+    await store.submit(command, authenticated_client_id="test-client")
+    for state in ("queued", "dispatching", "reconciliation_required"):
+        await store.transition(
+            command.tenant_id, command.command_id, new_state=state,
+            actor_id="temporal:test", reason=f"verified transition to {state}",
+        )
+    current = await store.get(command.tenant_id, command.command_id)
+    resolution = {
+        "matched": True, "actor_id": "operator-1", "reason": "provider readback matched",
+        "provider_operation_id": "provider-op-16", "evidence": {"listed": True},
+        "idempotency_key": "resolve-mutation-16", "expected_version": current.resource_version,
+        "mutation_correlation_id": "resolve-corr-16",
+    }
+    resolved = await store.resolve_reconciliation(command.tenant_id, command.command_id, **resolution)
+    assert resolved.state == "completed" and resolved.resource_version == current.resource_version + 1
+    replay = await store.resolve_reconciliation(command.tenant_id, command.command_id, **resolution)
+    assert replay.duplicate is True and replay.resource_version == resolved.resource_version
+    with pytest.raises(CommandConflict):
+        await store.resolve_reconciliation(
+            command.tenant_id, command.command_id, **{**resolution, "evidence": {"listed": False}},
+        )
+    events = await store.list_events(command.tenant_id, command.command_id, limit=100)
+    assert events[-1].new_state == "completed"
+    assert events[-1].safe_metadata["mutation_correlation_id"] == "resolve-corr-16"
+    async with pool.acquire() as conn:
+        assert await conn.fetchval(
+            "SELECT count(*) FROM middleware_operation_mutations WHERE tenant_id=$1 AND action='resolve_reconciliation'",
+            command.tenant_id,
+        ) == 1
+        with pytest.raises(asyncpg.PostgresError):
+            await conn.execute("DELETE FROM middleware_operation_mutations WHERE tenant_id=$1", command.tenant_id)
