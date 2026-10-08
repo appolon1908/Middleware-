@@ -851,6 +851,66 @@ operations:
   runtime_state: IMPLEMENTED
 - domain: platform
   method: GET
+  path: /platform/v1/leads
+  canonical_operation_id: list_leads_platform_v1_leads_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/leads
+  canonical_operation_id: create_lead_platform_v1_leads_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/leads/campaigns
+  canonical_operation_id: list_campaigns_platform_v1_leads_campaigns_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/leads/{lead_id}
+  canonical_operation_id: get_lead_platform_v1_leads__lead_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: PATCH
+  path: /platform/v1/leads/{lead_id}
+  canonical_operation_id: update_lead_platform_v1_leads__lead_id__patch
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/leads/{lead_id}/assign
+  canonical_operation_id: assign_lead_platform_v1_leads__lead_id__assign_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/leads/{lead_id}/consent
+  canonical_operation_id: consent_lead_platform_v1_leads__lead_id__consent_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/leads/{lead_id}/contacts
+  canonical_operation_id: get_contacts_platform_v1_leads__lead_id__contacts_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/leads/{lead_id}/suppress
+  canonical_operation_id: suppress_lead_platform_v1_leads__lead_id__suppress_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/leads/{lead_id}/transition
+  canonical_operation_id: transition_lead_platform_v1_leads__lead_id__transition_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
   path: /platform/v1/me/presence
   canonical_operation_id: get_my_presence_platform_v1_me_presence_get
   implementation_file: registered FastAPI runtime
