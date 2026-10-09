@@ -187,8 +187,8 @@
             "type": "object"
           },
           "extension": {
-            "maximum": 9999.0,
-            "minimum": 1000.0,
+            "maximum": 9999,
+            "minimum": 1000,
             "title": "Extension",
             "type": "integer"
           }
@@ -274,7 +274,7 @@
             "type": "string"
           },
           "expectedVersion": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expectedversion",
             "type": "integer"
           },
@@ -300,20 +300,20 @@
             "type": "string"
           },
           "perDayLimit": {
-            "maximum": 10000000.0,
-            "minimum": 1.0,
+            "maximum": 10000000,
+            "minimum": 1,
             "title": "Perdaylimit",
             "type": "integer"
           },
           "perHourLimit": {
-            "maximum": 1000000.0,
-            "minimum": 1.0,
+            "maximum": 1000000,
+            "minimum": 1,
             "title": "Perhourlimit",
             "type": "integer"
           },
           "perMinuteLimit": {
-            "maximum": 100000.0,
-            "minimum": 1.0,
+            "maximum": 100000,
+            "minimum": 1,
             "title": "Perminutelimit",
             "type": "integer"
           },
@@ -414,7 +414,6 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": true,
             "title": "Details",
             "type": "object"
           },
@@ -553,7 +552,6 @@
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
             "title": "Payload",
             "type": "object"
           },
@@ -576,8 +574,8 @@
             "type": "string"
           },
           "workflow_version": {
-            "maximum": 2147483647.0,
-            "minimum": 1.0,
+            "maximum": 2147483647,
+            "minimum": 1,
             "title": "Workflow Version",
             "type": "integer"
           }
@@ -660,8 +658,8 @@
             "type": "string"
           },
           "value": {
-            "maximum": 1000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000,
+            "minimum": 0,
             "title": "Value",
             "type": "number"
           }
@@ -732,7 +730,6 @@
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
             "title": "Payload",
             "type": "object"
           },
@@ -767,7 +764,7 @@
             "type": "string"
           },
           "design_revision": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Design Revision",
             "type": "integer"
           },
@@ -937,14 +934,14 @@
             "title": "Callback Rule"
           },
           "calling_hour_end": {
-            "exclusiveMinimum": 0.0,
-            "maximum": 24.0,
+            "exclusiveMinimum": 0,
+            "maximum": 24,
             "title": "Calling Hour End",
             "type": "number"
           },
           "calling_hour_start": {
-            "exclusiveMaximum": 24.0,
-            "minimum": 0.0,
+            "exclusiveMaximum": 24,
+            "minimum": 0,
             "title": "Calling Hour Start",
             "type": "number"
           },
@@ -993,7 +990,6 @@
             "title": "Escalation Rule"
           },
           "inputs": {
-            "additionalProperties": true,
             "title": "Inputs",
             "type": "object"
           },
@@ -1010,15 +1006,15 @@
           },
           "max_call_attempts": {
             "default": 1,
-            "maximum": 1000.0,
-            "minimum": 0.0,
+            "maximum": 1000,
+            "minimum": 0,
             "title": "Max Call Attempts",
             "type": "integer"
           },
           "max_retries": {
             "default": 0,
-            "maximum": 1000.0,
-            "minimum": 0.0,
+            "maximum": 1000,
+            "minimum": 0,
             "title": "Max Retries",
             "type": "integer"
           },
@@ -1090,7 +1086,7 @@
           },
           "design_request_revision": {
             "default": 1,
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Design Request Revision",
             "type": "integer"
           },
@@ -1134,12 +1130,12 @@
             "type": "string"
           },
           "odoo_campaign_id": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Odoo Campaign Id",
             "type": "integer"
           },
           "owner_user_id": {
-            "exclusiveMinimum": 0.0,
+            "exclusiveMinimum": 0,
             "title": "Owner User Id",
             "type": "integer"
           },
@@ -1206,7 +1202,7 @@
         "additionalProperties": false,
         "properties": {
           "expected_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expected Version",
             "type": "integer"
           },
@@ -1428,7 +1424,7 @@
             "title": "Customer Timezone"
           },
           "expected_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expected Version",
             "type": "integer"
           },
@@ -1471,8 +1467,8 @@
           "snooze_minutes": {
             "anyOf": [
               {
-                "maximum": 1440.0,
-                "minimum": 5.0,
+                "maximum": 1440,
+                "minimum": 5,
                 "type": "integer"
               },
               {
@@ -1547,7 +1543,6 @@
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
             "title": "Payload",
             "type": "object"
           },
@@ -1905,7 +1900,7 @@
             "type": "string"
           },
           "expected_revision": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Expected Revision",
             "type": "integer"
           },
@@ -1928,7 +1923,7 @@
         "additionalProperties": false,
         "properties": {
           "expectedVersion": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expectedversion",
             "type": "integer"
           },
@@ -2003,7 +1998,6 @@
             "title": "Contact Id"
           },
           "customer_context": {
-            "additionalProperties": true,
             "title": "Customer Context",
             "type": "object"
           },
@@ -2026,8 +2020,8 @@
           },
           "max_attempts": {
             "default": 3,
-            "maximum": 20.0,
-            "minimum": 1.0,
+            "maximum": 20,
+            "minimum": 1,
             "title": "Max Attempts",
             "type": "integer"
           },
@@ -2165,7 +2159,7 @@
             "type": "string"
           },
           "expected_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expected Version",
             "type": "integer"
           },
@@ -2228,7 +2222,7 @@
         "additionalProperties": false,
         "properties": {
           "callback_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Callback Version",
             "type": "integer"
           },
@@ -2361,7 +2355,6 @@
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
             "title": "Payload",
             "type": "object"
           },
@@ -2601,22 +2594,22 @@
           },
           "perDayLimit": {
             "default": 0,
-            "maximum": 10000000.0,
-            "minimum": 0.0,
+            "maximum": 10000000,
+            "minimum": 0,
             "title": "Perdaylimit",
             "type": "integer"
           },
           "perHourLimit": {
             "default": 0,
-            "maximum": 1000000.0,
-            "minimum": 0.0,
+            "maximum": 1000000,
+            "minimum": 0,
             "title": "Perhourlimit",
             "type": "integer"
           },
           "perMinuteLimit": {
             "default": 0,
-            "maximum": 100000.0,
-            "minimum": 0.0,
+            "maximum": 100000,
+            "minimum": 0,
             "title": "Perminutelimit",
             "type": "integer"
           },
@@ -2703,7 +2696,7 @@
           },
           "version": {
             "default": 1,
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version",
             "type": "integer"
           }
@@ -2938,7 +2931,6 @@
             "type": "boolean"
           },
           "safe_error": {
-            "additionalProperties": true,
             "title": "Safe Error",
             "type": "object"
           },
@@ -3083,7 +3075,7 @@
             "type": "string"
           },
           "sequence": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Sequence",
             "type": "integer"
           },
@@ -3209,7 +3201,6 @@
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
             "title": "Payload",
             "type": "object"
           },
@@ -3316,7 +3307,6 @@
             "type": "string"
           },
           "labels": {
-            "additionalProperties": true,
             "maxProperties": 32,
             "title": "Labels",
             "type": "object"
@@ -3349,7 +3339,7 @@
             "title": "Resolved At"
           },
           "resource_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Resource Version",
             "type": "integer"
           },
@@ -3477,8 +3467,8 @@
             "type": "string"
           },
           "workflow_version": {
-            "maximum": 2147483647.0,
-            "minimum": 1.0,
+            "maximum": 2147483647,
+            "minimum": 1,
             "title": "Workflow Version",
             "type": "integer"
           }
@@ -3542,7 +3532,6 @@
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
             "title": "Payload",
             "type": "object"
           },
@@ -3588,7 +3577,7 @@
         "additionalProperties": false,
         "properties": {
           "expectedVersion": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expectedversion",
             "type": "integer"
           },
@@ -3641,7 +3630,6 @@
             "type": "string"
           },
           "dimensions": {
-            "additionalProperties": true,
             "maxProperties": 32,
             "title": "Dimensions",
             "type": "object"
@@ -3729,7 +3717,7 @@
             "type": "string"
           },
           "source_revision": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Source Revision",
             "type": "integer"
           },
@@ -4043,8 +4031,8 @@
           },
           "match_confidence": {
             "default": 0,
-            "maximum": 100.0,
-            "minimum": 0.0,
+            "maximum": 100,
+            "minimum": 0,
             "title": "Match Confidence",
             "type": "integer"
           },
@@ -4170,12 +4158,11 @@
       "Lifecycle": {
         "properties": {
           "attempt_number": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Attempt Number",
             "type": "integer"
           },
           "details": {
-            "additionalProperties": true,
             "title": "Details",
             "type": "object"
           },
@@ -4239,8 +4226,8 @@
             "type": "array"
           },
           "score": {
-            "maximum": 100.0,
-            "minimum": 0.0,
+            "maximum": 100,
+            "minimum": 0,
             "title": "Score",
             "type": "integer"
           }
@@ -4268,7 +4255,6 @@
             "title": "Campaign Id"
           },
           "data": {
-            "additionalProperties": true,
             "title": "Data",
             "type": "object"
           },
@@ -4312,7 +4298,7 @@
             "type": "string"
           },
           "sequence": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Sequence",
             "type": "integer"
           },
@@ -4501,7 +4487,7 @@
             "type": "string"
           },
           "desired_state_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Desired State Version",
             "type": "integer"
           },
@@ -4666,7 +4652,6 @@
           "reconciliation": {
             "anyOf": [
               {
-                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -4735,7 +4720,7 @@
             "type": "string"
           },
           "desired_state_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Desired State Version",
             "type": "integer"
           },
@@ -4800,7 +4785,7 @@
             "type": "string"
           },
           "transition_sequence": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Transition Sequence",
             "type": "integer"
           }
@@ -4883,7 +4868,7 @@
             "type": "string"
           },
           "expected_revision": {
-            "minimum": 0.0,
+            "minimum": 0,
             "title": "Expected Revision",
             "type": "integer"
           },
@@ -5139,8 +5124,8 @@
           },
           "limit": {
             "default": 100,
-            "maximum": 1000.0,
-            "minimum": 1.0,
+            "maximum": 1000,
+            "minimum": 1,
             "title": "Limit",
             "type": "integer"
           },
@@ -5168,8 +5153,8 @@
           },
           "step_seconds": {
             "default": 60,
-            "maximum": 86400.0,
-            "minimum": 1.0,
+            "maximum": 86400,
+            "minimum": 1,
             "title": "Step Seconds",
             "type": "integer"
           }
@@ -5310,7 +5295,6 @@
             "type": "string"
           },
           "evidence": {
-            "additionalProperties": true,
             "title": "Evidence",
             "type": "object"
           },
@@ -5344,7 +5328,7 @@
         "additionalProperties": false,
         "properties": {
           "expected_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Expected Version",
             "type": "integer"
           },
@@ -5430,8 +5414,8 @@
           },
           "ttl_seconds": {
             "default": 900,
-            "maximum": 3600.0,
-            "minimum": 60.0,
+            "maximum": 3600,
+            "minimum": 60,
             "title": "Ttl Seconds",
             "type": "integer"
           }
@@ -5768,7 +5752,6 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
                   "type": "object"
                 },
                 "maxItems": 64,
@@ -6090,7 +6073,6 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
                   "type": "object"
                 },
                 "maxItems": 64,
@@ -6364,7 +6346,6 @@
             "type": "string"
           },
           "safe_metadata": {
-            "additionalProperties": true,
             "title": "Safe Metadata",
             "type": "object"
           },
@@ -6474,7 +6455,7 @@
             "title": "Desired State Hash"
           },
           "desired_state_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Desired State Version",
             "type": "integer"
           },
@@ -6510,8 +6491,8 @@
           "maximum_duration_seconds": {
             "anyOf": [
               {
-                "maximum": 300.0,
-                "minimum": 1.0,
+                "maximum": 300,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -6547,7 +6528,7 @@
           "reservation_generation": {
             "anyOf": [
               {
-                "minimum": 1.0,
+                "minimum": 1,
                 "type": "integer"
               },
               {
@@ -6618,7 +6599,7 @@
             "type": "string"
           },
           "aggregate_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Aggregate Version",
             "type": "integer"
           },
@@ -6823,8 +6804,8 @@
           },
           "max_webrtc_sessions": {
             "default": 1,
-            "maximum": 1.0,
-            "minimum": 1.0,
+            "maximum": 1,
+            "minimum": 1,
             "title": "Max Webrtc Sessions",
             "type": "integer"
           },
@@ -6930,7 +6911,6 @@
             "type": "string"
           },
           "safe_result": {
-            "additionalProperties": true,
             "title": "Safe Result",
             "type": "object"
           },
@@ -6986,7 +6966,7 @@
             "type": "string"
           },
           "applied_state_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Applied State Version",
             "type": "integer"
           },
@@ -7003,7 +6983,7 @@
             "type": "string"
           },
           "observed_state_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Observed State Version",
             "type": "integer"
           },
@@ -7038,7 +7018,7 @@
             "type": "string"
           },
           "requested_state_version": {
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Requested State Version",
             "type": "integer"
           },
@@ -7199,7 +7179,6 @@
             "type": "string"
           },
           "safe_metadata": {
-            "additionalProperties": true,
             "title": "Safe Metadata",
             "type": "object"
           }
@@ -7361,8 +7340,8 @@
         "additionalProperties": false,
         "properties": {
           "batch_size": {
-            "maximum": 100.0,
-            "minimum": 1.0,
+            "maximum": 100,
+            "minimum": 1,
             "title": "Batch Size",
             "type": "integer"
           },
@@ -7518,7 +7497,6 @@
             "title": "Lead Id"
           },
           "payload": {
-            "additionalProperties": true,
             "default": {},
             "title": "Payload",
             "type": "object"
@@ -7784,8 +7762,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -7800,8 +7777,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -7849,7 +7825,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -7862,7 +7837,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Authorized Action Api V1 Automation Actions  Action  Post",
                   "type": "object"
                 }
@@ -7989,7 +7963,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Record Audit Result Api V1 Automation Audit Result Post",
                   "type": "object"
                 }
@@ -8121,7 +8094,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Callbacks Api V1 Automation Callbacks  State  Get",
                   "type": "object"
                 }
@@ -8258,7 +8230,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Context Api V1 Automation Context  Resource   Identifier  Get",
                   "type": "object"
                 }
@@ -8413,7 +8384,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Receive Event Api V1 Automation Events Post",
                   "type": "object"
                 }
@@ -8540,7 +8510,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Dead Letter Api V1 Automation Events Dead Letter Post",
                   "type": "object"
                 }
@@ -8814,7 +8783,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Execution Transition Api V1 Automation Executions  Transition  Post",
                   "type": "object"
                 }
@@ -8941,7 +8909,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Reserve Idempotency Api V1 Automation Idempotency Check Post",
                   "type": "object"
                 }
@@ -9068,7 +9035,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -9081,7 +9047,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Policy Check Api V1 Automation Policy Check Post",
                   "type": "object"
                 }
@@ -9198,7 +9163,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Queue Status Api V1 Automation Queues Status Get",
                   "type": "object"
                 }
@@ -9548,7 +9512,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -9693,8 +9656,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -9709,8 +9671,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -9949,8 +9910,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -9965,8 +9925,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -10035,7 +9994,6 @@
             "schema": {
               "maxLength": 128,
               "minLength": 1,
-              "title": "X-Tenant-Id",
               "type": "string"
             }
           },
@@ -10046,7 +10004,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10057,7 +10014,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -10127,7 +10083,6 @@
             "schema": {
               "maxLength": 128,
               "minLength": 1,
-              "title": "X-Tenant-Id",
               "type": "string"
             }
           },
@@ -10138,7 +10093,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10149,7 +10103,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -10199,7 +10152,6 @@
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -10296,8 +10248,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -10312,8 +10263,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -10364,7 +10314,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10375,7 +10324,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10447,7 +10395,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10458,7 +10405,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10530,7 +10476,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10541,7 +10486,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10613,7 +10557,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10624,7 +10567,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10696,7 +10638,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10707,7 +10648,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10779,7 +10719,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10790,7 +10729,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10862,7 +10800,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10873,7 +10810,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -10945,7 +10881,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -10956,7 +10891,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -11028,7 +10962,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -11039,7 +10972,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -11275,7 +11207,7 @@
           },
           {
             "in": "header",
-            "name": "X-Correlation-Id",
+            "name": "X-Correlation-ID",
             "required": true,
             "schema": {
               "maxLength": 200,
@@ -11861,7 +11793,6 @@
                     "type": "string"
                   },
                   "data": {
-                    "additionalProperties": true,
                     "title": "Data",
                     "type": "object"
                   },
@@ -12478,7 +12409,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -12487,7 +12417,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -12556,7 +12485,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response N8N Result Status Api V1 Integrations N8N Results  Event Id  Get",
                   "type": "object"
                 }
@@ -12631,7 +12559,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Odoo Campaign Read Api V1 Integrations Odoo Campaigns  Campaign Id  Get",
                   "type": "object"
                 }
@@ -12706,7 +12633,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Odoo Campaign Desired State Api V1 Integrations Odoo Campaigns  Campaign Id  Desired State Get",
                   "type": "object"
                 }
@@ -12930,7 +12856,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Odoo Integration Status Api V1 Integrations Odoo Status Get",
                   "type": "object"
                 }
@@ -13010,7 +12935,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Odoo Sync Errors Api V1 Integrations Odoo Sync Errors Get",
                   "type": "object"
                 }
@@ -13077,7 +13001,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Odoo Sync Status Api V1 Integrations Odoo Sync Status Get",
                   "type": "object"
                 }
@@ -13233,7 +13156,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Dispatch Api V1 N8N Runtime Dispatch Post",
                   "type": "object"
                 }
@@ -13287,7 +13209,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Execution Status Api V1 N8N Runtime Executions  Execution Id  Get",
                   "type": "object"
                 }
@@ -13403,7 +13324,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Result Callback Api V1 N8N Runtime Results Post",
                   "type": "object"
                 }
@@ -13520,7 +13440,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Authorize Social Ingress Api V1 N8N Runtime Social Authorize Post",
                   "type": "object"
                 }
@@ -13591,7 +13510,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Acknowledge Execution Api V1 N8N Acknowledgements Post",
                   "type": "object"
                 }
@@ -13636,7 +13554,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Read Acknowledgement Api V1 N8N Acknowledgements  Acknowledgement Id  Get",
                   "type": "object"
                 }
@@ -13681,7 +13598,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Delivery Status Api V1 N8N Deliveries  Delivery Id  Get",
                   "type": "object"
                 }
@@ -13752,7 +13668,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Register Execution Api V1 N8N Executions Post",
                   "type": "object"
                 }
@@ -13797,7 +13712,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Read Execution Api V1 N8N Executions  Registration Id  Get",
                   "type": "object"
                 }
@@ -13878,7 +13792,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Transition Execution Api V1 N8N Executions  Registration Id  Transitions Post",
                   "type": "object"
                 }
@@ -14167,7 +14080,6 @@
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -14217,7 +14129,6 @@
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -14494,7 +14405,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Corrected Payload",
                 "type": "object"
               }
@@ -14724,8 +14634,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -14740,8 +14649,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -15056,7 +14964,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -15148,7 +15055,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -15191,7 +15097,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -15391,7 +15296,6 @@
             "name": "Idempotency-Key",
             "required": true,
             "schema": {
-              "title": "Idempotency-Key",
               "type": "string"
             }
           }
@@ -15815,8 +15719,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -15831,8 +15734,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -15906,8 +15808,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "Idempotency-Key"
+              ]
             }
           },
           {
@@ -15922,8 +15823,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           },
           {
@@ -15981,7 +15881,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Capabilities Capabilities Get",
                   "type": "object"
                 }
@@ -16004,7 +15903,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Dependencies Dependencies Get",
                   "type": "object"
                 }
@@ -16052,7 +15950,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Dependencies Health Dependencies Get",
                   "type": "object"
                 }
@@ -16144,7 +16041,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Backups Internal V1 Database Backups Get",
                   "type": "object"
                 }
@@ -16167,7 +16063,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Latest Backup Internal V1 Database Backups Latest Get",
                   "type": "object"
                 }
@@ -16190,7 +16085,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Capacity Internal V1 Database Capacity Get",
                   "type": "object"
                 }
@@ -16213,7 +16107,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Health Internal V1 Database Health Get",
                   "type": "object"
                 }
@@ -16236,7 +16129,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Locks Internal V1 Database Locks Get",
                   "type": "object"
                 }
@@ -16259,7 +16151,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Migrations Internal V1 Database Migrations Get",
                   "type": "object"
                 }
@@ -16282,7 +16173,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Verify Migrations Internal V1 Database Migrations Verify Post",
                   "type": "object"
                 }
@@ -16305,7 +16195,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Performance Internal V1 Database Performance Get",
                   "type": "object"
                 }
@@ -16328,7 +16217,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Pool Internal V1 Database Pool Get",
                   "type": "object"
                 }
@@ -16351,7 +16239,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Readiness Internal V1 Database Readiness Get",
                   "type": "object"
                 }
@@ -16374,7 +16261,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Latest Restore Internal V1 Database Restores Latest Get",
                   "type": "object"
                 }
@@ -16397,7 +16283,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Schema Internal V1 Database Schema Get",
                   "type": "object"
                 }
@@ -16420,7 +16305,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Certificates Internal V1 Database Security Certificates Get",
                   "type": "object"
                 }
@@ -16443,7 +16327,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Rls Internal V1 Database Security Rls Get",
                   "type": "object"
                 }
@@ -16466,7 +16349,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Tls Internal V1 Database Security Tls Get",
                   "type": "object"
                 }
@@ -16489,7 +16371,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Status Internal V1 Database Status Get",
                   "type": "object"
                 }
@@ -16567,7 +16448,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Activity Platform V1 Activity Get",
                   "type": "object"
                 }
@@ -16625,7 +16505,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Activity Platform V1 Activity  Activity Id  Get",
                   "type": "object"
                 }
@@ -16666,7 +16545,6 @@
             "schema": {
               "maxLength": 256,
               "minLength": 16,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -16676,7 +16554,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },
@@ -17034,7 +16911,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Agents Presence Platform V1 Agents Presence Get",
                   "type": "object"
                 }
@@ -17094,7 +16970,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Agent Presence Platform V1 Agents  User Id  Presence Get",
                   "type": "object"
                 }
@@ -17189,7 +17064,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Calls Platform V1 Calls Get",
                   "type": "object"
                 }
@@ -17250,7 +17124,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Call Platform V1 Calls  Call Id  Get",
                   "type": "object"
                 }
@@ -17324,7 +17197,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Campaigns Platform V1 Campaigns Get",
                   "type": "object"
                 }
@@ -17384,7 +17256,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Campaign Platform V1 Campaigns  Campaign Id  Get",
                   "type": "object"
                 }
@@ -17444,7 +17315,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Campaign Channels Platform V1 Campaigns  Campaign Id  Channels Get",
                   "type": "object"
                 }
@@ -17504,7 +17374,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Campaign Health Platform V1 Campaigns  Campaign Id  Health Get",
                   "type": "object"
                 }
@@ -17587,7 +17456,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Campaign Members Platform V1 Campaigns  Campaign Id  Members Get",
                   "type": "object"
                 }
@@ -18076,7 +17944,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -18194,7 +18061,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -18312,7 +18178,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -18387,7 +18252,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -18505,7 +18369,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -18627,7 +18490,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Email Identities Platform V1 Email Identities Get",
                   "type": "object"
                 }
@@ -18720,7 +18582,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Audit Platform V1 Email Production Audit Get",
                   "type": "object"
                 }
@@ -18835,7 +18696,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Quotas Platform V1 Email Production Quotas Get",
                   "type": "object"
                 }
@@ -18858,7 +18718,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Readiness Platform V1 Email Production Readiness Get",
                   "type": "object"
                 }
@@ -19414,7 +19273,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get My Presence Platform V1 Me Presence Get",
                   "type": "object"
                 }
@@ -20949,7 +20807,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -21067,7 +20924,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -21116,7 +20972,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -21957,7 +21812,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Queues Platform V1 Queues Get",
                   "type": "object"
                 }
@@ -22017,7 +21871,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Queue Platform V1 Queues  Queue Id  Get",
                   "type": "object"
                 }
@@ -22089,7 +21942,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Queue Calls Platform V1 Queues  Queue Id  Calls Get",
                   "type": "object"
                 }
@@ -22149,7 +22001,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Queue Members Platform V1 Queues  Queue Id  Members Get",
                   "type": "object"
                 }
@@ -22209,7 +22060,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Queue Metrics Platform V1 Queues  Queue Id  Metrics Get",
                   "type": "object"
                 }
@@ -22766,7 +22616,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -23717,7 +23566,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -23867,7 +23715,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -24073,7 +23920,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Session Context Platform V1 Session Context Get",
                   "type": "object"
                 }
@@ -24121,7 +23967,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Select Session Context Platform V1 Session Context Select Post",
                   "type": "object"
                 }
@@ -24234,7 +24079,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Sms Identities Platform V1 Sms Identities Get",
                   "type": "object"
                 }
@@ -24432,7 +24276,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -24637,7 +24480,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Telephony Assignments Platform V1 Telephony Assignments Get",
                   "type": "object"
                 }
@@ -24718,7 +24560,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Tenants Platform V1 Tenants Get",
                   "type": "object"
                 }
@@ -24782,7 +24623,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Authorized Tenants Platform V1 Tenants Authorized Get",
                   "type": "object"
                 }
@@ -24905,7 +24745,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response List Tenant Campaigns Platform V1 Tenants  Tenant Id  Campaigns Get",
                   "type": "object"
                 }
@@ -24954,7 +24793,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get Tenant Health Platform V1 Tenants  Tenant Id  Health Get",
                   "type": "object"
                 }
@@ -25068,7 +24906,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -25186,7 +25023,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
@@ -25255,7 +25091,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get User Platform V1 Users  Employee Id  Get",
                   "type": "object"
                 }
@@ -25315,7 +25150,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get User Campaigns Platform V1 Users  Employee Id  Campaigns Get",
                   "type": "object"
                 }
@@ -25375,7 +25209,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Get User Entitlements Platform V1 Users  Employee Id  Entitlements Get",
                   "type": "object"
                 }
@@ -25819,7 +25652,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -26652,7 +26484,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -26742,7 +26573,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -26832,7 +26662,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -27661,7 +27490,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -27751,7 +27579,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -28036,7 +27863,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -28168,7 +27994,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -28572,7 +28397,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -28904,7 +28728,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -29647,7 +29470,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -29779,7 +29601,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -30183,7 +30004,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -30504,7 +30324,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -30636,7 +30455,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -30971,7 +30789,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -31363,7 +31180,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -31477,8 +31293,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -31562,8 +31377,7 @@
                 {
                   "type": "null"
                 }
-              ],
-              "title": "X-Correlation-Id"
+              ]
             }
           }
         ],
@@ -31612,7 +31426,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Media V1 N8N Calls  Event Id  Media Get",
                   "type": "object"
                 }
@@ -31655,7 +31468,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -31668,7 +31480,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Transcription V1 N8N Calls  Event Id  Transcription Request Post",
                   "type": "object"
                 }
@@ -31700,7 +31511,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -31713,7 +31523,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Follow Up V1 N8N Follow Up Proposals Post",
                   "type": "object"
                 }
@@ -31745,7 +31554,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -31758,7 +31566,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Internal Alert V1 N8N Internal Alerts Post",
                   "type": "object"
                 }
@@ -31802,7 +31609,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Job V1 N8N Jobs  Job Id  Get",
                   "type": "object"
                 }
@@ -31845,7 +31651,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -31858,7 +31663,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Replay V1 N8N Jobs  Job Id  Replay Post",
                   "type": "object"
                 }
@@ -31890,7 +31694,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -31903,7 +31706,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Qa Review V1 N8N Qa Reviews Post",
                   "type": "object"
                 }
@@ -31960,7 +31762,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Reconciliation V1 N8N Reconciliation Get",
                   "type": "object"
                 }
@@ -32003,7 +31804,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "title": "Body",
                 "type": "object"
               }
@@ -32016,7 +31816,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Callback V1 N8N Runs  Run Id  Callback Post",
                   "type": "object"
                 }
@@ -32060,7 +31859,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Test Delay V1 N8N Test Delay  Milliseconds  Get",
                   "type": "object"
                 }
@@ -32489,7 +32287,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -32500,7 +32297,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -32749,7 +32545,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 8,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -32760,7 +32555,6 @@
             "schema": {
               "maxLength": 180,
               "minLength": 1,
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           }
@@ -34102,7 +33896,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -34423,7 +34216,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -34555,7 +34347,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -34960,7 +34751,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -35272,7 +35062,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -35674,7 +35463,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -36009,7 +35797,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -36414,7 +36201,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -36808,7 +36594,6 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": true,
                   "properties": {
                     "code": {
                       "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
@@ -39096,7 +38881,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Version Version Get",
                   "type": "object"
                 }
@@ -39153,7 +38937,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Telnexa Inbound Sms Webhooks Sms Inbound  Post",
                   "type": "object"
                 }
@@ -39220,7 +39003,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Vicidial Call Result Webhooks Vicidial Call Result  Post",
                   "type": "object"
                 }
@@ -39273,7 +39055,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Session Config Webphone Api V1 Config Get",
                   "type": "object"
                 }
@@ -39316,7 +39097,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Provision Webphone Api V1 Provision Post",
                   "type": "object"
                 }
@@ -39360,7 +39140,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Refresh Webphone Api V1 Provision  Session Id  Refresh Post",
                   "type": "object"
                 }
@@ -39404,7 +39183,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Revoke Webphone Api V1 Provision  Session Id  Revoke Post",
                   "type": "object"
                 }
@@ -39447,7 +39225,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Renew Session Webphone Api V1 Renew Post",
                   "type": "object"
                 }
@@ -39490,7 +39267,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Revoke Session Webphone Api V1 Revoke Post",
                   "type": "object"
                 }
@@ -39533,7 +39309,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "title": "Response Create Session Webphone Api V1 Session Post",
                   "type": "object"
                 }

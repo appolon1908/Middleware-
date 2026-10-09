@@ -10456,7 +10456,7 @@
           },
           {
             "in": "header",
-            "name": "X-Correlation-Id",
+            "name": "X-Correlation-ID",
             "required": true,
             "schema": {
               "maxLength": 200,
@@ -17493,7 +17493,6 @@
             "schema": {
               "maxLength": 256,
               "minLength": 16,
-              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -17503,7 +17502,6 @@
             "required": false,
             "schema": {
               "default": "",
-              "title": "X-Correlation-Id",
               "type": "string"
             }
           },

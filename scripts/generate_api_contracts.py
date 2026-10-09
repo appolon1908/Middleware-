@@ -178,6 +178,31 @@ def _normalize_schema_defaults(value: Any) -> None:
                 _normalize_schema_defaults(child)
 
 
+CANONICAL_HEADER_NAMES = {
+    "x-tenant-id": "X-Tenant-ID",
+    "x-correlation-id": "X-Correlation-ID",
+    "idempotency-key": "Idempotency-Key",
+}
+
+
+def _normalize_header_authority(value: Any) -> None:
+    """Canonicalize governed header names and remove display-only title drift."""
+    if isinstance(value, dict):
+        if value.get("in") == "header":
+            raw_name = str(value.get("name", ""))
+            canonical = CANONICAL_HEADER_NAMES.get(raw_name.casefold())
+            if canonical is not None:
+                value["name"] = canonical
+                parameter_schema = value.get("schema")
+                if isinstance(parameter_schema, dict):
+                    parameter_schema.pop("title", None)
+        for child in value.values():
+            _normalize_header_authority(child)
+    elif isinstance(value, list):
+        for child in value:
+            _normalize_header_authority(child)
+
+
 def build_documents() -> tuple[dict[str, Any], dict[str, Any]]:
     """Build the enriched OpenAPI document and completion matrix in memory."""
     # These imports follow the explicit repository-root path setup above so this
@@ -194,6 +219,7 @@ def build_documents() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     schema: dict[str, Any] = create_app(settings=settings).openapi()
     _normalize_schema_defaults(schema)
+    _normalize_header_authority(schema)
     schema["info"]["description"] = DESCRIPTION
     components = schema.setdefault("components", {})
     security_schemes = components.setdefault("securitySchemes", {})
@@ -283,6 +309,8 @@ def _integration_documents() -> dict[Path, str]:
         }
     )
     schema = create_app(settings=settings, profile=AppProfile.INTEGRATION).openapi()
+    _normalize_schema_defaults(schema)
+    _normalize_header_authority(schema)
     operations = [
         {
             "method": method.upper(),

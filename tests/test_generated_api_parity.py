@@ -16,6 +16,7 @@ from scripts.generate_api_contracts import (
     SPECIALIZED_INGRESS_PATHS,
     _ensure_header,
     _klyrow_contract_documents,
+    _normalize_header_authority,
     _normalize_schema_defaults,
     build_documents,
     render_documents,
@@ -67,6 +68,8 @@ def test_integration_profile_openapi_postman_and_matrix_match_runtime(test_setti
     runtime = application(
         settings=test_settings, profile=AppProfile.INTEGRATION
     ).openapi()
+    _normalize_schema_defaults(runtime)
+    _normalize_header_authority(runtime)
     generated = json.loads(INTEGRATION_OPENAPI.read_text(encoding="utf-8"))
     # Full schemas, response contracts, security and parameters, not just paths.
     assert generated == runtime
@@ -74,6 +77,12 @@ def test_integration_profile_openapi_postman_and_matrix_match_runtime(test_setti
     matrix = yaml.safe_load(INTEGRATION_MATRIX.read_text(encoding="utf-8"))
     assert expected == {(row["method"], row["path"]) for row in matrix["operations"]}
     postman = json.loads(INTEGRATION_OUTPUT.read_text(encoding="utf-8"))
+    rendered_contract = json.dumps(generated, sort_keys=True)
+    rendered_postman = json.dumps(postman, sort_keys=True)
+    for forbidden in ("X-Correlation-Id", "X-Tenant-Id", "X-Idempotency-Key"):
+        assert forbidden not in rendered_contract
+        assert forbidden not in rendered_postman
+
     import re
 
     actual = {

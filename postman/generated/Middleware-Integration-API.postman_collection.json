@@ -8813,7 +8813,7 @@
               },
               {
                 "disabled": false,
-                "key": "X-Correlation-Id",
+                "key": "X-Correlation-ID",
                 "type": "text",
                 "value": "{{x_correlation_id}}"
               },
