@@ -47,7 +47,7 @@ paths:
       operationId: validateConnectorManifest
       security: [{oauth2: [connector.manifest.validate]}]
       parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -77,7 +77,7 @@ paths:
       description: Installs a reviewed manifest in INSTALLED_DISABLED state only.
       security: [{oauth2: [connector.install.request]}]
       parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -150,7 +150,7 @@ paths:
       security: [{oauth2: [connector.connection.test]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -175,7 +175,7 @@ paths:
       security: [{oauth2: [connector.upgrade.request]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -201,7 +201,7 @@ paths:
       security: [{oauth2: [connector.disable.request]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -250,7 +250,7 @@ paths:
       security: [{oauth2: [connector.webhook.write]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectionId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
       responses:
@@ -274,7 +274,7 @@ paths:
       security: [{oauth2: [connector.webhook.write]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -288,7 +288,7 @@ paths:
       security: [{oauth2: [connector.webhook.write]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -302,7 +302,7 @@ paths:
       security: [{oauth2: [connector.webhook.test]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
       responses:
@@ -316,7 +316,7 @@ paths:
       security: [{oauth2: [connector.webhook.rotate]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -357,7 +357,7 @@ paths:
       security: [{oauth2: [connector.webhook.replay.request]}]
       parameters:
         - {$ref: '#/components/parameters/DeliveryId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -424,7 +424,7 @@ paths:
       operationId: platformValidateConnectorManifest
       security: [{oauth2: [connector.manifest.validate]}]
       parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -454,7 +454,7 @@ paths:
       description: Installs a reviewed manifest in INSTALLED_DISABLED state only.
       security: [{oauth2: [connector.install.request]}]
       parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -527,7 +527,7 @@ paths:
       security: [{oauth2: [connector.connection.test]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -552,7 +552,7 @@ paths:
       security: [{oauth2: [connector.upgrade.request]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -578,7 +578,7 @@ paths:
       security: [{oauth2: [connector.disable.request]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -675,7 +675,7 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
-    IdempotencyKey:
+    Idempotency-Key:
       name: Idempotency-Key
       in: header
       required: true
