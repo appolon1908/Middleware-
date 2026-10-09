@@ -2,7 +2,7 @@ openapi: 3.1.1
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Codestra Connector Management API
-  version: 1.1.0
+  version: 1.2.0
   description: >-
     Disabled-first connector catalog, installation, health, webhook lifecycle,
     delivery evidence, and replay-request API. Connector activation is
@@ -47,7 +47,7 @@ paths:
       operationId: validateConnectorManifest
       security: [{oauth2: [connector.manifest.validate]}]
       parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -77,7 +77,7 @@ paths:
       description: Installs a reviewed manifest in INSTALLED_DISABLED state only.
       security: [{oauth2: [connector.install.request]}]
       parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
@@ -150,12 +150,22 @@ paths:
       security: [{oauth2: [connector.connection.test]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
         - {$ref: '#/components/parameters/Tracestate'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [connection_id]
+              properties:
+                connection_id: {type: string, format: uuid}
       responses:
-        '202': {$ref: '#/components/responses/OperationAccepted'}
+        '200': {description: Safe read-only connection test result}
         default: {$ref: '#/components/responses/Problem'}
   /v1/connectors/{connector_id}/upgrade:
     post:
@@ -165,10 +175,21 @@ paths:
       security: [{oauth2: [connector.upgrade.request]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [manifest, expected_manifest_digest]
+              properties:
+                manifest: {$ref: './connector-manifest.v1.schema.json'}
+                expected_manifest_digest: {type: string, pattern: '^sha256:[a-f0-9]{64}$'}
       responses:
         '202': {$ref: '#/components/responses/OperationAccepted'}
         '409': {$ref: '#/components/responses/Problem'}
@@ -180,7 +201,7 @@ paths:
       security: [{oauth2: [connector.disable.request]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectorId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -229,7 +250,7 @@ paths:
       security: [{oauth2: [connector.webhook.write]}]
       parameters:
         - {$ref: '#/components/parameters/ConnectionId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
       responses:
@@ -253,7 +274,7 @@ paths:
       security: [{oauth2: [connector.webhook.write]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -267,7 +288,7 @@ paths:
       security: [{oauth2: [connector.webhook.write]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -281,7 +302,7 @@ paths:
       security: [{oauth2: [connector.webhook.test]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
       responses:
@@ -295,7 +316,7 @@ paths:
       security: [{oauth2: [connector.webhook.rotate]}]
       parameters:
         - {$ref: '#/components/parameters/WebhookId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -336,7 +357,7 @@ paths:
       security: [{oauth2: [connector.webhook.replay.request]}]
       parameters:
         - {$ref: '#/components/parameters/DeliveryId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
         - {$ref: '#/components/parameters/IfMatch'}
         - {$ref: '#/components/parameters/CorrelationId'}
         - {$ref: '#/components/parameters/Traceparent'}
@@ -378,6 +399,237 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '413': {$ref: '#/components/responses/Problem'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors:
+    get:
+      tags: [Connectors]
+      operationId: platformListConnectors
+      security: [{oauth2: [connector.catalog.read]}]
+      parameters:
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+        - {$ref: '#/components/parameters/Tracestate'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/PageSize'}
+      responses:
+        '200':
+          description: Tenant-authorized connector catalog
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectorList'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/validate:
+    post:
+      tags: [Connectors]
+      operationId: platformValidateConnectorManifest
+      security: [{oauth2: [connector.manifest.validate]}]
+      parameters:
+        - {$ref: '#/components/parameters/Idempotency-Key'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+        - {$ref: '#/components/parameters/Tracestate'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [manifest]
+              properties:
+                manifest:
+                  $ref: ./connector-manifest.v1.schema.json
+      responses:
+        '200':
+          description: Validation result with canonical manifest digest
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ManifestValidationResult'}
+        '422': {$ref: '#/components/responses/Problem'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/install:
+    post:
+      tags: [Connectors]
+      operationId: platformInstallConnectorDisabled
+      description: Installs a reviewed manifest in INSTALLED_DISABLED state only.
+      security: [{oauth2: [connector.install.request]}]
+      parameters:
+        - {$ref: '#/components/parameters/Idempotency-Key'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+        - {$ref: '#/components/parameters/Tracestate'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [manifest, expected_manifest_digest]
+              properties:
+                manifest:
+                  $ref: ./connector-manifest.v1.schema.json
+                expected_manifest_digest:
+                  type: string
+                  pattern: '^sha256:[a-f0-9]{64}$'
+      responses:
+        '202': {$ref: '#/components/responses/OperationAccepted'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}:
+    get:
+      tags: [Connectors]
+      operationId: platformGetConnector
+      security: [{oauth2: [connector.catalog.read]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+        - {$ref: '#/components/parameters/Tracestate'}
+      responses:
+        '200':
+          description: Safe connector projection
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectorProjection'}
+        '404': {$ref: '#/components/responses/Problem'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/manifest:
+    get:
+      tags: [Connectors]
+      operationId: platformGetConnectorManifest
+      security: [{oauth2: [connector.manifest.read]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+      responses:
+        '200':
+          description: Secret-free installed manifest and digest
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [manifest, manifest_digest]
+                properties:
+                  manifest: {$ref: './connector-manifest.v1.schema.json'}
+                  manifest_digest:
+                    type: string
+                    pattern: '^sha256:[a-f0-9]{64}$'
+        '404': {$ref: '#/components/responses/Problem'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/test:
+    post:
+      tags: [Connectors]
+      operationId: platformTestConnectorConnection
+      description: Performs a no-effect identity, TLS, and health read-back test.
+      security: [{oauth2: [connector.connection.test]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+        - {$ref: '#/components/parameters/Tracestate'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [connection_id]
+              properties:
+                connection_id: {type: string, format: uuid}
+      responses:
+        '200': {description: Safe read-only connection test result}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/upgrade:
+    post:
+      tags: [Connectors]
+      operationId: platformUpgradeConnectorDisabled
+      description: Records a digest-bound upgrade; it does not activate the connector.
+      security: [{oauth2: [connector.upgrade.request]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
+        - {$ref: '#/components/parameters/IfMatch'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [manifest, expected_manifest_digest]
+              properties:
+                manifest: {$ref: './connector-manifest.v1.schema.json'}
+                expected_manifest_digest: {type: string, pattern: '^sha256:[a-f0-9]{64}$'}
+      responses:
+        '202': {$ref: '#/components/responses/OperationAccepted'}
+        '409': {$ref: '#/components/responses/Problem'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/disable:
+    post:
+      tags: [Connectors]
+      operationId: platformDisableConnector
+      security: [{oauth2: [connector.disable.request]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/Idempotency-Key'}
+        - {$ref: '#/components/parameters/IfMatch'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+      responses:
+        '202': {$ref: '#/components/responses/OperationAccepted'}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/health:
+    get:
+      tags: [Connectors]
+      operationId: platformGetConnectorHealth
+      security: [{oauth2: [connector.health.read]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+        - {$ref: '#/components/parameters/Traceparent'}
+      responses:
+        '200':
+          description: Redacted connector and destination health
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, checked_at]
+                properties:
+                  status: {type: string}
+                  checked_at: {type: string, format: date-time}
+                  safe_details: {type: object}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/capabilities:
+    get:
+      tags: [Connectors]
+      operationId: platformConnectorCapabilities
+      description: Manifest capabilities; enabled is false until authoritative dispatch eligibility exists.
+      security: [{oauth2: [connector.catalog.read]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+      responses:
+        '200': {description: Secret-free connector capabilities envelope}
+        default: {$ref: '#/components/responses/Problem'}
+  /platform/v1/connectors/{connector_id}/status:
+    get:
+      tags: [Connectors]
+      operationId: platformConnectorStatus
+      description: Installation state, binding status and execution availability.
+      security: [{oauth2: [connector.health.read]}]
+      parameters:
+        - {$ref: '#/components/parameters/ConnectorId'}
+        - {$ref: '#/components/parameters/CorrelationId'}
+      responses:
+        '200': {description: Secret-free connector status envelope}
         default: {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
@@ -423,7 +675,7 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
-    IdempotencyKey:
+    Idempotency-Key:
       name: Idempotency-Key
       in: header
       required: true

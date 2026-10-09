@@ -12,8 +12,14 @@ from sqlalchemy import RowMapping, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from middleware.connector_sdk import manifest_digest, parse_manifest
-from middleware.connector_sdk.errors import ManifestValidationError
+from middleware.connector_sdk import (
+    ConnectorCatalogService,
+    ConnectorRegistry,
+    SemanticVersion,
+    manifest_digest,
+    parse_manifest,
+)
+from middleware.connector_sdk.errors import ConnectorError, ManifestValidationError
 
 from .config import RuntimeSettings
 from .database import Database
@@ -107,18 +113,22 @@ class ConnectorRepository:
         ).scalar_one_or_none()
         if inserted is not None:
             return None
-        prior = session.execute(
-            text(
-                """
+        prior = (
+            session.execute(
+                text(
+                    """
                 SELECT request_sha256, response_status, response_body
                   FROM connector_sdk.connector_idempotency_keys
                  WHERE tenant_id=:tenant_id AND scope=:scope
                    AND idempotency_key=:key
                  FOR UPDATE
                 """
-            ),
-            {"tenant_id": tenant_id, "scope": scope, "key": key},
-        ).mappings().one()
+                ),
+                {"tenant_id": tenant_id, "scope": scope, "key": key},
+            )
+            .mappings()
+            .one()
+        )
         if prior["request_sha256"] != request_sha256:
             raise ProblemError(
                 status=409,
@@ -251,9 +261,10 @@ class ConnectorRepository:
 
     def list_connectors(self, *, limit: int, after: str | None) -> list[dict[str, Any]]:
         with self.database.session() as session:
-            rows = session.execute(
-                text(
-                    """
+            rows = (
+                session.execute(
+                    text(
+                        """
                     SELECT i.connector_id,
                            COALESCE(m.manifest->>'display_name', i.connector_id) AS display_name,
                            i.current_version AS version,
@@ -273,20 +284,24 @@ class ConnectorRepository:
                      ORDER BY i.connector_id
                      LIMIT :limit
                     """
-                ),
-                {
-                    "environment": self.settings.environment,
-                    "after": after,
-                    "limit": limit,
-                },
-            ).mappings().all()
+                    ),
+                    {
+                        "environment": self.settings.environment,
+                        "after": after,
+                        "limit": limit,
+                    },
+                )
+                .mappings()
+                .all()
+            )
         return [dict(row) for row in rows]
 
     def get_connector(self, connector_id: str) -> dict[str, Any]:
         with self.database.session() as session:
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     SELECT i.connector_id,
                            COALESCE(m.manifest->>'display_name', i.connector_id) AS display_name,
                            i.current_version AS version,
@@ -305,12 +320,15 @@ class ConnectorRepository:
                      WHERE i.environment=:environment
                        AND i.connector_id=:connector_id
                     """
-                ),
-                {
-                    "environment": self.settings.environment,
-                    "connector_id": connector_id,
-                },
-            ).mappings().one_or_none()
+                    ),
+                    {
+                        "environment": self.settings.environment,
+                        "connector_id": connector_id,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
         if row is None:
             raise ProblemError(
                 status=404,
@@ -319,6 +337,41 @@ class ConnectorRepository:
                 detail="The connector is not installed in this environment.",
             )
         return dict(row)
+
+    def _validate_registry_transaction(
+        self, session: Session, raw: dict[str, Any]
+    ) -> None:
+        # Serialize all catalog mutations, including different connector IDs.
+        # A preflight HTTP validation alone cannot protect namespace ownership.
+        session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext('connector-sdk-registry'))")
+        )
+        rows = (
+            session.execute(
+                text("""
+            SELECT m.manifest FROM connector_sdk.connector_installations i
+            JOIN connector_sdk.connector_manifests m
+              ON m.connector_id=i.connector_id AND m.version=i.current_version
+             AND m.manifest_digest=i.current_manifest_digest
+            WHERE i.environment=:environment
+        """),
+                {"environment": self.settings.environment},
+            )
+            .scalars()
+            .all()
+        )
+        registry = ConnectorRegistry()
+        try:
+            for manifest in rows:
+                registry.register_manifest(dict(manifest))
+            ConnectorCatalogService(registry).validate_candidate(raw)
+        except ConnectorError as error:
+            raise ProblemError(
+                status=409,
+                code="CONNECTOR_REGISTRY_CONFLICT",
+                title="Connector registry conflict",
+                detail=str(error),
+            ) from error
 
     def install_disabled(
         self,
@@ -364,6 +417,7 @@ class ConnectorRepository:
             )
             if replay is not None:
                 return replay
+            self._validate_registry_transaction(session, manifest_raw)
             existing = session.execute(
                 text(
                     """
@@ -482,6 +536,180 @@ class ConnectorRepository:
             )
         return 202, body
 
+    def upgrade_disabled(
+        self,
+        *,
+        tenant_id: UUID,
+        connector_id: str,
+        manifest_raw: dict[str, Any],
+        expected_digest: str,
+        expected_version: int,
+        idempotency_key: str,
+        actor_subject: str,
+        correlation_id: UUID,
+        request_id: str | None,
+        traceparent: str | None,
+    ) -> IdempotentReplay | tuple[int, dict[str, Any]]:
+        manifest = parse_manifest(manifest_raw)
+        digest = manifest_digest(manifest_raw)
+        if manifest.connector_id != connector_id or digest != expected_digest:
+            raise ProblemError(
+                status=409,
+                code="MANIFEST_DIGEST_CONFLICT",
+                title="Manifest identity conflict",
+                detail="Manifest ID and digest must match the requested connector.",
+            )
+        operation_id = uuid4()
+        request_hash = _canonical_sha256(
+            {
+                "connector_id": connector_id,
+                "manifest": manifest_raw,
+                "expected_digest": expected_digest,
+                "expected_version": expected_version,
+            }
+        )
+        with self.database.session(tenant_id) as session:
+            replay = self._claim_idempotency(
+                session,
+                tenant_id=tenant_id,
+                scope="connector.upgrade",
+                key=idempotency_key,
+                request_sha256=request_hash,
+            )
+            if replay is not None:
+                return replay
+            self._validate_registry_transaction(session, manifest_raw)
+            row = (
+                session.execute(
+                    text("""
+                SELECT installation_id, current_version, cell, state, resource_version
+                FROM connector_sdk.connector_installations
+                WHERE connector_id=:connector_id AND environment=:environment FOR UPDATE
+            """),
+                    {
+                        "connector_id": connector_id,
+                        "environment": self.settings.environment,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                raise ProblemError(
+                    status=404,
+                    code="CONNECTOR_NOT_FOUND",
+                    title="Connector not found",
+                    detail="Connector is not installed.",
+                )
+            if row["resource_version"] != expected_version:
+                raise ProblemError(
+                    status=412,
+                    code="RESOURCE_VERSION_CONFLICT",
+                    title="Resource version conflict",
+                    detail="Connector changed before upgrade.",
+                )
+            if row["state"] not in {"INSTALLED_DISABLED", "SUSPENDED"}:
+                raise ProblemError(
+                    status=409,
+                    code="CONNECTOR_STATE_CONFLICT",
+                    title="Disable connector before upgrade",
+                    detail="Only disabled or suspended installations can be upgraded.",
+                )
+            if manifest.cell.value != row["cell"] or not SemanticVersion.parse(
+                row["current_version"]
+            ) < SemanticVersion.parse(manifest.version):
+                raise ProblemError(
+                    status=409,
+                    code="CONNECTOR_VERSION_CONFLICT",
+                    title="Connector version conflict",
+                    detail="Upgrade must advance semantic version and preserve the isolation cell.",
+                )
+            existing = session.execute(
+                text(
+                    "SELECT manifest_digest FROM connector_sdk.connector_manifests WHERE connector_id=:connector_id AND version=:version"
+                ),
+                {"connector_id": connector_id, "version": manifest.version},
+            ).scalar_one_or_none()
+            if existing is not None and existing != digest:
+                raise ProblemError(
+                    status=409,
+                    code="CONNECTOR_VERSION_CONFLICT",
+                    title="Connector version conflict",
+                    detail="Connector versions are immutable.",
+                )
+            session.execute(
+                text("""
+                INSERT INTO connector_sdk.connector_manifests (connector_id, version, manifest_digest, manifest, created_by_subject)
+                VALUES (:connector_id, :version, :digest, CAST(:manifest AS jsonb), :subject)
+                ON CONFLICT (connector_id, version) DO NOTHING
+            """),
+                {
+                    "connector_id": connector_id,
+                    "version": manifest.version,
+                    "digest": digest,
+                    "manifest": json.dumps(manifest_raw),
+                    "subject": actor_subject,
+                },
+            )
+            version = session.execute(
+                text("""
+                UPDATE connector_sdk.connector_installations
+                SET current_version=:version, current_manifest_digest=:digest, state='INSTALLED_DISABLED', activated_at=NULL
+                WHERE installation_id=:id RETURNING resource_version
+            """),
+                {
+                    "version": manifest.version,
+                    "digest": digest,
+                    "id": row["installation_id"],
+                },
+            ).scalar_one()
+            metadata = {
+                "connector_id": connector_id,
+                "version": manifest.version,
+                "manifest_digest": digest,
+            }
+            self._audit(
+                session,
+                tenant_id=tenant_id,
+                actor_subject=actor_subject,
+                actor_type="service",
+                action="connector.upgrade_disabled",
+                resource_type="connector_installation",
+                resource_id=str(row["installation_id"]),
+                correlation_id=correlation_id,
+                request_id=request_id,
+                safe_metadata=metadata,
+            )
+            self._outbox(
+                session,
+                tenant_id=tenant_id,
+                aggregate_type="connector_installation",
+                aggregate_id=row["installation_id"],
+                event_type="connector.upgraded-disabled.v1",
+                payload=metadata,
+                correlation_id=correlation_id,
+                causation_id=str(operation_id),
+                traceparent=traceparent,
+            )
+            body = {
+                "data": {
+                    "operation_id": str(operation_id),
+                    "status": "accepted",
+                    "resource_version": int(version),
+                },
+                "meta": {"correlation_id": str(correlation_id), "api_version": "v1"},
+            }
+            self._complete_idempotency(
+                session,
+                tenant_id=tenant_id,
+                scope="connector.upgrade",
+                key=idempotency_key,
+                operation_id=operation_id,
+                status=202,
+                body=body,
+            )
+        return 202, body
+
     def disable_connector(
         self,
         *,
@@ -507,9 +735,10 @@ class ConnectorRepository:
             )
             if replay is not None:
                 return replay
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     UPDATE connector_sdk.connector_installations
                        SET state='SUSPENDED', suspended_at=now()
                      WHERE connector_id=:connector_id
@@ -518,13 +747,16 @@ class ConnectorRepository:
                        AND state <> 'SUSPENDED'
                     RETURNING installation_id, resource_version
                     """
-                ),
-                {
-                    "connector_id": connector_id,
-                    "environment": self.settings.environment,
-                    "expected_version": expected_version,
-                },
-            ).mappings().one_or_none()
+                    ),
+                    {
+                        "connector_id": connector_id,
+                        "environment": self.settings.environment,
+                        "expected_version": expected_version,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
             if row is None:
                 raise ProblemError(
                     status=412,
@@ -589,7 +821,13 @@ class ConnectorRepository:
         operation_id = uuid4()
         connection_id = uuid4()
         provider_hash = hashlib.sha256(
-            (str(tenant_id) + ":" + connector_id + ":" + (external_account_reference or str(connection_id))).encode()
+            (
+                str(tenant_id)
+                + ":"
+                + connector_id
+                + ":"
+                + (external_account_reference or str(connection_id))
+            ).encode()
         ).hexdigest()
         with self.database.session(tenant_id) as session:
             replay = self._claim_idempotency(
@@ -682,9 +920,10 @@ class ConnectorRepository:
 
     def get_connection(self, *, tenant_id: UUID, connection_id: UUID) -> dict[str, Any]:
         with self.database.session(tenant_id) as session:
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     SELECT c.connection_id, c.tenant_id, i.connector_id,
                            c.external_account_reference, c.state,
                            c.resource_version, c.last_tested_at, c.last_test_code
@@ -694,9 +933,12 @@ class ConnectorRepository:
                      WHERE c.tenant_id=:tenant_id
                        AND c.connection_id=:connection_id
                     """
-                ),
-                {"tenant_id": tenant_id, "connection_id": connection_id},
-            ).mappings().one_or_none()
+                    ),
+                    {"tenant_id": tenant_id, "connection_id": connection_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
         if row is None:
             raise ProblemError(
                 status=404,
@@ -705,6 +947,85 @@ class ConnectorRepository:
                 detail="The connector connection was not found in this tenant.",
             )
         return dict(row)
+
+    def connection_test_configuration(
+        self, *, tenant_id: UUID, connection_id: UUID, connector_id: str
+    ) -> dict[str, Any]:
+        with self.database.session(tenant_id) as session:
+            row = session.execute(
+                text("""
+                SELECT c.configuration FROM connector_sdk.connector_connections c
+                JOIN connector_sdk.connector_installations i USING (installation_id)
+                WHERE c.tenant_id=:tenant_id AND c.connection_id=:connection_id
+                  AND i.connector_id=:connector_id AND i.environment=:environment
+            """),
+                {
+                    "tenant_id": tenant_id,
+                    "connection_id": connection_id,
+                    "connector_id": connector_id,
+                    "environment": self.settings.environment,
+                },
+            ).scalar_one_or_none()
+        if row is None:
+            raise ProblemError(
+                status=404,
+                code="CONNECTION_NOT_FOUND",
+                title="Connection not found",
+                detail="The connection does not belong to this tenant and connector.",
+            )
+        return dict(row)
+
+    def record_connection_test(
+        self,
+        *,
+        tenant_id: UUID,
+        connection_id: UUID,
+        connector_id: str,
+        manifest_digest: str,
+        code: str,
+        actor_subject: str,
+        correlation_id: UUID,
+        request_id: str | None,
+    ) -> None:
+        with self.database.session(tenant_id) as session:
+            updated = session.execute(
+                text("""
+                UPDATE connector_sdk.connector_connections c
+                SET last_tested_at=now(), last_test_code=:code
+                FROM connector_sdk.connector_installations i
+                WHERE c.installation_id=i.installation_id AND c.tenant_id=:tenant_id
+                  AND c.connection_id=:connection_id AND i.connector_id=:connector_id
+                  AND i.environment=:environment AND i.current_manifest_digest=:digest
+                RETURNING c.connection_id
+            """),
+                {
+                    "tenant_id": tenant_id,
+                    "connection_id": connection_id,
+                    "connector_id": connector_id,
+                    "environment": self.settings.environment,
+                    "digest": manifest_digest,
+                    "code": code,
+                },
+            ).scalar_one_or_none()
+            if updated is None:
+                raise ProblemError(
+                    status=409,
+                    code="CONNECTOR_VERSION_CONFLICT",
+                    title="Connector changed",
+                    detail="The connector changed while its connection was being tested.",
+                )
+            self._audit(
+                session,
+                tenant_id=tenant_id,
+                actor_subject=actor_subject,
+                actor_type="service",
+                action="connector.connection.test",
+                resource_type="connector_connection",
+                resource_id=str(connection_id),
+                correlation_id=correlation_id,
+                request_id=request_id,
+                safe_metadata={"code": code},
+            )
 
     def list_webhooks(
         self,
@@ -715,9 +1036,10 @@ class ConnectorRepository:
         after: str | None,
     ) -> list[dict[str, Any]]:
         with self.database.session(tenant_id) as session:
-            rows = session.execute(
-                text(
-                    """
+            rows = (
+                session.execute(
+                    text(
+                        """
                     SELECT w.webhook_id, w.connection_id, w.tenant_id,
                            i.connector_id, w.endpoint_key, w.public_path,
                            w.state, w.resource_version,
@@ -734,14 +1056,17 @@ class ConnectorRepository:
                      ORDER BY w.webhook_id
                      LIMIT :limit
                     """
-                ),
-                {
-                    "tenant_id": tenant_id,
-                    "connection_id": connection_id,
-                    "after": after,
-                    "limit": limit,
-                },
-            ).mappings().all()
+                    ),
+                    {
+                        "tenant_id": tenant_id,
+                        "connection_id": connection_id,
+                        "after": after,
+                        "limit": limit,
+                    },
+                )
+                .mappings()
+                .all()
+            )
         return [dict(row) for row in rows]
 
     def create_webhook(
@@ -775,9 +1100,10 @@ class ConnectorRepository:
             )
             if replay is not None:
                 return replay
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     SELECT i.connector_id, m.manifest
                       FROM connector_sdk.connector_connections c
                       JOIN connector_sdk.connector_installations i
@@ -789,9 +1115,12 @@ class ConnectorRepository:
                      WHERE c.tenant_id=:tenant_id
                        AND c.connection_id=:connection_id
                     """
-                ),
-                {"tenant_id": tenant_id, "connection_id": connection_id},
-            ).mappings().one_or_none()
+                    ),
+                    {"tenant_id": tenant_id, "connection_id": connection_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
             if row is None:
                 raise ProblemError(
                     status=404,
@@ -808,7 +1137,9 @@ class ConnectorRepository:
                     title="Webhook endpoint not declared",
                     detail="The connector manifest does not declare this endpoint.",
                 )
-            public_path = f"/v1/webhooks/{manifest.connector_id}/{endpoint_key}/{webhook_id}"
+            public_path = (
+                f"/v1/webhooks/{manifest.connector_id}/{endpoint_key}/{webhook_id}"
+            )
             session.execute(
                 text(
                     """
@@ -870,9 +1201,10 @@ class ConnectorRepository:
 
     def get_webhook(self, *, tenant_id: UUID, webhook_id: UUID) -> dict[str, Any]:
         with self.database.session(tenant_id) as session:
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     SELECT w.webhook_id, w.connection_id, w.tenant_id,
                            i.connector_id, w.endpoint_key, w.public_path,
                            w.state, w.resource_version,
@@ -885,9 +1217,12 @@ class ConnectorRepository:
                         ON i.installation_id=c.installation_id
                      WHERE w.tenant_id=:tenant_id AND w.webhook_id=:webhook_id
                     """
-                ),
-                {"tenant_id": tenant_id, "webhook_id": webhook_id},
-            ).mappings().one_or_none()
+                    ),
+                    {"tenant_id": tenant_id, "webhook_id": webhook_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
         if row is None:
             raise ProblemError(
                 status=404,
@@ -929,9 +1264,10 @@ class ConnectorRepository:
             )
             if replay is not None:
                 return replay
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     UPDATE connector_sdk.connector_webhook_endpoints
                        SET secret_reference_previous=secret_reference_current,
                            previous_secret_valid_until=now() + (:overlap_seconds || ' seconds')::interval,
@@ -941,15 +1277,18 @@ class ConnectorRepository:
                        AND resource_version=:expected_version
                     RETURNING resource_version
                     """
-                ),
-                {
-                    "tenant_id": tenant_id,
-                    "webhook_id": webhook_id,
-                    "expected_version": expected_version,
-                    "overlap_seconds": overlap_seconds,
-                    "new_secret": new_secret_reference,
-                },
-            ).mappings().one_or_none()
+                    ),
+                    {
+                        "tenant_id": tenant_id,
+                        "webhook_id": webhook_id,
+                        "expected_version": expected_version,
+                        "overlap_seconds": overlap_seconds,
+                        "new_secret": new_secret_reference,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
             if row is None:
                 raise ProblemError(
                     status=412,
@@ -1000,9 +1339,10 @@ class ConnectorRepository:
         after: str | None,
     ) -> list[dict[str, Any]]:
         with self.database.session(tenant_id) as session:
-            rows = session.execute(
-                text(
-                    """
+            rows = (
+                session.execute(
+                    text(
+                        """
                     SELECT inbox_id, webhook_id, event_id, body_sha256,
                            verification_state, processing_state, correlation_id,
                            received_at, processed_at, error_code
@@ -1012,14 +1352,17 @@ class ConnectorRepository:
                      ORDER BY inbox_id
                      LIMIT :limit
                     """
-                ),
-                {
-                    "tenant_id": tenant_id,
-                    "webhook_id": webhook_id,
-                    "after": after,
-                    "limit": limit,
-                },
-            ).mappings().all()
+                    ),
+                    {
+                        "tenant_id": tenant_id,
+                        "webhook_id": webhook_id,
+                        "after": after,
+                        "limit": limit,
+                    },
+                )
+                .mappings()
+                .all()
+            )
         return [dict(row) for row in rows]
 
     def resolve_ingress_webhook(
@@ -1030,15 +1373,19 @@ class ConnectorRepository:
         webhook_id: UUID,
     ) -> dict[str, Any]:
         with self.database.engine.connect() as connection:
-            row = connection.execute(
-                text(
-                    """
+            row = (
+                connection.execute(
+                    text(
+                        """
                     SELECT *
                       FROM connector_sdk.resolve_webhook_ingress(:webhook_id)
                     """
-                ),
-                {"webhook_id": webhook_id},
-            ).mappings().one_or_none()
+                    ),
+                    {"webhook_id": webhook_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
         if (
             row is None
             or row["connector_id"] != connector_id
@@ -1063,28 +1410,31 @@ class ConnectorRepository:
     ) -> str:
         """Classify a journaled body after an uncertain transaction outcome."""
         with self.database.session(tenant_id) as session:
-            row = session.execute(
-                text(
-                    """
+            row = (
+                session.execute(
+                    text(
+                        """
                     SELECT body_sha256, encrypted_body_reference
                       FROM connector_sdk.connector_webhook_inbox
                      WHERE tenant_id=:tenant_id
                        AND webhook_id=:webhook_id
                        AND event_id=:event_id
                     """
-                ),
-                {
-                    "tenant_id": tenant_id,
-                    "webhook_id": webhook_id,
-                    "event_id": event_id,
-                },
-            ).mappings().one_or_none()
+                    ),
+                    {
+                        "tenant_id": tenant_id,
+                        "webhook_id": webhook_id,
+                        "event_id": event_id,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
         if row is None:
             return "unreferenced"
         if (
             str(row["body_sha256"]) == body_sha256
-            and str(row["encrypted_body_reference"])
-            == encrypted_body_reference
+            and str(row["encrypted_body_reference"]) == encrypted_body_reference
         ):
             return "accepted"
         return "rejected"

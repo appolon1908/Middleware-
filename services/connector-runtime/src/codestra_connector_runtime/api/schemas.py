@@ -183,3 +183,7 @@ class HealthProjection(StrictModel):
 class HealthResponse(StrictModel):
     data: HealthProjection
     meta: Meta
+
+
+class ConnectionTestRequest(StrictModel):
+    connection_id: UUID

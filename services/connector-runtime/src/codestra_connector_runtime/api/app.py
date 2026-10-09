@@ -13,8 +13,18 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from middleware.connector_sdk import ConnectorCatalogService, ConnectorRegistry
-from middleware.connector_sdk.errors import ConnectorError, ManifestValidationError
+from middleware.connector_sdk import (
+    ConnectorCatalogService,
+    ConnectorRegistry,
+    ConnectorRuntime,
+    StaticCapabilityProvider,
+)
+from middleware.connector_sdk.standards import validate_traceparent, validate_tracestate
+from middleware.connector_sdk.errors import (
+    ConnectorError,
+    ConnectorNotFoundError,
+    ManifestValidationError,
+)
 
 from .auth import Principal, require_scopes
 from .config import RuntimeSettings, get_settings
@@ -25,6 +35,7 @@ from .problems import ProblemError, install_problem_handlers, problem_response
 from .repository import ConnectorRepository, IdempotentReplay, _etag_version
 from .schemas import (
     ConnectionCreateRequest,
+    ConnectionTestRequest,
     ConnectorInstallRequest,
     ConnectorUpgradeRequest,
     ManifestValidationRequest,
@@ -78,7 +89,7 @@ def _request_id(request: Request) -> str | None:
 
 def _traceparent(request: Request) -> str | None:
     value = request.headers.get("traceparent")
-    return value[:256] if value else None
+    return value if value else None
 
 
 def _response(
@@ -136,9 +147,10 @@ def _cursor(request: Request) -> CursorCodec:
 def _load_combined_registry(request: Request) -> ConnectorRegistry:
     registry = ConnectorRegistry()
     with request.app.state.database.session() as session:
-        rows = session.execute(
-            text(
-                """
+        rows = (
+            session.execute(
+                text(
+                    """
                 SELECT m.manifest
                   FROM connector_sdk.connector_installations i
                   JOIN connector_sdk.connector_manifests m
@@ -147,17 +159,20 @@ def _load_combined_registry(request: Request) -> ConnectorRegistry:
                    AND m.manifest_digest=i.current_manifest_digest
                  WHERE i.environment=:environment
                 """
-            ),
-            {"environment": _settings(request).environment},
-        ).scalars().all()
+                ),
+                {"environment": _settings(request).environment},
+            )
+            .scalars()
+            .all()
+        )
     for raw in rows:
         registry.register_manifest(dict(raw))
     return registry
 
 
 def _validate_candidate(request: Request, raw: dict[str, Any]) -> dict[str, Any]:
-    registry = _load_combined_registry(request)
     try:
+        registry = _load_combined_registry(request)
         return ConnectorCatalogService(registry).validate_candidate(raw)
     except ManifestValidationError as error:
         raise ProblemError(
@@ -174,6 +189,25 @@ def _validate_candidate(request: Request, raw: dict[str, Any]) -> dict[str, Any]
             title="Connector registry conflict",
             detail=str(error),
         ) from error
+
+
+def _bound_runtime(
+    request: Request, connector_id: str, row: dict[str, Any]
+) -> ConnectorRuntime:
+    registry = request.app.state.adapter_registry
+    try:
+        record = registry.get(connector_id)
+        registry.adapter_factory(connector_id)
+        if record.manifest_digest != row["manifest_digest"]:
+            raise ConnectorNotFoundError("adapter binding is stale")
+    except ConnectorNotFoundError as error:
+        raise ProblemError(
+            status=409,
+            code="ADAPTER_NOT_BOUND",
+            title="Connector adapter not bound",
+            detail="A trusted adapter bound to the installed manifest digest is required.",
+        ) from error
+    return ConnectorRuntime(registry, StaticCapabilityProvider({}))
 
 
 @asynccontextmanager
@@ -200,9 +234,7 @@ async def lifespan(app: FastAPI):
         body_store=body_store,
         secrets=EnvironmentSecretResolver(),
     )
-    initial_reconciliation = (
-        app.state.webhook_ingress.reconcile_pending_bodies()
-    )
+    initial_reconciliation = app.state.webhook_ingress.reconcile_pending_bodies()
     logger.info(
         "encrypted_webhook_body_reconciliation_completed",
         **initial_reconciliation,
@@ -213,14 +245,17 @@ async def lifespan(app: FastAPI):
         database.dispose()
 
 
-def create_app() -> FastAPI:
+def create_app(*, adapter_registry: ConnectorRegistry | None = None) -> FastAPI:
     app = FastAPI(
         title="Codestra Connector Runtime API",
         version="1.0.0",
-        openapi_version="3.1.0",
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,
+    )
+    app.openapi_version = "3.1.1"
+    app.state.adapter_registry = (
+        adapter_registry if adapter_registry is not None else ConnectorRegistry()
     )
     install_problem_handlers(app)
 
@@ -233,14 +268,24 @@ def create_app() -> FastAPI:
             else uuid4()
         )
         request.state.correlation_id = correlation_id
+        try:
+            validate_traceparent(request.headers.get("traceparent"))
+            validate_tracestate(request.headers.get("tracestate"))
+        except ConnectorError:
+            return problem_response(
+                request,
+                ProblemError(
+                    status=400,
+                    code="TRACE_CONTEXT_INVALID",
+                    title="Invalid trace context",
+                    detail="Trace context headers must satisfy W3C Trace Context.",
+                ),
+            )
         path_parts = request.url.path.strip("/").split("/")
-        public_webhook = (
-            len(path_parts) == 5
-            and path_parts[:2] == ["v1", "webhooks"]
-        )
+        public_webhook = len(path_parts) == 5 and path_parts[:2] == ["v1", "webhooks"]
         if (
             request.method in {"POST", "PUT", "PATCH", "DELETE"}
-            and request.url.path.startswith("/v1/")
+            and request.url.path.startswith(("/v1/", "/platform/v1/"))
             and not public_webhook
         ):
             try:
@@ -297,9 +342,7 @@ def create_app() -> FastAPI:
             ready = False
         else:
             checks["body_encryption_key"] = "pass"
-        reconciliation = (
-            request.app.state.webhook_ingress.reconcile_pending_bodies()
-        )
+        reconciliation = request.app.state.webhook_ingress.reconcile_pending_bodies()
         if reconciliation["deferred"] or reconciliation["invalid"]:
             checks["body_reconciliation"] = "fail"
             ready = False
@@ -332,10 +375,13 @@ def create_app() -> FastAPI:
             "meta": _meta(_correlation(request)),
         }
 
+    @app.get("/platform/v1/connectors")
     @app.get("/v1/connectors")
     async def list_connectors(
         request: Request,
-        principal: Annotated[Principal, Depends(require_scopes("connector.catalog.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.catalog.read"))
+        ],
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         cursor: str | None = None,
     ):
@@ -356,21 +402,27 @@ def create_app() -> FastAPI:
             "next_cursor": next_cursor,
         }
 
+    @app.post("/platform/v1/connectors/validate")
     @app.post("/v1/connectors/validate")
     async def validate_connector(
         request: Request,
         payload: ManifestValidationRequest,
-        principal: Annotated[Principal, Depends(require_scopes("connector.manifest.validate"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.manifest.validate"))
+        ],
     ):
         del principal
         result = _validate_candidate(request, payload.manifest)
         return {"data": result, "meta": _meta(_correlation(request))}
 
+    @app.post("/platform/v1/connectors/install")
     @app.post("/v1/connectors/install")
     async def install_connector(
         request: Request,
         payload: ConnectorInstallRequest,
-        principal: Annotated[Principal, Depends(require_scopes("connector.install.request"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.install.request"))
+        ],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ):
         settings = _settings(request)
@@ -395,11 +447,14 @@ def create_app() -> FastAPI:
         )
         return _operation_result(result, _correlation(request))
 
+    @app.get("/platform/v1/connectors/{connector_id}")
     @app.get("/v1/connectors/{connector_id}")
     async def get_connector(
         request: Request,
         connector_id: str,
-        principal: Annotated[Principal, Depends(require_scopes("connector.catalog.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.catalog.read"))
+        ],
     ):
         del principal
         row = _repo(request).get_connector(connector_id)
@@ -412,11 +467,14 @@ def create_app() -> FastAPI:
             etag=version,
         )
 
+    @app.get("/platform/v1/connectors/{connector_id}/manifest")
     @app.get("/v1/connectors/{connector_id}/manifest")
     async def get_connector_manifest(
         request: Request,
         connector_id: str,
-        principal: Annotated[Principal, Depends(require_scopes("connector.manifest.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.manifest.read"))
+        ],
     ):
         del principal
         row = _repo(request).get_connector(connector_id)
@@ -428,30 +486,73 @@ def create_app() -> FastAPI:
             "meta": _meta(_correlation(request)),
         }
 
+    @app.post("/platform/v1/connectors/{connector_id}/test")
     @app.post("/v1/connectors/{connector_id}/test")
     async def test_connector(
         request: Request,
         connector_id: str,
-        principal: Annotated[Principal, Depends(require_scopes("connector.connection.test"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.connection.test"))
+        ],
+        payload: ConnectionTestRequest | None = None,
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ):
-        del principal, idempotency_key
-        _repo(request).get_connector(connector_id)
-        raise ProblemError(
-            status=409,
-            code="ADAPTER_NOT_BOUND",
-            title="Connector adapter not bound",
-            detail="The trusted adapter must be installed before connection testing.",
+        del idempotency_key
+        row = _repo(request).get_connector(connector_id)
+        runtime = _bound_runtime(request, connector_id, row)
+        if payload is None:
+            raise ProblemError(
+                status=422,
+                code="CONNECTION_CONTEXT_REQUIRED",
+                title="Connection required",
+                detail="A tenant-owned connection_id is required for connection testing.",
+            )
+        tenant_id = principal.require_tenant()
+        configuration = _repo(request).connection_test_configuration(
+            tenant_id=tenant_id,
+            connection_id=payload.connection_id,
+            connector_id=connector_id,
         )
+        try:
+            result = runtime.test_connection(connector_id, configuration)
+        except Exception as error:
+            raise ProblemError(
+                status=502,
+                code="ADAPTER_TEST_FAILED",
+                title="Connector test failed",
+                detail="The trusted adapter could not complete a safe read-only test.",
+            ) from error
+        _repo(request).record_connection_test(
+            tenant_id=tenant_id,
+            connection_id=payload.connection_id,
+            connector_id=connector_id,
+            manifest_digest=row["manifest_digest"],
+            code=result.code,
+            actor_subject=principal.subject,
+            correlation_id=_correlation(request),
+            request_id=_request_id(request),
+        )
+        return {
+            "data": {
+                "ok": result.ok,
+                "code": result.code,
+                "safe_details": dict(result.safe_details),
+            },
+            "meta": _meta(_correlation(request)),
+        }
 
+    @app.post("/platform/v1/connectors/{connector_id}/upgrade")
     @app.post("/v1/connectors/{connector_id}/upgrade")
     async def upgrade_connector(
         request: Request,
         connector_id: str,
         payload: ConnectorUpgradeRequest,
-        principal: Annotated[Principal, Depends(require_scopes("connector.upgrade.request"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.upgrade.request"))
+        ],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     ):
-        del connector_id, payload, principal
         if not _settings(request).connector_upgrade_enabled:
             raise ProblemError(
                 status=403,
@@ -459,18 +560,29 @@ def create_app() -> FastAPI:
                 title="Connector upgrade disabled",
                 detail="Connector upgrade is disabled by runtime policy.",
             )
-        raise ProblemError(
-            status=501,
-            code="UPGRADE_WORKFLOW_REQUIRED",
-            title="Protected upgrade workflow required",
-            detail="Upgrades are executed through the protected release workflow.",
+        _validate_candidate(request, payload.manifest)
+        result = _repo(request).upgrade_disabled(
+            tenant_id=principal.require_tenant(),
+            connector_id=connector_id,
+            manifest_raw=payload.manifest,
+            expected_digest=payload.expected_manifest_digest,
+            expected_version=_etag_version(if_match),
+            idempotency_key=_idempotency(idempotency_key),
+            actor_subject=principal.subject,
+            correlation_id=_correlation(request),
+            request_id=_request_id(request),
+            traceparent=_traceparent(request),
         )
+        return _operation_result(result, _correlation(request))
 
+    @app.post("/platform/v1/connectors/{connector_id}/disable")
     @app.post("/v1/connectors/{connector_id}/disable")
     async def disable_connector(
         request: Request,
         connector_id: str,
-        principal: Annotated[Principal, Depends(require_scopes("connector.disable.request"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.disable.request"))
+        ],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
         if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     ):
@@ -492,11 +604,52 @@ def create_app() -> FastAPI:
         )
         return _operation_result(result, _correlation(request))
 
+    @app.get("/platform/v1/connectors/{connector_id}/health")
     @app.get("/v1/connectors/{connector_id}/health")
     async def connector_health(
         request: Request,
         connector_id: str,
-        principal: Annotated[Principal, Depends(require_scopes("connector.health.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.health.read"))
+        ],
+    ):
+        del principal
+        row = _repo(request).get_connector(connector_id)
+        status, details, checked_at = "not_bound", {}, None
+        try:
+            runtime = _bound_runtime(request, connector_id, row)
+        except ProblemError:
+            pass
+        else:
+            try:
+                result = runtime.health(connector_id)
+                status, details, checked_at = (
+                    result.status,
+                    dict(result.safe_details),
+                    result.checked_at_epoch,
+                )
+            except Exception:
+                status = "UNKNOWN"
+        return {
+            "data": {
+                "connector_id": connector_id,
+                "state": row["state"],
+                "runtime_binding_status": row["runtime_binding_status"],
+                "status": status,
+                "checked_at_epoch": checked_at,
+                "safe_details": details,
+            },
+            "meta": _meta(_correlation(request)),
+        }
+
+    @app.get("/platform/v1/connectors/{connector_id}/status")
+    @app.get("/v1/connectors/{connector_id}/status")
+    async def connector_status(
+        request: Request,
+        connector_id: str,
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.health.read"))
+        ],
     ):
         del principal
         row = _repo(request).get_connector(connector_id)
@@ -504,8 +657,47 @@ def create_app() -> FastAPI:
             "data": {
                 "connector_id": connector_id,
                 "state": row["state"],
+                "version": row["version"],
+                "resource_version": row["resource_version"],
                 "runtime_binding_status": row["runtime_binding_status"],
-                "status": "not_bound" if row["runtime_binding_status"] != "VERIFIED" else "unknown",
+                "execution_available": False,
+                "reason": "ADAPTER_NOT_BOUND",
+                "external_effects_enabled": _settings(request).external_effects_enabled,
+            },
+            "meta": _meta(_correlation(request)),
+        }
+
+    @app.get("/platform/v1/connectors/{connector_id}/capabilities")
+    @app.get("/v1/connectors/{connector_id}/capabilities")
+    async def connector_capabilities(
+        request: Request,
+        connector_id: str,
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.catalog.read"))
+        ],
+    ):
+        del principal
+        row = _repo(request).get_connector(connector_id)
+        manifest = row["manifest"]
+        commands = [
+            {
+                "prefix": item["prefix"],
+                "required_capability": item["required_capability"],
+                "readback_required": item["readback_required"],
+                "timeout_seconds": item["timeout_seconds"],
+                "maximum_attempts": item["retry_policy"]["maximum_attempts"],
+                "enabled": False,
+                "reason": "ADAPTER_NOT_BOUND",
+            }
+            for item in manifest["commands"]
+        ]
+        return {
+            "data": {
+                "connector_id": connector_id,
+                "manifest_digest": row["manifest_digest"],
+                "commands": commands,
+                "events": manifest["events"],
+                "execution_authority": "middleware",
             },
             "meta": _meta(_correlation(request)),
         }
@@ -514,7 +706,9 @@ def create_app() -> FastAPI:
     async def create_connection(
         request: Request,
         payload: ConnectionCreateRequest,
-        principal: Annotated[Principal, Depends(require_scopes("integration.connection.write"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("integration.connection.write"))
+        ],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ):
         result = _repo(request).create_connection(
@@ -534,7 +728,9 @@ def create_app() -> FastAPI:
     async def get_connection(
         request: Request,
         connection_id: UUID,
-        principal: Annotated[Principal, Depends(require_scopes("integration.connection.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("integration.connection.read"))
+        ],
     ):
         row = _repo(request).get_connection(
             tenant_id=principal.require_tenant(),
@@ -551,7 +747,9 @@ def create_app() -> FastAPI:
     async def list_webhooks(
         request: Request,
         connection_id: UUID,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.read"))
+        ],
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         cursor: str | None = None,
     ):
@@ -569,14 +767,20 @@ def create_app() -> FastAPI:
             if more and page
             else None
         )
-        return {"data": page, "meta": _meta(_correlation(request)), "next_cursor": next_cursor}
+        return {
+            "data": page,
+            "meta": _meta(_correlation(request)),
+            "next_cursor": next_cursor,
+        }
 
     @app.post("/v1/integrations/connections/{connection_id}/webhooks")
     async def create_webhook(
         request: Request,
         connection_id: UUID,
         payload: WebhookCreateRequest,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.write"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.write"))
+        ],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ):
         result = _repo(request).create_webhook(
@@ -595,7 +799,9 @@ def create_app() -> FastAPI:
     async def get_webhook(
         request: Request,
         webhook_id: UUID,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.read"))
+        ],
     ):
         row = _repo(request).get_webhook(
             tenant_id=principal.require_tenant(),
@@ -613,7 +819,9 @@ def create_app() -> FastAPI:
         request: Request,
         webhook_id: UUID,
         payload: WebhookUpdateRequest,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.write"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.write"))
+        ],
     ):
         del request, webhook_id, payload, principal
         raise ProblemError(
@@ -627,7 +835,9 @@ def create_app() -> FastAPI:
     async def delete_webhook(
         request: Request,
         webhook_id: UUID,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.write"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.write"))
+        ],
     ):
         del request, webhook_id, principal
         raise ProblemError(
@@ -642,7 +852,9 @@ def create_app() -> FastAPI:
         request: Request,
         webhook_id: UUID,
         payload: WebhookRotateRequest,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.rotate"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.rotate"))
+        ],
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
         if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     ):
@@ -670,7 +882,9 @@ def create_app() -> FastAPI:
     async def list_webhook_deliveries(
         request: Request,
         webhook_id: UUID,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.delivery.read"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.delivery.read"))
+        ],
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         cursor: str | None = None,
     ):
@@ -688,13 +902,19 @@ def create_app() -> FastAPI:
             if more and page
             else None
         )
-        return {"data": page, "meta": _meta(_correlation(request)), "next_cursor": next_cursor}
+        return {
+            "data": page,
+            "meta": _meta(_correlation(request)),
+            "next_cursor": next_cursor,
+        }
 
     @app.post("/v1/webhook-deliveries/{delivery_id}/replay-request")
     async def request_delivery_replay(
         request: Request,
         delivery_id: UUID,
-        principal: Annotated[Principal, Depends(require_scopes("connector.webhook.replay.request"))],
+        principal: Annotated[
+            Principal, Depends(require_scopes("connector.webhook.replay.request"))
+        ],
     ):
         del delivery_id, principal
         if not _settings(request).webhook_replay_request_enabled:

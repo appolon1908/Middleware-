@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dataclass_replace
 from pathlib import Path
 from typing import Any
 
@@ -34,9 +34,7 @@ _ALLOWED_TRANSITIONS: dict[ConnectorState, frozenset[ConnectorState]] = {
             ConnectorState.FAILED,
         }
     ),
-    ConnectorState.ACTIVE: frozenset(
-        {ConnectorState.SUSPENDED, ConnectorState.FAILED}
-    ),
+    ConnectorState.ACTIVE: frozenset({ConnectorState.SUSPENDED, ConnectorState.FAILED}),
     ConnectorState.SUSPENDED: frozenset(
         {ConnectorState.INSTALLED_DISABLED, ConnectorState.FAILED}
     ),
@@ -49,6 +47,7 @@ class RegisteredConnector:
     manifest: ConnectorManifest
     manifest_digest: str
     state: ConnectorState
+    binding_generation: int = 0
 
 
 class ConnectorRegistry:
@@ -80,6 +79,7 @@ class ConnectorRegistry:
         new_version = SemanticVersion.parse(manifest.version)
 
         with self._lock:
+            self._assert_namespace(manifest)
             existing = self._connectors.get(manifest.connector_id)
             if existing is None:
                 record = RegisteredConnector(
@@ -95,9 +95,7 @@ class ConnectorRegistry:
                     f"connector already registered: {manifest.connector_id}"
                 )
 
-            existing_version = SemanticVersion.parse(
-                existing.manifest.version
-            )
+            existing_version = SemanticVersion.parse(existing.manifest.version)
             if new_version < existing_version:
                 raise ConnectorVersionConflictError(
                     "connector version cannot move backwards"
@@ -116,7 +114,27 @@ class ConnectorRegistry:
                 state=state,
             )
             self._connectors[manifest.connector_id] = record
+            self._factories.pop(manifest.connector_id, None)
             return record
+
+    def _assert_namespace(self, manifest: ConnectorManifest) -> None:
+        for record in self._connectors.values():
+            other = record.manifest
+            if other.connector_id == manifest.connector_id:
+                continue
+            for incoming in manifest.command_policies:
+                for current in other.command_policies:
+                    if incoming.prefix.startswith(
+                        current.prefix
+                    ) or current.prefix.startswith(incoming.prefix):
+                        raise ConnectorVersionConflictError(
+                            "command prefixes overlap across connectors"
+                        )
+            routes = {item.route_path for item in other.webhook_policies}
+            if any(item.route_path in routes for item in manifest.webhook_policies):
+                raise ConnectorVersionConflictError(
+                    "webhook route belongs to another connector"
+                )
 
     def register_adapter_factory(
         self,
@@ -128,7 +146,25 @@ class ConnectorRegistry:
         with self._lock:
             if connector_id not in self._connectors:
                 raise ConnectorNotFoundError(connector_id)
-            self._factories[connector_id] = factory
+            record = self._connectors[connector_id]
+            bound_record = dataclass_replace(
+                record, binding_generation=record.binding_generation + 1
+            )
+
+            def bound_factory(manifest: ConnectorManifest):
+                with self._lock:
+                    current = self._connectors.get(connector_id)
+                    if (
+                        current is None
+                        or current.manifest_digest != bound_record.manifest_digest
+                        or self._factories.get(connector_id) is not bound_factory
+                        or manifest != bound_record.manifest
+                    ):
+                        raise ConnectorNotFoundError("adapter binding is stale")
+                    return factory(manifest)
+
+            self._connectors[connector_id] = bound_record
+            self._factories[connector_id] = bound_factory
 
     def adapter_factory(self, connector_id: str) -> AdapterFactory:
         with self._lock:
@@ -148,9 +184,7 @@ class ConnectorRegistry:
 
     def list(self) -> tuple[RegisteredConnector, ...]:
         with self._lock:
-            return tuple(
-                self._connectors[key] for key in sorted(self._connectors)
-            )
+            return tuple(self._connectors[key] for key in sorted(self._connectors))
 
     def set_state(
         self,
@@ -177,6 +211,7 @@ class ConnectorRegistry:
                 manifest=existing.manifest,
                 manifest_digest=existing.manifest_digest,
                 state=new_state,
+                binding_generation=existing.binding_generation,
             )
             self._connectors[connector_id] = updated
             return updated
@@ -206,8 +241,7 @@ class ConnectorRegistry:
                 sorted(item[1].manifest.connector_id for item in best)
             )
             raise CommandNotAllowedError(
-                f"ambiguous command prefix for {command_type}: "
-                f"{connector_ids}"
+                f"ambiguous command prefix for {command_type}: {connector_ids}"
             )
         _, record, policy = best[0]
         return record, policy
@@ -252,11 +286,15 @@ class ConnectorRegistry:
             raise ConnectorVersionConflictError("; ".join(invariant_errors))
 
         with self._lock:
+            combined = ConnectorRegistry()
+            combined._connectors = dict(self._connectors)
+            for record in loaded:
+                combined._assert_namespace(record.manifest)
+                combined._connectors[record.manifest.connector_id] = record
             for record in loaded:
                 if record.manifest.connector_id in self._connectors:
                     raise ConnectorVersionConflictError(
-                        f"connector already registered: "
-                        f"{record.manifest.connector_id}"
+                        f"connector already registered: {record.manifest.connector_id}"
                     )
             for record in loaded:
                 self._connectors[record.manifest.connector_id] = record
@@ -270,19 +308,16 @@ class ConnectorRegistry:
             manifest = record.manifest
             for command in manifest.command_policies:
                 for prior_prefix, prior_owner in command_owners:
-                    overlaps = (
-                        command.prefix.startswith(prior_prefix)
-                        or prior_prefix.startswith(command.prefix)
-                    )
+                    overlaps = command.prefix.startswith(
+                        prior_prefix
+                    ) or prior_prefix.startswith(command.prefix)
                     if overlaps and prior_owner != manifest.connector_id:
                         errors.append(
                             "command prefixes overlap across connectors: "
                             f"{prior_prefix} ({prior_owner}) and "
                             f"{command.prefix} ({manifest.connector_id})"
                         )
-                command_owners.append(
-                    (command.prefix, manifest.connector_id)
-                )
+                command_owners.append((command.prefix, manifest.connector_id))
             for webhook in manifest.webhook_policies:
                 prior = webhook_routes.get(webhook.route_path)
                 if prior:

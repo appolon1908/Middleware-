@@ -43,9 +43,11 @@ def test_repository_alembic_graph_is_complete_and_acyclic() -> None:
         "20260828_0002",
         "20260828_0003",
         "20260828_0004",
+        "20261007_0005",
     }
     assert graph["20260828_0001"] == ()
     assert graph["20260828_0004"] == ("20260828_0003",)
+    assert graph["20261007_0005"] == ("20260828_0004",)
 
 
 def test_runtime_manifest_exactly_matches_reviewed_alembic_source() -> None:

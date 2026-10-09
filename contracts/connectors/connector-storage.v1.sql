@@ -393,3 +393,22 @@ CREATE POLICY connector_outbox_tenant_policy
             ''
         )::uuid
     );
+
+-- Applied by 20261007_0005. See the migration for environment/identity checks.
+CREATE TABLE IF NOT EXISTS connector_sdk.connector_command_journal (
+    tenant_id uuid NOT NULL,
+    environment text NOT NULL CHECK (environment IN ('development', 'staging', 'production')),
+    connector_id text NOT NULL CHECK (connector_id ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+    idempotency_key text NOT NULL CHECK (idempotency_key ~ '^[!-~]{8,180}$'),
+    request_sha256 text NOT NULL CHECK (request_sha256 ~ '^[a-f0-9]{64}$'),
+    attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 20),
+    result jsonb CHECK (result IS NULL OR jsonb_typeof(result) = 'object'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, environment, connector_id, idempotency_key)
+);
+ALTER TABLE connector_sdk.connector_command_journal ENABLE ROW LEVEL SECURITY;
+ALTER TABLE connector_sdk.connector_command_journal FORCE ROW LEVEL SECURITY;
+CREATE POLICY connector_command_journal_tenant_policy ON connector_sdk.connector_command_journal
+    USING (tenant_id = NULLIF(current_setting('codestra.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('codestra.tenant_id', true), '')::uuid);
