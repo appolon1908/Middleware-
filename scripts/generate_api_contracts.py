@@ -268,6 +268,22 @@ def build_integration_documents() -> tuple[dict[str, Any], dict[str, Any]]:
         profile=AppProfile.INTEGRATION,
     ).openapi()
     _normalize_schema_defaults(schema)
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            for parameter in operation.get("parameters", []):
+                if parameter.get("in") != "header":
+                    continue
+                if parameter.get("name") not in {
+                    "X-Tenant-ID",
+                    "X-Correlation-ID",
+                    "Idempotency-Key",
+                }:
+                    continue
+                parameter_schema = parameter.get("schema")
+                if isinstance(parameter_schema, dict):
+                    parameter_schema.pop("title", None)
     schema["info"]["description"] = (
         "Exact generated Middleware integration-profile contract for the deployed "
         ":8095 service. Operation-level x-codestra-auth-mode is derived from the "
