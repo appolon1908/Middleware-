@@ -10,6 +10,7 @@ import yaml  # type: ignore[import-untyped]
 
 from app.main import create_app
 from scripts.generate_api_contracts import (
+    CANONICAL_HEADER_NAMES,
     HTTP_METHODS,
     MUTATION_METHODS,
     REQUIRED_HEADERS,
@@ -77,11 +78,24 @@ def test_integration_profile_openapi_postman_and_matrix_match_runtime(test_setti
     matrix = yaml.safe_load(INTEGRATION_MATRIX.read_text(encoding="utf-8"))
     assert expected == {(row["method"], row["path"]) for row in matrix["operations"]}
     postman = json.loads(INTEGRATION_OUTPUT.read_text(encoding="utf-8"))
-    rendered_contract = json.dumps(generated, sort_keys=True)
-    rendered_postman = json.dumps(postman, sort_keys=True)
-    for forbidden in ("X-Correlation-Id", "X-Tenant-Id", "X-Idempotency-Key"):
-        assert forbidden not in rendered_contract
-        assert forbidden not in rendered_postman
+    for item in generated["paths"].values():
+        for operation in item.values():
+            if not isinstance(operation, dict):
+                continue
+            for parameter in operation.get("parameters", []):
+                if parameter.get("in") != "header":
+                    continue
+                name = str(parameter.get("name", ""))
+                canonical = CANONICAL_HEADER_NAMES.get(name.casefold())
+                if canonical is not None:
+                    assert name == canonical
+    for group in postman["item"]:
+        for item in group["item"]:
+            for header in item["request"].get("header", []):
+                key = str(header.get("key", ""))
+                canonical = CANONICAL_HEADER_NAMES.get(key.casefold())
+                if canonical is not None:
+                    assert key == canonical
 
     import re
 
