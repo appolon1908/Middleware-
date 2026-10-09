@@ -35,9 +35,13 @@ def _example(schema: dict[str, Any] | None) -> Any:
         return schema["default"]
     kind = schema.get("type")
     if kind == "object":
+        properties = schema.get("properties") or {}
+        required = set(schema.get("required") or [])
         return {
             key: _example(value)
-            for key, value in sorted((schema.get("properties") or {}).items())
+            for key, value in sorted(properties.items())
+            if key in required
+            or (isinstance(value, dict) and ("default" in value or "example" in value))
         }
     if kind == "array":
         return []

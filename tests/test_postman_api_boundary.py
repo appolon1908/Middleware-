@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scripts.generate_postman import _request
+from scripts.generate_postman import _example, _request
 
 
 def test_postman_path_parameters_are_executable_variables():
@@ -50,3 +50,21 @@ def test_optional_headers_are_disabled_until_caller_supplies_them():
     )
     tenant = next(h for h in item["request"]["header"] if h["key"] == "X-Tenant-ID")
     assert tenant["disabled"] is True
+
+
+def test_postman_examples_omit_optional_empty_fields_but_keep_defaults():
+    schema = {
+        "type": "object",
+        "required": ["service_id"],
+        "properties": {
+            "service_id": {"type": "string"},
+            "metrics_path": {"type": "string", "default": "/metrics"},
+            "public_origin": {
+                "anyOf": [{"type": "string"}, {"type": "null"}],
+            },
+        },
+    }
+    assert _example(schema) == {
+        "metrics_path": "/metrics",
+        "service_id": "",
+    }

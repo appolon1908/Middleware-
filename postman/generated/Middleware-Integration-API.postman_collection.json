@@ -101,7 +101,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"campaigns\": [],\n  \"channels\": \"\",\n  \"employee_id\": \"\",\n  \"entitlements\": \"\",\n  \"identity\": \"\",\n  \"request_id\": \"\",\n  \"telephony\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"channels\": \"\",\n  \"employee_id\": \"\",\n  \"identity\": \"\",\n  \"request_id\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -654,7 +654,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"action\": \"\",\n  \"business_unit\": \"\",\n  \"campaign_id\": \"\",\n  \"correlation_id\": \"\",\n  \"details\": {},\n  \"error_category\": \"\",\n  \"event_id\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"provider\": \"\",\n  \"status\": \"\",\n  \"workflow_code\": \"\",\n  \"workflow_version\": \"\"\n}"
+              "raw": "{\n  \"action\": \"\",\n  \"business_unit\": \"\",\n  \"campaign_id\": \"\",\n  \"correlation_id\": \"\",\n  \"event_id\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"provider\": \"\",\n  \"status\": \"\",\n  \"workflow_code\": \"\",\n  \"workflow_version\": \"\"\n}"
             },
             "header": [
               {
@@ -800,7 +800,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"attempt_number\": 0,\n  \"details\": {},\n  \"event_id\": \"\",\n  \"execution_reference\": \"\",\n  \"workflow_id\": \"\"\n}"
+              "raw": "{\n  \"attempt_number\": 0,\n  \"event_id\": \"\",\n  \"execution_reference\": \"\",\n  \"workflow_id\": \"\"\n}"
             },
             "header": [
               {
@@ -868,7 +868,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"attempt_number\": 0,\n  \"details\": {},\n  \"event_id\": \"\",\n  \"execution_reference\": \"\",\n  \"workflow_id\": \"\"\n}"
+              "raw": "{\n  \"attempt_number\": 0,\n  \"event_id\": \"\",\n  \"execution_reference\": \"\",\n  \"workflow_id\": \"\"\n}"
             },
             "header": [
               {
@@ -909,7 +909,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"business_unit\": \"GLOBAL\",\n  \"campaign_id\": \"TEST_SYN\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"workflow_code\": \"\"\n}"
+              "raw": "{\n  \"business_unit\": \"GLOBAL\",\n  \"campaign_id\": \"TEST_SYN\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"workflow_code\": \"\"\n}"
             },
             "header": [
               {
@@ -1415,7 +1415,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"job_ids\": [],\n  \"mode\": \"READ\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"mode\": \"READ\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -1523,7 +1523,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"correlation_id\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"lease_token\": \"\",\n  \"result_code\": \"\",\n  \"safe_result\": {},\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"lease_token\": \"\",\n  \"result_code\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -1588,7 +1588,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"correlation_id\": \"\",\n  \"error_code\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"lease_token\": \"\",\n  \"retryable\": false,\n  \"safe_error\": {},\n  \"tenant_id\": \"\",\n  \"unknown_outcome\": false\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"error_code\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"lease_token\": \"\",\n  \"retryable\": false,\n  \"tenant_id\": \"\",\n  \"unknown_outcome\": false\n}"
             },
             "header": [
               {
@@ -1718,7 +1718,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"correlation_id\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"lease_token\": \"\",\n  \"recorded_at\": \"\",\n  \"safe_metadata\": {},\n  \"step_key\": \"\",\n  \"step_state\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"execution_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"lease_token\": \"\",\n  \"recorded_at\": \"\",\n  \"step_key\": \"\",\n  \"step_state\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -1826,7 +1826,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"customer_id\": \"\",\n  \"reason\": \"\",\n  \"requested_start\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"customer_id\": \"\",\n  \"reason\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -1868,7 +1868,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"customer_id\": \"\",\n  \"reason\": \"\",\n  \"requested_start\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"customer_id\": \"\",\n  \"reason\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -2240,7 +2240,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"assigned_user_id\": \"\",\n  \"campaign_id\": \"\",\n  \"compliance\": \"\",\n  \"contact_id\": \"\",\n  \"customer_context\": {},\n  \"customer_timezone\": \"\",\n  \"lead_id\": \"\",\n  \"max_attempts\": 3,\n  \"notes\": \"\",\n  \"opportunity_id\": \"\",\n  \"original_call_id\": \"\",\n  \"original_linkedid\": \"\",\n  \"phone_number\": \"\",\n  \"priority\": \"NORMAL\",\n  \"reason\": \"\",\n  \"reminder_email_enabled\": true,\n  \"reminder_popup_enabled\": true,\n  \"reminder_recipient_token\": \"\",\n  \"scheduled_at\": \"\",\n  \"supervisor_id\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"campaign_id\": \"\",\n  \"compliance\": \"\",\n  \"customer_timezone\": \"\",\n  \"max_attempts\": 3,\n  \"notes\": \"\",\n  \"phone_number\": \"\",\n  \"priority\": \"NORMAL\",\n  \"reason\": \"\",\n  \"reminder_email_enabled\": true,\n  \"reminder_popup_enabled\": true,\n  \"scheduled_at\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -2298,7 +2298,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2357,7 +2357,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2417,7 +2417,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2477,7 +2477,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2537,7 +2537,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2597,7 +2597,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2657,7 +2657,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2717,7 +2717,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"assigned_agent_id\": \"\",\n  \"assigned_team_id\": \"\",\n  \"completion_disposition\": \"\",\n  \"completion_notes\": \"\",\n  \"customer_timezone\": \"\",\n  \"expected_version\": 0,\n  \"notes\": \"\",\n  \"reason\": \"\",\n  \"scheduled_at\": \"\",\n  \"snooze_minutes\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0\n}"
             },
             "header": [
               {
@@ -2777,7 +2777,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"callback_version\": 0,\n  \"channel\": \"\",\n  \"error_code\": \"\",\n  \"message_id\": \"\",\n  \"provider_message_id\": \"\",\n  \"stage\": \"\",\n  \"status\": \"\"\n}"
+              "raw": "{\n  \"callback_version\": 0,\n  \"channel\": \"\",\n  \"stage\": \"\",\n  \"status\": \"\"\n}"
             },
             "header": [
               {
@@ -2912,7 +2912,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"business_unit\": \"\",\n  \"design_revision\": 0,\n  \"environment\": \"\",\n  \"integration_uuid\": \"\",\n  \"manifest_hash\": \"\",\n  \"reason\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"business_unit\": \"\",\n  \"design_revision\": 0,\n  \"environment\": \"\",\n  \"integration_uuid\": \"\",\n  \"manifest_hash\": \"\",\n  \"reason\": \"\"\n}"
             },
             "header": [
               {
@@ -2982,7 +2982,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"business_unit\": \"\",\n  \"campaign_code\": \"\",\n  \"correlation_id\": \"\",\n  \"design_configuration\": \"\",\n  \"design_request_revision\": 1,\n  \"direction\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"expected_campaign_code\": \"\",\n  \"feature_flags\": {},\n  \"integration_uuid\": \"\",\n  \"odoo_campaign_id\": 0,\n  \"owner_user_id\": 0,\n  \"purpose\": \"\",\n  \"schema_version\": \"campaign-provisioning.v1\",\n  \"supervisor_user_id\": \"\",\n  \"tenant_id\": \"\",\n  \"validation\": \"\"\n}"
+              "raw": "{\n  \"business_unit\": \"\",\n  \"campaign_code\": \"\",\n  \"correlation_id\": \"\",\n  \"design_configuration\": \"\",\n  \"design_request_revision\": 1,\n  \"direction\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"expected_campaign_code\": \"\",\n  \"feature_flags\": {},\n  \"integration_uuid\": \"\",\n  \"odoo_campaign_id\": 0,\n  \"owner_user_id\": 0,\n  \"purpose\": \"\",\n  \"schema_version\": \"campaign-provisioning.v1\",\n  \"supervisor_user_id\": \"\",\n  \"validation\": \"\"\n}"
             },
             "header": [
               {
@@ -3351,7 +3351,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"aggregate_public_id\": \"\",\n  \"aggregate_type\": \"\",\n  \"aggregate_version\": 0,\n  \"business_unit_public_id\": \"\",\n  \"campaign_public_id\": \"\",\n  \"causation_id\": \"\",\n  \"command_public_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"expires_at\": \"\",\n  \"idempotency_key\": \"\",\n  \"organization_public_id\": \"\",\n  \"originating_outbox_public_id\": \"\",\n  \"payload\": \"\",\n  \"policy_decision_hash\": \"\",\n  \"policy_decision_id\": \"\",\n  \"requested_at\": \"\",\n  \"schema_version\": \"\"\n}"
+              "raw": "{\n  \"aggregate_public_id\": \"\",\n  \"aggregate_type\": \"\",\n  \"aggregate_version\": 0,\n  \"business_unit_public_id\": \"\",\n  \"campaign_public_id\": \"\",\n  \"causation_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"idempotency_key\": \"\",\n  \"organization_public_id\": \"\",\n  \"payload\": \"\",\n  \"policy_decision_hash\": \"\",\n  \"schema_version\": \"\"\n}"
             },
             "header": [
               {
@@ -3422,7 +3422,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"aggregate_public_id\": \"\",\n  \"aggregate_type\": \"\",\n  \"aggregate_version\": 0,\n  \"business_unit_public_id\": \"\",\n  \"campaign_public_id\": \"\",\n  \"causation_id\": \"\",\n  \"command_public_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"expires_at\": \"\",\n  \"idempotency_key\": \"\",\n  \"organization_public_id\": \"\",\n  \"originating_outbox_public_id\": \"\",\n  \"payload\": \"\",\n  \"policy_decision_hash\": \"\",\n  \"policy_decision_id\": \"\",\n  \"requested_at\": \"\",\n  \"schema_version\": \"\"\n}"
+              "raw": "{\n  \"aggregate_public_id\": \"\",\n  \"aggregate_type\": \"\",\n  \"aggregate_version\": 0,\n  \"business_unit_public_id\": \"\",\n  \"campaign_public_id\": \"\",\n  \"causation_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"idempotency_key\": \"\",\n  \"organization_public_id\": \"\",\n  \"payload\": \"\",\n  \"policy_decision_hash\": \"\",\n  \"schema_version\": \"\"\n}"
             },
             "header": [
               {
@@ -3632,7 +3632,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"aggregate_public_id\": \"\",\n  \"aggregate_type\": \"\",\n  \"classification\": \"\",\n  \"command_public_id\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"evidence\": {},\n  \"run_public_id\": \"\",\n  \"target_system\": \"\"\n}"
+              "raw": "{\n  \"aggregate_public_id\": \"\",\n  \"aggregate_type\": \"\",\n  \"classification\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"target_system\": \"\"\n}"
             },
             "header": [
               {
@@ -3826,7 +3826,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"expected_manifest_digest\": \"\",\n  \"manifest\": {\n    \"authentication\": {\n      \"audience\": \"\",\n      \"scopes\": [],\n      \"secret_references\": [],\n      \"type\": \"\"\n    },\n    \"cell\": \"\",\n    \"commands\": [],\n    \"connector_id\": \"\",\n    \"direct_n8n_access\": \"\",\n    \"display_name\": \"\",\n    \"enabled_by_default\": \"\",\n    \"events\": [],\n    \"forbidden_command_prefixes\": [],\n    \"forbidden_payload_keys\": [],\n    \"manifest_version\": \"\",\n    \"metadata\": {},\n    \"repository\": \"\",\n    \"runtime_binding\": {\n      \"base_url\": \"\",\n      \"health_path\": \"\",\n      \"operation_path_template\": \"\",\n      \"status\": \"\"\n    },\n    \"version\": \"\",\n    \"webhooks\": [],\n    \"workflow_families\": []\n  }\n}"
+              "raw": "{\n  \"expected_manifest_digest\": \"\",\n  \"manifest\": {\n    \"authentication\": {\n      \"audience\": \"\",\n      \"scopes\": [],\n      \"secret_references\": [],\n      \"type\": \"\"\n    },\n    \"cell\": \"\",\n    \"commands\": [],\n    \"connector_id\": \"\",\n    \"direct_n8n_access\": \"\",\n    \"display_name\": \"\",\n    \"enabled_by_default\": \"\",\n    \"events\": [],\n    \"forbidden_command_prefixes\": [],\n    \"forbidden_payload_keys\": [],\n    \"manifest_version\": \"\",\n    \"repository\": \"\",\n    \"runtime_binding\": {\n      \"base_url\": \"\",\n      \"health_path\": \"\",\n      \"operation_path_template\": \"\",\n      \"status\": \"\"\n    },\n    \"version\": \"\",\n    \"webhooks\": [],\n    \"workflow_families\": []\n  }\n}"
             },
             "header": [
               {
@@ -3889,7 +3889,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"manifest\": {\n    \"authentication\": {\n      \"audience\": \"\",\n      \"scopes\": [],\n      \"secret_references\": [],\n      \"type\": \"\"\n    },\n    \"cell\": \"\",\n    \"commands\": [],\n    \"connector_id\": \"\",\n    \"direct_n8n_access\": \"\",\n    \"display_name\": \"\",\n    \"enabled_by_default\": \"\",\n    \"events\": [],\n    \"forbidden_command_prefixes\": [],\n    \"forbidden_payload_keys\": [],\n    \"manifest_version\": \"\",\n    \"metadata\": {},\n    \"repository\": \"\",\n    \"runtime_binding\": {\n      \"base_url\": \"\",\n      \"health_path\": \"\",\n      \"operation_path_template\": \"\",\n      \"status\": \"\"\n    },\n    \"version\": \"\",\n    \"webhooks\": [],\n    \"workflow_families\": []\n  }\n}"
+              "raw": "{\n  \"manifest\": {\n    \"authentication\": {\n      \"audience\": \"\",\n      \"scopes\": [],\n      \"secret_references\": [],\n      \"type\": \"\"\n    },\n    \"cell\": \"\",\n    \"commands\": [],\n    \"connector_id\": \"\",\n    \"direct_n8n_access\": \"\",\n    \"display_name\": \"\",\n    \"enabled_by_default\": \"\",\n    \"events\": [],\n    \"forbidden_command_prefixes\": [],\n    \"forbidden_payload_keys\": [],\n    \"manifest_version\": \"\",\n    \"repository\": \"\",\n    \"runtime_binding\": {\n      \"base_url\": \"\",\n      \"health_path\": \"\",\n      \"operation_path_template\": \"\",\n      \"status\": \"\"\n    },\n    \"version\": \"\",\n    \"webhooks\": [],\n    \"workflow_families\": []\n  }\n}"
             },
             "header": [
               {
@@ -5182,7 +5182,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"lead_id\": 0,\n  \"note\": \"\",\n  \"phone\": \"\",\n  \"scheduled_for\": \"\"\n}"
+              "raw": "{\n  \"lead_id\": 0,\n  \"phone\": \"\",\n  \"scheduled_for\": \"\"\n}"
             },
             "header": [
               {
@@ -5233,7 +5233,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"lead_id\": 0,\n  \"note\": \"\",\n  \"phone\": \"\",\n  \"scheduled_for\": \"\"\n}"
+              "raw": "{\n  \"lead_id\": 0,\n  \"phone\": \"\",\n  \"scheduled_for\": \"\"\n}"
             },
             "header": [
               {
@@ -5285,7 +5285,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"event_type\": \"\",\n  \"lead_id\": \"\",\n  \"payload\": {}\n}"
+              "raw": "{\n  \"event_type\": \"\",\n  \"payload\": {}\n}"
             },
             "header": [
               {
@@ -5401,7 +5401,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"campaign_id\": \"TEST_SYN\",\n  \"do_not_call\": false,\n  \"lead_id\": 0,\n  \"reason\": \"\",\n  \"target\": \"\"\n}"
+              "raw": "{\n  \"campaign_id\": \"TEST_SYN\",\n  \"do_not_call\": false,\n  \"lead_id\": 0,\n  \"target\": \"\"\n}"
             },
             "header": [
               {
@@ -5536,7 +5536,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"company_id\": \"\",\n  \"connector_id\": \"\",\n  \"environment_id\": \"\",\n  \"source_cursor\": \"\"\n}"
+              "raw": "{\n  \"company_id\": \"\",\n  \"connector_id\": \"\",\n  \"environment_id\": \"\"\n}"
             },
             "header": [
               {
@@ -5583,7 +5583,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"counts\": {},\n  \"error_summary\": \"\",\n  \"next_cursor\": \"\",\n  \"status\": \"\"\n}"
+              "raw": "{\n  \"status\": \"\"\n}"
             },
             "header": [
               {
@@ -5710,7 +5710,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"approvedCategories\": [],\n  \"approvedDomains\": [],\n  \"approvedRecipientDomains\": [],\n  \"approvedRecipients\": [],\n  \"approvedReleaseSha\": \"\",\n  \"approvedSenders\": [],\n  \"changeId\": \"\",\n  \"environment\": \"\",\n  \"escalationOwner\": \"\",\n  \"expectedVersion\": 0,\n  \"killSwitchProcedure\": \"\",\n  \"mode\": \"\",\n  \"monitoringOwner\": \"\",\n  \"perDayLimit\": 0,\n  \"perHourLimit\": 0,\n  \"perMinuteLimit\": 0,\n  \"productionOwner\": \"\",\n  \"provider\": \"\",\n  \"reason\": \"\",\n  \"recipientScope\": \"\",\n  \"rollbackOwner\": \"\",\n  \"validFrom\": \"\",\n  \"validUntil\": \"\"\n}"
+              "raw": "{\n  \"approvedCategories\": [],\n  \"approvedDomains\": [],\n  \"approvedReleaseSha\": \"\",\n  \"approvedSenders\": [],\n  \"changeId\": \"\",\n  \"environment\": \"\",\n  \"escalationOwner\": \"\",\n  \"expectedVersion\": 0,\n  \"killSwitchProcedure\": \"\",\n  \"mode\": \"\",\n  \"monitoringOwner\": \"\",\n  \"perDayLimit\": 0,\n  \"perHourLimit\": 0,\n  \"perMinuteLimit\": 0,\n  \"productionOwner\": \"\",\n  \"provider\": \"\",\n  \"reason\": \"\",\n  \"recipientScope\": \"\",\n  \"rollbackOwner\": \"\",\n  \"validFrom\": \"\",\n  \"validUntil\": \"\"\n}"
             },
             "header": [
               {
@@ -6275,7 +6275,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"campaign_id\": \"\",\n  \"data\": {},\n  \"environment\": \"\",\n  \"kind\": \"\",\n  \"observed_at\": \"\",\n  \"resource_id\": \"\",\n  \"sequence\": 0,\n  \"service_id\": \"\",\n  \"source_deployment\": \"\"\n}"
+              "raw": "{\n  \"data\": {},\n  \"environment\": \"\",\n  \"kind\": \"\",\n  \"observed_at\": \"\",\n  \"resource_id\": \"\",\n  \"sequence\": 0,\n  \"service_id\": \"\",\n  \"source_deployment\": \"\"\n}"
             },
             "header": [
               {
@@ -6482,7 +6482,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"config_digest\": \"\",\n  \"dashboard_ids\": [],\n  \"environment\": \"\",\n  \"expected_revision\": 0,\n  \"logs_owner\": \"\",\n  \"metrics_owner\": \"\",\n  \"traces_owner\": \"\"\n}"
+              "raw": "{\n  \"config_digest\": \"\",\n  \"environment\": \"\",\n  \"expected_revision\": 0,\n  \"logs_owner\": \"\",\n  \"metrics_owner\": \"\",\n  \"traces_owner\": \"\"\n}"
             },
             "header": [
               {
@@ -6931,7 +6931,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"end\": \"\",\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"start\": \"\",\n  \"step_seconds\": 60\n}"
+              "raw": "{\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"step_seconds\": 60\n}"
             },
             "header": [
               {
@@ -6971,7 +6971,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"end\": \"\",\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"start\": \"\",\n  \"step_seconds\": 60\n}"
+              "raw": "{\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"step_seconds\": 60\n}"
             },
             "header": [
               {
@@ -7011,7 +7011,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"end\": \"\",\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"start\": \"\",\n  \"step_seconds\": 60\n}"
+              "raw": "{\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"step_seconds\": 60\n}"
             },
             "header": [
               {
@@ -7261,7 +7261,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"end\": \"\",\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"start\": \"\",\n  \"step_seconds\": 60\n}"
+              "raw": "{\n  \"environment\": \"\",\n  \"limit\": 100,\n  \"query_id\": \"\",\n  \"service_id\": \"\",\n  \"step_seconds\": 60\n}"
             },
             "header": [
               {
@@ -7371,7 +7371,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -7412,7 +7412,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -7471,7 +7471,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -7512,7 +7512,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"payload\": {},\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"correlation_id\": \"\",\n  \"status\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -7553,7 +7553,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -7772,7 +7772,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -8778,7 +8778,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"causation_id\": \"\",\n  \"correlation_id\": \"\",\n  \"data\": {},\n  \"id\": \"\",\n  \"occurred_at\": \"\",\n  \"source\": \"\",\n  \"tenant_id\": \"\",\n  \"type\": \"\",\n  \"version\": 0\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"data\": {},\n  \"id\": \"\",\n  \"occurred_at\": \"\",\n  \"source\": \"\",\n  \"tenant_id\": \"\",\n  \"type\": \"\",\n  \"version\": 0\n}"
             },
             "header": [
               {
@@ -8859,7 +8859,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"alertname\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"fingerprint\": \"\",\n  \"first_seen_at\": \"\",\n  \"group_key\": \"\",\n  \"host\": \"\",\n  \"incident_id\": \"\",\n  \"labels\": {},\n  \"last_seen_at\": \"\",\n  \"observed_at\": \"\",\n  \"projection_hash\": \"\",\n  \"resolved_at\": \"\",\n  \"resource_version\": 0,\n  \"schema_version\": \"kyyow.observability.incident.v1\",\n  \"service_id\": \"\",\n  \"severity\": \"\",\n  \"source_deployment\": \"\",\n  \"source_payload_hash\": \"\",\n  \"state\": \"\",\n  \"summary\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"alertname\": \"\",\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"fingerprint\": \"\",\n  \"first_seen_at\": \"\",\n  \"group_key\": \"\",\n  \"host\": \"\",\n  \"incident_id\": \"\",\n  \"last_seen_at\": \"\",\n  \"observed_at\": \"\",\n  \"projection_hash\": \"\",\n  \"resource_version\": 0,\n  \"schema_version\": \"kyyow.observability.incident.v1\",\n  \"service_id\": \"\",\n  \"severity\": \"\",\n  \"source_deployment\": \"\",\n  \"source_payload_hash\": \"\",\n  \"state\": \"\",\n  \"summary\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -8956,7 +8956,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"correlation_id\": \"\",\n  \"dimensions\": {},\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"metric_code\": \"\",\n  \"observed_at\": \"\",\n  \"period_end\": \"\",\n  \"period_reference\": \"\",\n  \"period_start\": \"\",\n  \"projection_hash\": \"\",\n  \"reconciliation_state\": \"\",\n  \"schema_version\": \"kyyow.observability.kpi.v1\",\n  \"service_id\": \"\",\n  \"source\": \"\",\n  \"source_payload_hash\": \"\",\n  \"source_revision\": 0,\n  \"tenant_id\": \"\",\n  \"unit\": \"\",\n  \"value\": 0\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"environment\": \"\",\n  \"event_id\": \"\",\n  \"metric_code\": \"\",\n  \"observed_at\": \"\",\n  \"period_end\": \"\",\n  \"period_reference\": \"\",\n  \"period_start\": \"\",\n  \"projection_hash\": \"\",\n  \"reconciliation_state\": \"\",\n  \"schema_version\": \"kyyow.observability.kpi.v1\",\n  \"service_id\": \"\",\n  \"source\": \"\",\n  \"source_payload_hash\": \"\",\n  \"source_revision\": 0,\n  \"tenant_id\": \"\",\n  \"unit\": \"\",\n  \"value\": 0\n}"
             },
             "header": [
               {
@@ -9377,7 +9377,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"causation_id\": \"\",\n  \"correlation_id\": \"\",\n  \"event_id\": \"\",\n  \"event_type\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"schema_version\": \"\",\n  \"source_event_id\": \"\",\n  \"tenant_id\": \"\",\n  \"trace_id\": \"\"\n}"
+              "raw": "{\n  \"causation_id\": \"\",\n  \"correlation_id\": \"\",\n  \"event_id\": \"\",\n  \"event_type\": \"\",\n  \"idempotency_key\": \"\",\n  \"schema_version\": \"\",\n  \"source_event_id\": \"\",\n  \"tenant_id\": \"\",\n  \"trace_id\": \"\"\n}"
             },
             "header": [
               {
@@ -10462,7 +10462,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"capability\": \"\",\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"command_version\": \"1.0\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"requested_by\": \"\",\n  \"target\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"command_id\": \"\",\n  \"command_type\": \"\",\n  \"command_version\": \"1.0\",\n  \"correlation_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"payload\": {},\n  \"requested_by\": \"\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -10636,7 +10636,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"expected_version\": 0,\n  \"mode\": \"\",\n  \"new_idempotency_key\": \"\",\n  \"reason\": \"\"\n}"
+              "raw": "{\n  \"expected_version\": 0,\n  \"mode\": \"\",\n  \"reason\": \"\"\n}"
             },
             "header": [
               {
@@ -11020,7 +11020,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"alert_profile\": \"\",\n  \"blackbox_target_id\": \"\",\n  \"data_classification\": \"\",\n  \"dependencies\": [],\n  \"deployment_id\": \"\",\n  \"environments\": [],\n  \"expected_config_digest\": \"\",\n  \"expected_git_sha\": \"\",\n  \"expected_image_digest\": \"\",\n  \"expected_migration_head\": \"\",\n  \"grafana_dashboard_ids\": \"\",\n  \"health_path\": \"/health/ready\",\n  \"host_id\": \"\",\n  \"instance_id\": \"\",\n  \"liveness_path\": \"\",\n  \"logs_profile\": \"\",\n  \"metrics_path\": \"/metrics\",\n  \"metrics_profile\": \"\",\n  \"openapi_path\": \"/openapi.json\",\n  \"owner\": \"\",\n  \"private_origin\": \"\",\n  \"prometheus_target_id\": \"\",\n  \"public_origin\": \"\",\n  \"readiness_path\": \"\",\n  \"repository\": \"\",\n  \"secret_references\": \"\",\n  \"service_id\": \"\",\n  \"slo_profile\": \"\",\n  \"tenant_mode\": \"\",\n  \"traces_profile\": \"\",\n  \"type\": \"\"\n}"
+              "raw": "{\n  \"alert_profile\": \"\",\n  \"data_classification\": \"\",\n  \"environments\": [],\n  \"health_path\": \"/health/ready\",\n  \"metrics_path\": \"/metrics\",\n  \"openapi_path\": \"/openapi.json\",\n  \"owner\": \"\",\n  \"repository\": \"\",\n  \"service_id\": \"\",\n  \"slo_profile\": \"\",\n  \"tenant_mode\": \"\",\n  \"type\": \"\"\n}"
             },
             "header": [
               {
@@ -11085,7 +11085,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"alert_profile\": \"\",\n  \"blackbox_target_id\": \"\",\n  \"dependencies\": \"\",\n  \"deployment_id\": \"\",\n  \"expected_config_digest\": \"\",\n  \"expected_git_sha\": \"\",\n  \"expected_image_digest\": \"\",\n  \"expected_migration_head\": \"\",\n  \"grafana_dashboard_ids\": \"\",\n  \"host_id\": \"\",\n  \"instance_id\": \"\",\n  \"liveness_path\": \"\",\n  \"logs_profile\": \"\",\n  \"metrics_profile\": \"\",\n  \"owner\": \"\",\n  \"private_origin\": \"\",\n  \"prometheus_target_id\": \"\",\n  \"public_origin\": \"\",\n  \"readiness_path\": \"\",\n  \"secret_references\": \"\",\n  \"slo_profile\": \"\",\n  \"traces_profile\": \"\"\n}"
+              "raw": "{}"
             },
             "header": [
               {
@@ -11301,7 +11301,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"detail\": \"\",\n  \"observed_at\": \"\",\n  \"observed_config_digest\": \"\",\n  \"observed_git_sha\": \"\",\n  \"observed_image_digest\": \"\",\n  \"observed_migration_head\": \"\",\n  \"source\": \"\",\n  \"status\": \"observed\"\n}"
+              "raw": "{\n  \"observed_at\": \"\",\n  \"source\": \"\",\n  \"status\": \"observed\"\n}"
             },
             "header": [
               {
@@ -11788,7 +11788,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"campaign_id\": \"\",\n  \"candidate_id\": \"\",\n  \"company\": \"\",\n  \"contact\": \"\",\n  \"content_hashes\": [],\n  \"evidence\": [],\n  \"extraction_timestamp\": \"\",\n  \"idempotency_metadata\": {},\n  \"metadata\": {},\n  \"provenance\": [],\n  \"provider_results\": {},\n  \"schema_version\": \"\",\n  \"scraper_job_id\": \"\",\n  \"source\": \"\",\n  \"source_claims\": \"\",\n  \"source_type\": \"public_web\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"campaign_id\": \"\",\n  \"company\": \"\",\n  \"schema_version\": \"\",\n  \"source\": \"\",\n  \"source_type\": \"public_web\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -11835,7 +11835,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"campaign_id\": \"\",\n  \"candidate_id\": \"\",\n  \"company\": \"\",\n  \"contact\": \"\",\n  \"content_hashes\": [],\n  \"evidence\": [],\n  \"extraction_timestamp\": \"\",\n  \"idempotency_metadata\": {},\n  \"metadata\": {},\n  \"provenance\": [],\n  \"provider_results\": {},\n  \"schema_version\": \"\",\n  \"scraper_job_id\": \"\",\n  \"source\": \"\",\n  \"source_claims\": \"\",\n  \"source_type\": \"public_web\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"campaign_id\": \"\",\n  \"company\": \"\",\n  \"schema_version\": \"\",\n  \"source\": \"\",\n  \"source_type\": \"public_web\",\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -11908,7 +11908,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"batch_size\": 0,\n  \"campaign_id\": \"\",\n  \"dry_run\": false,\n  \"filters\": \"\",\n  \"publish_to_vicidial\": false,\n  \"source\": \"\",\n  \"tenant_id\": \"\",\n  \"write_changes\": false\n}"
+              "raw": "{\n  \"batch_size\": 0,\n  \"dry_run\": false,\n  \"publish_to_vicidial\": false,\n  \"source\": \"\",\n  \"tenant_id\": \"\",\n  \"write_changes\": false\n}"
             },
             "header": [
               {
@@ -12092,7 +12092,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"campaign_id\": \"\",\n  \"tenant_id\": \"\"\n}"
+              "raw": "{\n  \"tenant_id\": \"\"\n}"
             },
             "header": [
               {
@@ -12281,7 +12281,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"approved_odoo_request\": false,\n  \"business_unit\": \"\",\n  \"campaign\": \"\",\n  \"causation_id\": \"\",\n  \"employee_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"policy_hash\": \"\",\n  \"record_environment\": \"PRODUCTION\",\n  \"request_id\": \"\",\n  \"role\": \"\",\n  \"test_run_id\": \"\"\n}"
+              "raw": "{\n  \"approved_odoo_request\": false,\n  \"business_unit\": \"\",\n  \"campaign\": \"\",\n  \"employee_id\": \"\",\n  \"idempotency_key\": \"\",\n  \"record_environment\": \"PRODUCTION\",\n  \"request_id\": \"\",\n  \"role\": \"\"\n}"
             },
             "header": [
               {
@@ -12484,7 +12484,7 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"correlation_id\": \"\",\n  \"event_id\": \"\",\n  \"event_type\": \"\",\n  \"event_version\": \"\",\n  \"failure_code\": \"\",\n  \"failure_message\": \"\",\n  \"idempotency_key\": \"\",\n  \"message_id\": \"\",\n  \"occurred_at\": \"\",\n  \"provider_reference\": \"\",\n  \"provider_status\": \"\",\n  \"schema_version\": \"\",\n  \"status\": \"\",\n  \"tenant_id\": \"\",\n  \"timestamp\": \"\"\n}"
+              "raw": "{\n  \"correlation_id\": \"\",\n  \"event_id\": \"\",\n  \"event_type\": \"\",\n  \"event_version\": \"\",\n  \"idempotency_key\": \"\",\n  \"message_id\": \"\",\n  \"occurred_at\": \"\",\n  \"provider_status\": \"\",\n  \"schema_version\": \"\",\n  \"status\": \"\",\n  \"tenant_id\": \"\",\n  \"timestamp\": \"\"\n}"
             },
             "header": [
               {
