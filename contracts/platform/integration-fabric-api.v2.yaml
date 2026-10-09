@@ -5396,6 +5396,728 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+  /platform/v1/leads:
+    get:
+      tags:
+      - leads-workstation
+      summary: List Leads
+      operationId: list_leads_platform_v1_leads_get
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      - name: country
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Country
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: campaign_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Campaign Id
+      - name: assigned_agent
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assigned Agent
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+    post:
+      tags:
+      - leads-workstation
+      summary: Create Lead
+      operationId: create_lead_platform_v1_leads_post
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Idempotency-Key
+      - name: X-Codestra-Request-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Request-Id
+      - name: X-Codestra-Correlation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Correlation-Id
+      - name: X-Codestra-Causation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Causation-Id
+      - name: traceparent
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Traceparent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/campaigns:
+    get:
+      tags:
+      - leads-workstation
+      summary: List Campaigns
+      operationId: list_campaigns_platform_v1_leads_campaigns_get
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/{lead_id}:
+    get:
+      tags:
+      - leads-workstation
+      summary: Get Lead
+      operationId: get_lead_platform_v1_leads__lead_id__get
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+    patch:
+      tags:
+      - leads-workstation
+      summary: Update Lead
+      operationId: update_lead_platform_v1_leads__lead_id__patch
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: If-Match
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Idempotency-Key
+      - name: X-Codestra-Request-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Request-Id
+      - name: X-Codestra-Correlation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Correlation-Id
+      - name: X-Codestra-Causation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Causation-Id
+      - name: traceparent
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Traceparent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/{lead_id}/contacts:
+    get:
+      tags:
+      - leads-workstation
+      summary: Get Contacts
+      operationId: get_contacts_platform_v1_leads__lead_id__contacts_get
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/{lead_id}/assign:
+    post:
+      tags:
+      - leads-workstation
+      summary: Assign Lead
+      operationId: assign_lead_platform_v1_leads__lead_id__assign_post
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Idempotency-Key
+      - name: X-Codestra-Request-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Request-Id
+      - name: X-Codestra-Correlation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Correlation-Id
+      - name: X-Codestra-Causation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Causation-Id
+      - name: traceparent
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Traceparent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/{lead_id}/transition:
+    post:
+      tags:
+      - leads-workstation
+      summary: Transition Lead
+      operationId: transition_lead_platform_v1_leads__lead_id__transition_post
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Idempotency-Key
+      - name: X-Codestra-Request-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Request-Id
+      - name: X-Codestra-Correlation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Correlation-Id
+      - name: X-Codestra-Causation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Causation-Id
+      - name: traceparent
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Traceparent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/{lead_id}/suppress:
+    post:
+      tags:
+      - leads-workstation
+      summary: Suppress Lead
+      operationId: suppress_lead_platform_v1_leads__lead_id__suppress_post
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Idempotency-Key
+      - name: X-Codestra-Request-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Request-Id
+      - name: X-Codestra-Correlation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Correlation-Id
+      - name: X-Codestra-Causation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Causation-Id
+      - name: traceparent
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Traceparent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
+  /platform/v1/leads/{lead_id}/consent:
+    post:
+      tags:
+      - leads-workstation
+      summary: Consent Lead
+      operationId: consent_lead_platform_v1_leads__lead_id__consent_post
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: lead_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lead Id
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Idempotency-Key
+      - name: X-Codestra-Request-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Request-Id
+      - name: X-Codestra-Correlation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Correlation-Id
+      - name: X-Codestra-Causation-ID
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: X-Codestra-Causation-Id
+      - name: traceparent
+        in: header
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Traceparent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Invalid canonical request
+        '401':
+          description: Authentication failed
+        '403':
+          description: Scope or tenant denied
+        '404':
+          description: Resource not found
+        '409':
+          description: Version, state, or idempotency conflict
+        '429':
+          description: Rate limited
+        '503':
+          description: Required durable dependency unavailable
   /platform/v1/opportunities:
     get:
       tags:

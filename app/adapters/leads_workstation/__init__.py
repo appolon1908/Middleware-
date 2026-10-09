@@ -1,0 +1,1 @@
+"""Leads Workstation integration adapter."""
