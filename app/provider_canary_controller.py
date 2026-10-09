@@ -328,7 +328,6 @@ def evaluate_plan(
         deny("RATE_BUDGET_EXHAUSTED")
 
     # Evidence prerequisites: every kind exactly once.
-    kinds = [item.kind for item in plan.evidence]
     for kind in REQUIRED_EVIDENCE_KINDS:
         count = sum(item.kind == kind for item in plan.evidence)
         if count == 0:
