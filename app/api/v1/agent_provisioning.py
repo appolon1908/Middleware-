@@ -1517,9 +1517,12 @@ async def _transition(
         outcomes = await _run_deprovision(session, request, action)
         settled_before = from_state == target and request.last_error_code is None
         if settled_before and len(await _steps_for(session, request)) == steps_before:
-            # Already fully suspended/revoked: idempotent, nothing recorded.
+            # Construct the idempotent response while the ORM row is still
+            # loaded; rollback expires attributes and a later lazy refresh
+            # would perform IO outside async greenlet context.
+            response = _public_view(request, await _steps_for(session, request))
             await session.rollback()
-            return _public_view(request, await _steps_for(session, request))
+            return response
         request.state = target
         if outcomes:
             request.last_error_code = "DEPROVISION_INCOMPLETE"

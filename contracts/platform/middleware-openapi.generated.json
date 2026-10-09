@@ -5527,7 +5527,7 @@
           "existing_extension": {
             "anyOf": [
               {
-                "maxLength": 16,
+                "pattern": "^[0-9]{2,16}$",
                 "type": "string"
               },
               {
@@ -5539,7 +5539,7 @@
           "extension_pool": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9_]{0,31}$",
                 "type": "string"
               },
               {
@@ -16753,6 +16753,22 @@
               "title": "Request Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Policy-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Policy-Revision"
+            }
           }
         ],
         "requestBody": {
@@ -16829,6 +16845,22 @@
               "format": "uuid",
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Policy-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Policy-Revision"
             }
           }
         ],
@@ -16907,6 +16939,22 @@
               "title": "Request Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Policy-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Policy-Revision"
+            }
           }
         ],
         "requestBody": {
@@ -16983,6 +17031,22 @@
               "format": "uuid",
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Policy-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Policy-Revision"
             }
           }
         ],
