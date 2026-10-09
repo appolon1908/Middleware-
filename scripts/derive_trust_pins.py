@@ -195,6 +195,42 @@ def replace_digest(text: str, old: str, new: str) -> tuple[str, int]:
     return text, count
 
 
+def validate_steady_state_launcher(
+    launcher: dict[str, Any],
+    *,
+    validator_sha256: str,
+    fingerprint: str,
+    release_sha256: str,
+) -> None:
+    """Accept only the exact approved self-edge and release bytes.
+
+    The absence of successor fields after an approved transition must not
+    imply that arbitrary candidate validator generations are acceptable.
+    """
+    current = launcher.get("CURRENT_VALIDATOR_SHA256")
+    current_fingerprint = launcher.get("CURRENT_RELEASE_SECURITY_FINGERPRINT")
+    current_release_sha = launcher.get("CURRENT_RELEASE_VALIDATOR_SHA256")
+    if not all(
+        isinstance(item, str) and HEX64.fullmatch(item)
+        for item in (current, current_fingerprint, current_release_sha)
+    ):
+        raise DerivationError("steady-state launcher lacks exact trust digests")
+    if launcher.get("APPROVED_VALIDATOR_TRANSITIONS") != {
+        current: {current: ("security-fingerprint", current_fingerprint)}
+    }:
+        raise DerivationError("steady-state launcher permits non-self trust transitions")
+    if current != validator_sha256 or current_fingerprint != fingerprint:
+        raise DerivationError(
+            "steady-state trust-root drift: independent protected-main "
+            "approval is required for a different validator or fingerprint"
+        )
+    if current_release_sha != release_sha256:
+        raise DerivationError(
+            "steady-state protected release-validator bytes do not match "
+            "the approved launcher digest"
+        )
+
+
 class Derivation:
     def __init__(self, source: Source) -> None:
         self.source = source
@@ -474,7 +510,11 @@ class Derivation:
         self.stale("gate-test", "repaired", repaired.group(1), validator_sha256)
         gate_text, _ = replace_digest(gate_text, repaired.group(1), validator_sha256)
 
-        # Phase 7: project the protected launcher; never write it.
+        # Phase 7: examine the independently approved launcher; never write it.
+        # Before promotion, it contains a one-way successor table. After the
+        # separately approved transition reaches main, it may instead contain
+        # only a self-edge and omit successor constants. Neither case grants
+        # trust to unreviewed candidate bytes.
         successor = re.search(
             r'SUCCESSOR_VALIDATOR_SHA256 = \(\s*"([0-9a-f]{64})"', launcher_text
         )
@@ -482,14 +522,36 @@ class Derivation:
             r'SUCCESSOR_RELEASE_SECURITY_FINGERPRINT = \(\s*"([0-9a-f]{64})"',
             launcher_text,
         )
-        if successor is None or successor_fp is None:
-            raise DerivationError("launcher successor constants are missing")
-        projected_launcher, _ = replace_digest(
-            launcher_text, successor.group(1), validator_sha256
-        )
-        projected_launcher, _ = replace_digest(
-            projected_launcher, successor_fp.group(1), fingerprint
-        )
+        if (successor is None) != (successor_fp is None):
+            raise DerivationError("launcher has incomplete successor authorization")
+        launcher_info: dict[str, Any]
+        if successor is not None:
+            assert successor_fp is not None
+            projected_launcher, _ = replace_digest(
+                launcher_text, successor.group(1), validator_sha256
+            )
+            projected_launcher, _ = replace_digest(
+                projected_launcher, successor_fp.group(1), fingerprint
+            )
+            launcher_info = {
+                "mode": "successor",
+                "successor_in_tree": successor.group(1),
+                "successor_fingerprint_in_tree": successor_fp.group(1),
+            }
+        else:
+            launcher_ns = load_module(self.source, LAUNCHER, "derive_steady_launcher")
+            validate_steady_state_launcher(
+                launcher_ns,
+                validator_sha256=validator_sha256,
+                fingerprint=fingerprint,
+                release_sha256=sha256_bytes(self.source.read(RELEASE)),
+            )
+            projected_launcher = launcher_text
+            launcher_info = {
+                "mode": "steady-state",
+                "successor_in_tree": None,
+                "successor_fingerprint_in_tree": None,
+            }
         launcher_parity = projected_launcher == launcher_text
 
         # Phase 8: source closure over the projected final tree, injected last.
@@ -554,8 +616,7 @@ class Derivation:
             "read_only_script_pin_count": self.counts["read_only"],
             "workflow_pin_count": self.counts["workflow"],
             "launcher": {
-                "successor_in_tree": successor.group(1),
-                "successor_fingerprint_in_tree": successor_fp.group(1),
+                **launcher_info,
                 "required_successor": validator_sha256,
                 "required_successor_fingerprint": fingerprint,
                 "parity": launcher_parity,
