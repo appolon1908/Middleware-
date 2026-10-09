@@ -96,20 +96,37 @@ def test_every_platform_operation_rejects_shared_secret_and_forged_identity(auth
         "Authorization": "Bearer shared-integration-test-token", "X-Codestra-Role": "platform_admin",
         "X-Codestra-Principal": "spoofed-independent-reviewer",
     })
-    assert response.status_code == 403
+    # A shared secret is not a token from the identity authority: invalid_token.
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == 'Bearer error="invalid_token"'
     db.execute.assert_not_awaited()
 
 
+# Not a valid token from the configured authority -> 401 invalid_token.
 @pytest.mark.parametrize("changes", [
-    {"iss": "https://wrong.invalid"}, {"aud": "wrong-api"}, {"azp": "wrong-client"},
+    {"iss": "https://wrong.invalid"}, {"aud": "wrong-api"},
     {"exp": 1}, {"nbf": 9999999999}, {"sub": ""}, {"sub": None},
-    {"realm_access": {"roles": ["ordinary-client"]}}, {"realm_access": None},
-    {"realm_access": {"roles": "platform_admin"}}, {"scope": "platform.services.read"},
+    {"realm_access": None}, {"realm_access": {"roles": "platform_admin"}},
 ])
-def test_wrong_claims_never_mutate_catalog(authority, client_and_db, changes):
+def test_invalid_claims_never_mutate_catalog(authority, client_and_db, changes):
+    client, db = client_and_db
+    response = client.post("/platform/v1/services", json=SERVICE, headers={"Authorization": "Bearer " + authority(**changes)})
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == 'Bearer error="invalid_token"'
+    db.execute.assert_not_awaited()
+
+
+# A valid token without the route's authority -> 403 insufficient_scope.
+@pytest.mark.parametrize("changes", [
+    {"azp": "wrong-client"}, {"realm_access": {"roles": ["ordinary-client"]}},
+    {"scope": "platform.services.read"},
+])
+def test_wrong_authority_never_mutates_catalog(authority, client_and_db, changes):
     client, db = client_and_db
     response = client.post("/platform/v1/services", json=SERVICE, headers={"Authorization": "Bearer " + authority(**changes)})
     assert response.status_code == 403
+    assert response.json()["detail"] == "platform authority denied"
+    assert response.headers["WWW-Authenticate"] == 'Bearer error="insufficient_scope"'
     db.execute.assert_not_awaited()
 
 
@@ -118,7 +135,7 @@ def test_signature_cannot_be_forged(authority, client_and_db):
     claims = jwt.decode(authority(), options={"verify_signature": False})
     rogue_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     token = jwt.encode(claims, rogue_key, algorithm="RS256")
-    assert client.post("/platform/v1/services", json=SERVICE, headers={"Authorization": "Bearer " + token}).status_code == 403
+    assert client.post("/platform/v1/services", json=SERVICE, headers={"Authorization": "Bearer " + token}).status_code == 401
     db.execute.assert_not_awaited()
 
 

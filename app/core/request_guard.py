@@ -111,8 +111,12 @@ def _is_ai_console_jwt_route(method: str, path: str) -> bool:
     )
 
 
-def _compiled_routes(routers: Iterable[APIRouter]) -> list[tuple[frozenset[str], re.Pattern[str]]]:
-    compiled: list[tuple[frozenset[str], re.Pattern[str]]] = []
+CompiledRoute = tuple[frozenset[str], re.Pattern[str], str, APIRoute]
+
+
+def _compiled_routes(routes: Iterable) -> list[CompiledRoute]:
+    """``(methods, path regex, path template, route)`` in dispatch order."""
+    compiled: list[CompiledRoute] = []
 
     def walk(routes, prefix: str = "") -> None:
         for route in routes:
@@ -125,10 +129,11 @@ def _compiled_routes(routers: Iterable[APIRouter]) -> list[tuple[frozenset[str],
                 pattern = route.path_regex
                 if prefix:
                     pattern = re.compile("^" + re.escape(prefix) + pattern.pattern.lstrip("^"))
-                compiled.append((frozenset(route.methods or ()), pattern))
+                compiled.append(
+                    (frozenset(route.methods or ()), pattern, prefix + route.path_format, route)
+                )
 
-    for router in routers:
-        walk(router.routes)
+    walk(routes)
     return compiled
 
 
@@ -146,8 +151,18 @@ class RequestGuard:
         self.settings = settings
         self.telemetry = telemetry
         self.runtime_available = runtime_available or (lambda: True)
-        self._handler_routes = _compiled_routes(handler_authenticated_routers)
+        self._handler_routes = _compiled_routes(
+            route for router in handler_authenticated_routers for route in router.routes
+        )
+        self._handler_route_ids = frozenset(id(route) for *_rest, route in self._handler_routes)
+        self._app: FastAPI | None = None
+        self._served: tuple[int, list[CompiledRoute]] | None = None
         self._rate_windows: OrderedDict[str, deque[float]] = OrderedDict()
+
+    def bind(self, app: FastAPI) -> None:
+        """Resolve exemptions against the routes ``app`` actually dispatches."""
+        self._app = app
+        self._served = None
 
     def reset_rate_limits(self) -> None:
         """Forget every per-client window (tests and controlled resets)."""
@@ -164,11 +179,41 @@ class RequestGuard:
 
         These handlers verify a service JWT and enforce their own body limit
         (``max_request_body_bytes``) with the canonical error envelope.
+
+        The decision follows the route the application will *dispatch*, not
+        any route whose pattern happens to match: ``GET
+        /api/v1/operations/{operation_id}`` (a JWT handler) also matches
+        ``/api/v1/operations/dead-letters``, which an earlier, unauthenticated
+        router serves. Exempting by pattern alone skipped the shared-secret
+        check for that handler.
         """
-        return any(
+        if not any(
             method in methods and pattern.fullmatch(path) is not None
-            for methods, pattern in self._handler_routes
+            for methods, pattern, _template, _route in self._handler_routes
+        ):
+            return False
+        if self._app is None:
+            return True
+        served = self._served_route(method, path)
+        return served is not None and id(served) in self._handler_route_ids
+
+    def control_plane_template(self, method: str, template: str) -> bool:
+        """:meth:`control_plane_route` for an OpenAPI path template."""
+        return any(
+            method in methods and path_template == template
+            for methods, _pattern, path_template, _route in self._handler_routes
         )
+
+    def _served_route(self, method: str, path: str) -> APIRoute | None:
+        """The first route in dispatch order that fully matches (Starlette's rule)."""
+        assert self._app is not None
+        routes = self._app.routes
+        if self._served is None or self._served[0] != len(routes):
+            self._served = (len(routes), _compiled_routes(routes))
+        for methods, pattern, _template, route in self._served[1]:
+            if method in methods and pattern.fullmatch(path) is not None:
+                return route
+        return None
 
     def handler_authenticated(self, method: str, path: str) -> bool:
         if path in SIGNED_WEBHOOK_PATHS or path in SELF_AUTHENTICATED_PATHS:
@@ -332,5 +377,6 @@ class RequestGuard:
 
 
 def install_request_guard(app: FastAPI, guard: RequestGuard) -> None:
+    guard.bind(app)
     app.state.request_guard = guard
     app.middleware("http")(guard)

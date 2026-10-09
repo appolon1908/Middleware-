@@ -12,7 +12,9 @@ from typing import Any, Protocol
 import jwt
 from jwt import PyJWKClient
 
+from app.core import jwks
 from app.core.config import Settings
+from app.core.identity_metrics import record_token_decision
 
 
 class SecurityError(RuntimeError):
@@ -41,6 +43,14 @@ class RequestValidationError(SecurityError):
     code = "invalid_request"
 
 
+class IdentityUnavailableError(SecurityError):
+    """The identity authority (its JWKS) cannot be used: 503, never a fallback."""
+
+    status_code = 503
+    code = "identity_unavailable"
+    retryable = True
+
+
 class TokenVerifier(Protocol):
     async def verify(
         self,
@@ -58,11 +68,12 @@ class TokenVerifier(Protocol):
 class KeycloakJwtVerifier:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self._jwks = PyJWKClient(
+        # The shared rotation-aware key set (app.core.jwks): bounded lifespan,
+        # throttled unknown-kid refetch, no unbounded per-kid key cache.
+        self._jwks = jwks.jwks_client(
             settings.jwks_uri,
-            cache_keys=True,
-            lifespan=300,
             timeout=settings.jwks_timeout_seconds,
+            factory=PyJWKClient,
         )
         self._last_ready_at = 0.0
         self._ready_ttl_seconds = 30.0
@@ -75,7 +86,10 @@ class KeycloakJwtVerifier:
         expected_client_id: str,
         required_scope: str,
     ) -> dict[str, Any]:
-        signing_key = self._jwks.get_signing_key_from_jwt(token)
+        try:
+            signing_key = jwks.signing_key(self._jwks, token)
+        except jwks.JwksUnavailableError as exc:
+            raise IdentityUnavailableError("identity key authority is unavailable") from exc
         claims = jwt.decode(
             token,
             signing_key.key,
@@ -113,16 +127,29 @@ class KeycloakJwtVerifier:
         if scheme.lower() != "bearer" or not token:
             raise AuthenticationError("Authorization must be a Bearer token")
         try:
-            return await asyncio.to_thread(
+            claims = await asyncio.to_thread(
                 self._verify_sync,
                 token,
                 expected_client_id=expected_client_id,
                 required_scope=required_scope,
             )
-        except SecurityError:
+        except IdentityUnavailableError:
+            record_token_decision("control_plane", "unavailable", "jwks_unavailable")
             raise
-        except Exception as exc:
+        except AuthorizationError as exc:
+            record_token_decision("control_plane", "denied", _denial_reason(exc))
+            raise
+        except SecurityError:
+            record_token_decision("control_plane", "invalid", "invalid_token")
+            raise
+        except jwks.UnknownSigningKeyError as exc:
+            record_token_decision("control_plane", "invalid", "unknown_key")
             raise AuthenticationError("invalid bearer token") from exc
+        except Exception as exc:
+            record_token_decision("control_plane", "invalid", "invalid_token")
+            raise AuthenticationError("invalid bearer token") from exc
+        record_token_decision("control_plane", "accepted", "ok")
+        return claims
 
     async def ready(self) -> bool:
         now = time.monotonic()
@@ -141,6 +168,15 @@ class KeycloakJwtVerifier:
                 return False
             self._last_ready_at = time.monotonic()
             return True
+
+
+def _denial_reason(exc: AuthorizationError) -> str:
+    message = str(exc)
+    if "azp" in message:
+        return "authorized_party"
+    if "lifetime" in message or "timestamp" in message or "finite" in message:
+        return "lifetime"
+    return "scope"
 
 
 def _strict_numeric_timestamp(claims: dict[str, Any], name: str) -> float:

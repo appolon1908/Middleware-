@@ -30,7 +30,14 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.core.jwt_auth import JWTAuthError, KeycloakValidator, identity_validator_kwargs
+from app.core.jwt_auth import (
+    JWTAuthError,
+    KeycloakValidator,
+    TokenAccessDenied,
+    TokenInvalidError,
+    identity_validator_kwargs,
+    raise_auth_http,
+)
 
 BEARER = HTTPBearer(auto_error=False)
 
@@ -61,31 +68,32 @@ def require_provisioning_scope(
         identity = settings.identity
         if not identity.explicit or not parties:
             raise HTTPException(503, "provisioning identity authority is not configured")
-        validator = KeycloakValidator(
-            **identity_validator_kwargs(
-                identity,
-                authorized_parties=parties,
-                required_scopes=frozenset({scope}),
-            )
-        )
         try:
+            validator = KeycloakValidator(
+                **identity_validator_kwargs(
+                    identity,
+                    authorized_parties=parties,
+                    required_scopes=frozenset({scope}),
+                )
+            )
             claims = validator.validate(credential.credentials)
-            subject = claims.get("sub")
-            azp = claims.get("azp")
-            if not isinstance(subject, str) or not subject.strip():
-                raise JWTAuthError("stable subject required")
             tenant_claim = claims.get("tenant_ids", claims.get("tenant_id", []))
             if isinstance(tenant_claim, str):
                 tenant_claim = [tenant_claim]
             if not isinstance(tenant_claim, list) or not all(
                 isinstance(item, str) for item in tenant_claim
             ):
-                raise JWTAuthError("tenant claim malformed")
-        except (JWTAuthError, AttributeError, TypeError, ValueError):
-            raise HTTPException(403, "provisioning authority denied") from None
+                raise TokenInvalidError("tenant claim malformed", reason="malformed_claims")
+            tenants = frozenset(item.strip() for item in tenant_claim if item.strip())
+            if "*" in tenants:
+                raise TokenAccessDenied(
+                    "wildcard tenant authorization is prohibited", reason="tenant"
+                )
+        except JWTAuthError as exc:
+            raise_auth_http(exc, denied_detail="provisioning authority denied")
         return ProvisioningPrincipal(
-            subject=subject, authorized_party=str(azp),
-            tenant_ids=frozenset(tenant_claim),
+            subject=claims["sub"], authorized_party=str(claims["azp"]),
+            tenant_ids=tenants,
         )
 
     return authorize

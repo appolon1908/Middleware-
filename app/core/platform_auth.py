@@ -8,7 +8,14 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.core.jwt_auth import JWTAuthError, KeycloakValidator, identity_validator_kwargs
+from app.core.jwt_auth import (
+    JWTAuthError,
+    KeycloakValidator,
+    TokenAccessDenied,
+    identity_validator_kwargs,
+    raise_auth_http,
+    realm_roles,
+)
 
 BEARER = HTTPBearer(auto_error=False)
 PLATFORM_ROLES = frozenset({"platform_admin", "platform_reviewer", "platform_operator"})
@@ -36,24 +43,21 @@ def require_platform_scope(
         identity = settings.identity
         if not identity.explicit or not identity.authorized_parties:
             raise HTTPException(503, "platform identity authority is not configured")
-        validator = KeycloakValidator(**identity_validator_kwargs(identity, required_scopes=frozenset({scope})))
         try:
+            validator = KeycloakValidator(
+                **identity_validator_kwargs(identity, required_scopes=frozenset({scope}))
+            )
+            # The validator enforces signature, issuer, audience, lifetime,
+            # a stable ``sub``, the authorized party, the scope and the
+            # claim shapes; only the role decision is local.
             claims = validator.validate(credential.credentials)
-            subject = claims.get("sub")
-            realm = claims.get("realm_access")
-            roles = realm.get("roles") if isinstance(realm, dict) else None
-            if not isinstance(subject, str) or not subject.strip() or subject != subject.strip() or len(subject) > 255:
-                raise JWTAuthError("stable subject required")
-            if not isinstance(roles, list) or not all(isinstance(role, str) for role in roles):
-                raise JWTAuthError("platform role claims malformed")
-            if not isinstance(claims.get("scope"), str):
-                raise JWTAuthError("platform scope claims malformed")
-            eligible = allowed_roles.intersection(roles)
+            subject = claims["sub"]
+            eligible = allowed_roles.intersection(realm_roles(claims))
             if not eligible:
-                raise JWTAuthError("platform role denied")
-        except (JWTAuthError, AttributeError, TypeError, ValueError):
+                raise TokenAccessDenied("platform role denied", reason="role")
+        except JWTAuthError as exc:
             # Never expose credentials, upstream JWKS details or claim contents.
-            raise HTTPException(403, "platform authority denied") from None
+            raise_auth_http(exc, denied_detail="platform authority denied")
         role = "platform_admin" if "platform_admin" in eligible else sorted(eligible)[0]
         return PlatformPrincipal(subject=subject, role=role)
 

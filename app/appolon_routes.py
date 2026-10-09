@@ -301,7 +301,7 @@ def install_canonical_openapi(app: FastAPI) -> None:
             for method, operation in path_item.items():
                 if not isinstance(operation, dict):
                     continue
-                if guard is not None and not guard.control_plane_route(method.upper(), path):
+                if guard is not None and not guard.control_plane_template(method.upper(), path):
                     continue
                 responses = operation.get("responses", {})
                 if responses.get("422") != automatic_validation:
