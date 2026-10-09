@@ -6947,7 +6947,8 @@
         "summary": "Authorized Action",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/audit/result": {
@@ -7047,7 +7048,8 @@
         "summary": "Record Audit Result",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/callbacks/{state}": {
@@ -7130,7 +7132,8 @@
         "summary": "Callbacks",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/context/{resource}/{identifier}": {
@@ -7218,7 +7221,8 @@
         "summary": "Context",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/events": {
@@ -7344,7 +7348,8 @@
         "summary": "Receive Event",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "signed-ingress"
       }
     },
     "/api/v1/automation/events/dead-letter": {
@@ -7444,7 +7449,8 @@
         "summary": "Dead Letter",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/events/{event_id}": {
@@ -7526,7 +7532,8 @@
         "summary": "Event Status",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/executions/{transition}": {
@@ -7641,7 +7648,8 @@
         "summary": "Execution Transition",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/idempotency/check": {
@@ -7741,7 +7749,8 @@
         "summary": "Reserve Idempotency",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/automation/policy-check": {
@@ -7851,7 +7860,8 @@
         "summary": "Policy Check",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/automation/queues/status": {
@@ -7911,7 +7921,8 @@
         "summary": "Queue Status",
         "tags": [
           "automation"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/callbacks": {
@@ -8018,7 +8029,8 @@
         "summary": "Queue",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/callbacks/dashboard/campaigns": {
@@ -8095,7 +8107,8 @@
         "summary": "Campaign Dashboard",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/callbacks/dashboard/supervisor": {
@@ -8172,7 +8185,8 @@
         "summary": "Supervisor Dashboard",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/callbacks/due": {
@@ -8249,7 +8263,8 @@
         "summary": "Due Callbacks",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/callbacks/{callback_id}": {
@@ -8336,7 +8351,8 @@
         "summary": "Get",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/campaign-designs/approvals": {
@@ -8451,7 +8467,8 @@
         "summary": "Approve",
         "tags": [
           "campaign-design"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/campaign-designs/preview": {
@@ -8566,7 +8583,8 @@
         "summary": "Preview",
         "tags": [
           "campaign-design"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/ai/inference-requests": {
@@ -8705,7 +8723,8 @@
         "tags": [
           "durable-control",
           "provider-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks": {
@@ -8812,7 +8831,8 @@
         "summary": "Create",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}": {
@@ -8929,7 +8949,8 @@
         "summary": "Patch Callback",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/call-now": {
@@ -9046,7 +9067,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/cancel": {
@@ -9163,7 +9185,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/complete": {
@@ -9280,7 +9303,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/reassign": {
@@ -9397,7 +9421,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/reschedule": {
@@ -9514,7 +9539,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/snooze": {
@@ -9631,7 +9657,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/callbacks/{callback_id}/start": {
@@ -9748,7 +9775,8 @@
         "summary": "Handler",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/communications/email": {
@@ -9887,7 +9915,8 @@
         "tags": [
           "durable-control",
           "provider-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/communications/sms": {
@@ -10026,7 +10055,8 @@
         "tags": [
           "durable-control",
           "provider-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/identity-probes/{probe_id}": {
@@ -10131,7 +10161,8 @@
         "tags": [
           "durable-control",
           "provider-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/marketing/campaigns": {
@@ -10270,7 +10301,8 @@
         "tags": [
           "durable-control",
           "provider-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/control/social/publications": {
@@ -10409,7 +10441,8 @@
         "tags": [
           "durable-control",
           "provider-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/events/klyrow": {
@@ -11158,7 +11191,8 @@
         "summary": "Receive Klyrow Event",
         "tags": [
           "klyrow-events"
-        ]
+        ],
+        "x-codestra-auth-mode": "signed-ingress"
       }
     },
     "/api/v1/events/telnexa": {
@@ -11423,7 +11457,8 @@
         "summary": "Receive Telnexa Event",
         "tags": [
           "telnexa-events"
-        ]
+        ],
+        "x-codestra-auth-mode": "signed-ingress"
       }
     },
     "/api/v1/events/telnexa/verify": {
@@ -11679,7 +11714,8 @@
         "summary": "Verify Synthetic Telnexa Callback",
         "tags": [
           "telnexa-events"
-        ]
+        ],
+        "x-codestra-auth-mode": "signed-ingress"
       }
     },
     "/api/v1/inbox": {
@@ -11803,7 +11839,8 @@
         "summary": "Inbox List",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/inbox/{record_id}": {
@@ -11908,7 +11945,8 @@
         "summary": "Inbox Detail",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/integrations/n8n/dead-letter": {
@@ -12011,7 +12049,8 @@
         "summary": "N8N Dead Letter",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/n8n/dispatch": {
@@ -12162,7 +12201,8 @@
         "summary": "N8N Dispatch",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/n8n/errors": {
@@ -12265,7 +12305,8 @@
         "summary": "N8N Error",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/n8n/progress": {
@@ -12368,7 +12409,8 @@
         "summary": "N8N Progress",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/n8n/reconciliation": {
@@ -12471,7 +12513,8 @@
         "summary": "N8N Reconciliation",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/n8n/results": {
@@ -12584,7 +12627,8 @@
         "summary": "N8N Result",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/integrations/n8n/results/{event_id}": {
@@ -12673,7 +12717,8 @@
         "summary": "N8N Result Status",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/integrations/odoo/campaigns/{campaign_id}": {
@@ -12783,7 +12828,8 @@
         "summary": "Odoo Campaign Read",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/integrations/odoo/campaigns/{campaign_id}/desired-state": {
@@ -12893,7 +12939,8 @@
         "summary": "Odoo Campaign Desired State",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/integrations/odoo/commands": {
@@ -13044,7 +13091,8 @@
         "summary": "Odoo Command",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/odoo/commands/{command_id}": {
@@ -13126,7 +13174,8 @@
         "summary": "Odoo Command Status",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/odoo/health": {
@@ -13189,7 +13238,8 @@
         "summary": "Odoo Health",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/odoo/readiness": {
@@ -13252,7 +13302,8 @@
         "summary": "Odoo Readiness",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/odoo/status": {
@@ -13312,7 +13363,8 @@
         "summary": "Odoo Integration Status",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/odoo/sync-errors": {
@@ -13432,7 +13484,8 @@
         "summary": "Odoo Sync Errors",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/odoo/sync-status": {
@@ -13529,7 +13582,8 @@
         "summary": "Odoo Sync Status",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/integrations/runtime": {
@@ -13589,7 +13643,8 @@
         "summary": "Runtime Integration Status",
         "tags": [
           "integrations"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/klyrow/events": {
@@ -13708,7 +13763,8 @@
         "summary": "Ingress-Klyrow-Gateway-Events",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/kyqra/progress": {
@@ -13827,7 +13883,8 @@
         "summary": "Ingress-Kyqra-Gateway-Progress",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/kyqra/results": {
@@ -13946,7 +14003,8 @@
         "summary": "Ingress-Kyqra-Gateway-Results",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/n8n/results": {
@@ -14065,7 +14123,8 @@
         "summary": "Ingress-N8N-Automation-Results",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/odoo/events": {
@@ -14185,7 +14244,8 @@
         "summary": "Odoo Event",
         "tags": [
           "odoo-events"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/operations": {
@@ -14355,7 +14415,8 @@
         "summary": "Operations List",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/operations/{operation_id}": {
@@ -14461,7 +14522,8 @@
         "summary": "Operation Detail",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/operations/{operation_id}/cancel": {
@@ -14597,7 +14659,8 @@
         "summary": "Operation Cancel",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/operations/{operation_id}/retry": {
@@ -14733,7 +14796,8 @@
         "summary": "Operation Retry",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/outbox": {
@@ -14857,7 +14921,8 @@
         "summary": "Outbox List",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/outbox/{record_id}": {
@@ -14962,7 +15027,8 @@
         "summary": "Outbox Detail",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/policy/decisions": {
@@ -15088,7 +15154,8 @@
         "summary": "Policy Decision",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/postly/events": {
@@ -15207,7 +15274,8 @@
         "summary": "Ingress-Postly-Adapter-Events",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/quarantine/events": {
@@ -15331,7 +15399,8 @@
         "summary": "Quarantine List",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/quarantine/events/{record_id}": {
@@ -15436,7 +15505,8 @@
         "summary": "Quarantine Detail",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/quarantine/events/{record_id}/discard": {
@@ -15571,7 +15641,8 @@
         "summary": "Quarantine Discard",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/quarantine/events/{record_id}/release": {
@@ -15706,7 +15777,8 @@
         "summary": "Quarantine Release",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/reconciliation/operations": {
@@ -15830,7 +15902,8 @@
         "summary": "Reconciliation List",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/reconciliation/operations/{record_id}": {
@@ -15935,7 +16008,8 @@
         "summary": "Reconciliation Detail",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/reconciliation/operations/{record_id}/resolve": {
@@ -16070,7 +16144,8 @@
         "summary": "Reconciliation Resolve",
         "tags": [
           "canonical-compatibility"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/results/callbacks/{callback_id}": {
@@ -16187,7 +16262,8 @@
         "summary": "Callback Result",
         "tags": [
           "callbacks"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/api/v1/telnexa/events": {
@@ -16306,7 +16382,8 @@
         "summary": "Ingress-Telnexa-Gateway-Events",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/api/v1/vicidial/events": {
@@ -16425,7 +16502,8 @@
         "summary": "Ingress-Vicidial-Adapter-Events",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/capabilities": {
@@ -16468,7 +16546,8 @@
         "summary": "Capabilities",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/dependencies": {
@@ -16511,7 +16590,8 @@
         "summary": "Dependencies",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/health": {
@@ -16557,7 +16637,8 @@
         "summary": "Liveness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/health/dependencies": {
@@ -16605,7 +16686,8 @@
         "summary": "Dependencies",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "route-dependency"
       }
     },
     "/health/live": {
@@ -16656,7 +16738,8 @@
         "summary": "Liveness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/health/ready": {
@@ -16701,7 +16784,8 @@
         "summary": "Readiness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/healthz": {
@@ -16752,7 +16836,8 @@
         "summary": "Liveness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/internal/v1/database/backups": {
@@ -16800,7 +16885,8 @@
         "summary": "Backups",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/backups/latest": {
@@ -16848,7 +16934,8 @@
         "summary": "Latest Backup",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/capacity": {
@@ -16896,7 +16983,8 @@
         "summary": "Capacity",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/health": {
@@ -16944,7 +17032,8 @@
         "summary": "Health",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/locks": {
@@ -16992,7 +17081,8 @@
         "summary": "Locks",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/migrations": {
@@ -17040,7 +17130,8 @@
         "summary": "Migrations",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/migrations/verify": {
@@ -17088,7 +17179,8 @@
         "summary": "Verify Migrations",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/performance": {
@@ -17136,7 +17228,8 @@
         "summary": "Performance",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/pool": {
@@ -17184,7 +17277,8 @@
         "summary": "Pool",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/readiness": {
@@ -17232,7 +17326,8 @@
         "summary": "Readiness",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/restores/latest": {
@@ -17280,7 +17375,8 @@
         "summary": "Latest Restore",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/schema": {
@@ -17328,7 +17424,8 @@
         "summary": "Schema",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/security/certificates": {
@@ -17376,7 +17473,8 @@
         "summary": "Certificates",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/security/rls": {
@@ -17424,7 +17522,8 @@
         "summary": "Rls",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/security/roles": {
@@ -17473,7 +17572,8 @@
         "summary": "Roles",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/security/tls": {
@@ -17521,7 +17621,8 @@
         "summary": "Tls",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/database/status": {
@@ -17569,7 +17670,8 @@
         "summary": "Status",
         "tags": [
           "internal-database"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/production/decision": {
@@ -17616,7 +17718,8 @@
         "summary": "Decision Readback",
         "tags": [
           "internal-production-decision"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/production/decision/evaluate": {
@@ -17683,7 +17786,8 @@
         "summary": "Evaluate Decision",
         "tags": [
           "internal-production-decision"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/production/decision/policy": {
@@ -17730,7 +17834,8 @@
         "summary": "Decision Policy",
         "tags": [
           "internal-production-decision"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/backups/latest": {
@@ -17778,7 +17883,8 @@
         "summary": "Latest Backup",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/candidate": {
@@ -17826,7 +17932,8 @@
         "summary": "Release Candidate",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/certification": {
@@ -17874,7 +17981,8 @@
         "summary": "Certification Status",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/certification/evaluate": {
@@ -17922,7 +18030,8 @@
         "summary": "Evaluate Bundle",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/lock": {
@@ -17970,7 +18079,8 @@
         "summary": "Release Lock",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/restore-rehearsals/latest": {
@@ -18018,7 +18128,8 @@
         "summary": "Latest Restore Rehearsal",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/rollback/readiness": {
@@ -18066,7 +18177,8 @@
         "summary": "Rollback Readiness",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/internal/v1/release/seal": {
@@ -18114,7 +18226,8 @@
         "summary": "Release Seal",
         "tags": [
           "internal-release-certification"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/metrics": {
@@ -18159,7 +18272,8 @@
         "summary": "Metrics",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/activity": {
@@ -18272,7 +18386,8 @@
         "summary": "List Activity",
         "tags": [
           "activity"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/activity/{activity_id}": {
@@ -18350,7 +18465,8 @@
         "summary": "Get Activity",
         "tags": [
           "activity"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/adopt-extension": {
@@ -18415,7 +18531,8 @@
         "summary": "Adopt Agent Extension",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests": {
@@ -18512,7 +18629,8 @@
         "summary": "Create Provisioning Request",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests/{request_id}": {
@@ -18595,7 +18713,8 @@
         "summary": "Get Provisioning Request",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests/{request_id}/history": {
@@ -18678,7 +18797,8 @@
         "summary": "Provisioning History",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests/{request_id}/reactivate": {
@@ -18771,7 +18891,8 @@
         "summary": "Reactivate Provisioning Request",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests/{request_id}/reconcile": {
@@ -18864,7 +18985,8 @@
         "summary": "Reconcile Provisioning Request",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests/{request_id}/revoke": {
@@ -18957,7 +19079,8 @@
         "summary": "Revoke Provisioning Request",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/requests/{request_id}/suspend": {
@@ -19050,7 +19173,8 @@
         "summary": "Suspend Provisioning Request",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/reserve-extension": {
@@ -19128,7 +19252,8 @@
         "summary": "Reserve Agent Extension",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/webrtc/tickets": {
@@ -19193,7 +19318,8 @@
         "summary": "Issue Webrtc Ticket",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/{request_id}/disable": {
@@ -19286,7 +19412,8 @@
         "summary": "Disable Agent",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/{request_id}/readback": {
@@ -19369,7 +19496,8 @@
         "summary": "Provisioning Readback",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/{request_id}/release-extension": {
@@ -19471,7 +19599,8 @@
         "summary": "Release Agent Extension",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/{request_id}/repair-intents": {
@@ -19548,7 +19677,8 @@
         "summary": "Create Repair Intent",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/{request_id}/sync": {
@@ -19641,7 +19771,8 @@
         "summary": "Sync Agent",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agent-provisioning/{request_id}/webrtc/revoke": {
@@ -19734,7 +19865,8 @@
         "summary": "Revoke Webrtc Session",
         "tags": [
           "agent-provisioning"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agents/presence": {
@@ -19817,7 +19949,8 @@
         "summary": "List Agents Presence",
         "tags": [
           "presence"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/agents/{user_id}/presence": {
@@ -19897,7 +20030,8 @@
         "summary": "Get Agent Presence",
         "tags": [
           "presence"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/calls": {
@@ -20012,7 +20146,8 @@
         "summary": "List Calls",
         "tags": [
           "calls"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/calls/{call_id}": {
@@ -20093,7 +20228,8 @@
         "summary": "Get Call",
         "tags": [
           "calls"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/campaigns": {
@@ -20187,7 +20323,8 @@
         "summary": "List Campaigns",
         "tags": [
           "campaigns"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/campaigns/{campaign_id}": {
@@ -20267,7 +20404,8 @@
         "summary": "Get Campaign",
         "tags": [
           "campaigns"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/campaigns/{campaign_id}/channels": {
@@ -20347,7 +20485,8 @@
         "summary": "Get Campaign Channels",
         "tags": [
           "campaigns"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/campaigns/{campaign_id}/health": {
@@ -20427,7 +20566,8 @@
         "summary": "Get Campaign Health",
         "tags": [
           "campaigns"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/campaigns/{campaign_id}/members": {
@@ -20530,7 +20670,8 @@
         "summary": "List Campaign Members",
         "tags": [
           "campaigns"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands": {
@@ -20636,7 +20777,8 @@
         "summary": "Submit Command",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands/{operation_id}": {
@@ -20734,7 +20876,8 @@
         "summary": "Get Operation",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands/{operation_id}/cancel": {
@@ -20842,7 +20985,8 @@
         "summary": "Cancel Operation",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands/{operation_id}/history": {
@@ -20940,7 +21084,8 @@
         "summary": "Get Timeline",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands/{operation_id}/replay": {
@@ -21048,7 +21193,8 @@
         "summary": "Replay Operation",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands/{operation_id}/result": {
@@ -21146,7 +21292,8 @@
         "summary": "Get Command Result",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/commands/{operation_id}/retry": {
@@ -21254,7 +21401,8 @@
         "summary": "Retry Command",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/connectors": {
@@ -21299,7 +21447,8 @@
         "summary": "Connectors Catalog",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/connectors/{connector_id}": {
@@ -21394,7 +21543,8 @@
         "summary": "Connector Catalog Item",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/connectors/{connector_id}/capabilities": {
@@ -21489,7 +21639,8 @@
         "summary": "Connector Capabilities",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/connectors/{connector_id}/health": {
@@ -21584,7 +21735,8 @@
         "summary": "Connector Health",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/connectors/{connector_id}/readback": {
@@ -21689,7 +21841,8 @@
         "summary": "Connector Operator Readback",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/connectors/{connector_id}/reconcile": {
@@ -21794,7 +21947,8 @@
         "summary": "Connector Operator Reconcile",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/contacts": {
@@ -21883,7 +22037,8 @@
         "summary": "List Contacts",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "post": {
         "operationId": "create_contact_platform_v1_contacts_post",
@@ -21958,7 +22113,8 @@
         "summary": "Create Contact",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/contacts/{contact_id}": {
@@ -22033,7 +22189,8 @@
         "summary": "Get Contact",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "patch": {
         "operationId": "update_contact_platform_v1_contacts__contact_id__patch",
@@ -22117,7 +22274,8 @@
         "summary": "Update Contact",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/contacts/{contact_id}/notes": {
@@ -22192,7 +22350,8 @@
         "summary": "List Notes",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "post": {
         "operationId": "create_note_platform_v1_contacts__contact_id__notes_post",
@@ -22276,7 +22435,8 @@
         "summary": "Create Note",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/contacts/{contact_id}/notes/{note_id}": {
@@ -22371,7 +22531,8 @@
         "summary": "Update Note",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/contacts/{contact_id}/tasks": {
@@ -22446,7 +22607,8 @@
         "summary": "List Tasks",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "post": {
         "operationId": "create_task_platform_v1_contacts__contact_id__tasks_post",
@@ -22530,7 +22692,8 @@
         "summary": "Create Task",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/dead-letters": {
@@ -22628,7 +22791,8 @@
         "summary": "List Dead Letters",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/dead-letters/{operation_id}": {
@@ -22724,7 +22888,8 @@
         "summary": "Get Dead Letter",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/identities": {
@@ -22857,7 +23022,8 @@
         "summary": "List Email Identities",
         "tags": [
           "agent-provisioning-reads"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/activate": {
@@ -22924,7 +23090,8 @@
         "summary": "Activate",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/audit": {
@@ -22996,7 +23163,8 @@
         "summary": "Audit",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/authorize": {
@@ -23063,7 +23231,8 @@
         "summary": "Authorize",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/kill-switch": {
@@ -23130,7 +23299,8 @@
         "summary": "Kill Switch",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/quotas": {
@@ -23178,7 +23348,8 @@
         "summary": "Quotas",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/readiness": {
@@ -23226,7 +23397,8 @@
         "summary": "Readiness",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/revoke": {
@@ -23293,7 +23465,8 @@
         "summary": "Revoke",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/email/production/status": {
@@ -23340,7 +23513,8 @@
         "summary": "Status",
         "tags": [
           "email-production"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/hosts": {
@@ -23422,7 +23596,8 @@
         "summary": "Hosts",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/hosts/{host_id}": {
@@ -23513,7 +23688,8 @@
         "summary": "Host",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/integrations/github/events": {
@@ -23560,7 +23736,8 @@
         "summary": "Github Event",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/kernel/describe": {
@@ -23605,7 +23782,8 @@
         "summary": "Describe Kernel",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/me/presence": {
@@ -23653,7 +23831,8 @@
         "summary": "Get My Presence",
         "tags": [
           "presence"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/operations/{operation_id}": {
@@ -23751,7 +23930,8 @@
         "summary": "Get Operation",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/operations/{operation_id}/cancel": {
@@ -23859,7 +24039,8 @@
         "summary": "Cancel Operation",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/operations/{operation_id}/recovery-history": {
@@ -23955,7 +24136,8 @@
         "summary": "Recovery History",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/operations/{operation_id}/replay": {
@@ -24063,7 +24245,8 @@
         "summary": "Replay Operation",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/operations/{operation_id}/timeline": {
@@ -24161,7 +24344,8 @@
         "summary": "Get Timeline",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/opportunities": {
@@ -24250,7 +24434,8 @@
         "summary": "List Opportunities",
         "tags": [
           "opportunities"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "post": {
         "operationId": "create_opportunity_platform_v1_opportunities_post",
@@ -24325,7 +24510,8 @@
         "summary": "Create Opportunity",
         "tags": [
           "opportunities"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/opportunities/{opportunity_id}": {
@@ -24400,7 +24586,8 @@
         "summary": "Get Opportunity",
         "tags": [
           "opportunities"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "patch": {
         "operationId": "update_opportunity_platform_v1_opportunities__opportunity_id__patch",
@@ -24484,7 +24671,8 @@
         "summary": "Update Opportunity",
         "tags": [
           "opportunities"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/queues": {
@@ -24555,7 +24743,8 @@
         "summary": "List Queues",
         "tags": [
           "queues"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/queues/{queue_id}": {
@@ -24635,7 +24824,8 @@
         "summary": "Get Queue",
         "tags": [
           "queues"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/queues/{queue_id}/calls": {
@@ -24727,7 +24917,8 @@
         "summary": "List Queue Calls",
         "tags": [
           "queues"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/queues/{queue_id}/members": {
@@ -24807,7 +24998,8 @@
         "summary": "List Queue Members",
         "tags": [
           "queues"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/queues/{queue_id}/metrics": {
@@ -24887,7 +25079,8 @@
         "summary": "Get Queue Metrics",
         "tags": [
           "queues"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/rehearsals/no-effect": {
@@ -24993,7 +25186,8 @@
         "summary": "Run No Effect Rehearsal",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/rehearsals/{rehearsal_id}": {
@@ -25091,7 +25285,8 @@
         "summary": "Get No Effect Rehearsal",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/replays/{replay_id}/cancel": {
@@ -25187,7 +25382,8 @@
         "summary": "Cancel Replay",
         "tags": [
           "platform-command-kernel"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/repositories": {
@@ -25234,7 +25430,8 @@
         "summary": "Repositories",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/runtime/observations": {
@@ -25301,7 +25498,8 @@
         "summary": "Observe",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/services/{service_id}/contract-refresh": {
@@ -25379,7 +25577,8 @@
         "summary": "Contract Refresh",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/services/{service_id}/coverage": {
@@ -25457,7 +25656,8 @@
         "summary": "Coverage",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/services/{service_id}/dependencies": {
@@ -25525,7 +25725,8 @@
         "summary": "Dependencies",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/services/{service_id}/deployments": {
@@ -25603,7 +25804,8 @@
         "summary": "Deployments",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/services/{service_id}/endpoints": {
@@ -25681,7 +25883,8 @@
         "summary": "Endpoints",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/services/{service_id}/telemetry-profile": {
@@ -25759,7 +25962,8 @@
         "summary": "Profile",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/session/context": {
@@ -25828,7 +26032,8 @@
         "summary": "Get Session Context",
         "tags": [
           "session-context"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/session/context/select": {
@@ -25896,7 +26101,8 @@
         "summary": "Select Session Context",
         "tags": [
           "session-context"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/sms/identities": {
@@ -26029,7 +26235,8 @@
         "summary": "List Sms Identities",
         "tags": [
           "agent-provisioning-reads"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/sync/reconciliations": {
@@ -26096,7 +26303,8 @@
         "summary": "Reconcile",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/sync/reconciliations/{reconciliation_id}": {
@@ -26164,7 +26372,8 @@
         "summary": "Reconciliation Result",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/sync/status": {
@@ -26233,7 +26442,8 @@
         "summary": "Sync Status",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tasks/{task_id}": {
@@ -26319,7 +26529,8 @@
         "summary": "Update Task",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tasks/{task_id}/complete": {
@@ -26394,7 +26605,8 @@
         "summary": "Complete Task",
         "tags": [
           "contacts"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/telemetry/heartbeats": {
@@ -26461,7 +26673,8 @@
         "summary": "Heartbeat",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/telephony/assignments": {
@@ -26577,7 +26790,8 @@
         "summary": "List Telephony Assignments",
         "tags": [
           "agent-provisioning-reads"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tenants": {
@@ -26678,7 +26892,8 @@
         "summary": "List Tenants",
         "tags": [
           "tenants"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tenants/authorized": {
@@ -26762,7 +26977,8 @@
         "summary": "List Authorized Tenants",
         "tags": [
           "tenants"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tenants/{tenant_id}": {
@@ -26834,7 +27050,8 @@
         "summary": "Get Tenant",
         "tags": [
           "tenants"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tenants/{tenant_id}/campaigns": {
@@ -26926,7 +27143,8 @@
         "summary": "List Tenant Campaigns",
         "tags": [
           "tenants"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tenants/{tenant_id}/health": {
@@ -26995,7 +27213,8 @@
         "summary": "Get Tenant Health",
         "tags": [
           "tenants"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tickets": {
@@ -27084,7 +27303,8 @@
         "summary": "List Tickets",
         "tags": [
           "tickets"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "post": {
         "operationId": "create_ticket_platform_v1_tickets_post",
@@ -27159,7 +27379,8 @@
         "summary": "Create Ticket",
         "tags": [
           "tickets"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/tickets/{ticket_id}": {
@@ -27234,7 +27455,8 @@
         "summary": "Get Ticket",
         "tags": [
           "tickets"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "patch": {
         "operationId": "update_ticket_platform_v1_tickets__ticket_id__patch",
@@ -27318,7 +27540,8 @@
         "summary": "Update Ticket",
         "tags": [
           "tickets"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/users/{employee_id}": {
@@ -27398,7 +27621,8 @@
         "summary": "Get User",
         "tags": [
           "agent-provisioning-reads"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/users/{employee_id}/campaigns": {
@@ -27478,7 +27702,8 @@
         "summary": "Get User Campaigns",
         "tags": [
           "agent-provisioning-reads"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/platform/v1/users/{employee_id}/entitlements": {
@@ -27558,7 +27783,8 @@
         "summary": "Get User Entitlements",
         "tags": [
           "agent-provisioning-reads"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/readiness": {
@@ -27598,7 +27824,8 @@
         "summary": "Readiness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/ready": {
@@ -27638,7 +27865,8 @@
         "summary": "Readiness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/readyz": {
@@ -27683,7 +27911,8 @@
         "summary": "Readiness",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/v1/ai/commands": {
@@ -27821,7 +28050,8 @@
         "summary": "Submit Ai Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/ai/operations": {
@@ -27878,7 +28108,8 @@
         "summary": "List Ai Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/ai/operations/{operation_id}": {
@@ -27984,7 +28215,8 @@
         "summary": "Get Ai Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/ai/operations/{operation_id}/cancel": {
@@ -28120,7 +28352,8 @@
         "summary": "Cancel Ai Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/ai/operations/{operation_id}/reconcile": {
@@ -28256,7 +28489,8 @@
         "summary": "Reconcile Ai Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/ai/provider-health": {
@@ -28313,7 +28547,8 @@
         "summary": "Ai Health",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/audit/events": {
@@ -28437,7 +28672,8 @@
         "summary": "Audit Events",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/calls/originate": {
@@ -28576,7 +28812,8 @@
         "tags": [
           "domain-control",
           "odoo-calling"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/commands": {
@@ -28714,7 +28951,8 @@
         "summary": "Submit Command",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communication/messages": {
@@ -28852,7 +29090,8 @@
         "summary": "Create Communication Message",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communication/messages/{messageId}": {
@@ -28960,7 +29199,8 @@
         "summary": "Get Communication Message",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/messages": {
@@ -29019,7 +29259,8 @@
         "summary": "List Communication Messages",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       },
       "post": {
         "operationId": "create_communication_message_v1_communications_messages_post",
@@ -29155,7 +29396,8 @@
         "summary": "Create Communication Message",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/messages/by-idempotency": {
@@ -29224,7 +29466,8 @@
         "summary": "Get Communication By Idempotency",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/messages/{messageId}": {
@@ -29332,7 +29575,8 @@
         "summary": "Get Communication Message",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/messages/{messageId}/cancel": {
@@ -29470,7 +29714,8 @@
         "summary": "Cancel Communication Message",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/messages/{messageId}/events": {
@@ -29578,7 +29823,8 @@
         "summary": "List Communication Message Events",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/provider-health": {
@@ -29637,7 +29883,8 @@
         "summary": "Get Communication Provider Health",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/providers/health": {
@@ -29696,7 +29943,8 @@
         "summary": "Get Communication Provider Health",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/reputation": {
@@ -29755,7 +30003,8 @@
         "summary": "Get Communication Reputation",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/communications/usage": {
@@ -29887,7 +30136,8 @@
         "summary": "Get Communication Usage",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/commands": {
@@ -30025,7 +30275,8 @@
         "summary": "Submit Crm Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/delivery-results/{webhook_id}": {
@@ -30123,7 +30374,8 @@
         "summary": "Crm Event",
         "tags": [
           "provider-webhooks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/events/{webhook_id}": {
@@ -30221,7 +30473,8 @@
         "summary": "Crm Event",
         "tags": [
           "provider-webhooks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/mappings/validate": {
@@ -30348,7 +30601,8 @@
         "summary": "Mapping Validate",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/operations": {
@@ -30405,7 +30659,8 @@
         "summary": "List Crm Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/operations/{operation_id}": {
@@ -30511,7 +30766,8 @@
         "summary": "Get Crm Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/operations/{operation_id}/cancel": {
@@ -30647,7 +30903,8 @@
         "summary": "Cancel Crm Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/crm/operations/{operation_id}/reconcile": {
@@ -30783,7 +31040,8 @@
         "summary": "Reconcile Crm Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/email/commands": {
@@ -30921,7 +31179,8 @@
         "summary": "Submit Email Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/email/operations": {
@@ -30978,7 +31237,8 @@
         "summary": "List Email Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/email/operations/{operation_id}": {
@@ -31084,7 +31344,8 @@
         "summary": "Get Email Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox": {
@@ -31208,7 +31469,8 @@
         "summary": "Inbox List",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox/{record_id}": {
@@ -31313,7 +31575,8 @@
         "summary": "Inbox Detail",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox/{record_id}/discard": {
@@ -31448,7 +31711,8 @@
         "summary": "Inbox Discard",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox/{record_id}/events": {
@@ -31553,7 +31817,8 @@
         "summary": "Inbox Events",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox/{record_id}/quarantine": {
@@ -31688,7 +31953,8 @@
         "summary": "Inbox Quarantine",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox/{record_id}/release": {
@@ -31823,7 +32089,8 @@
         "summary": "Inbox Release",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/inbox/{record_id}/reprocess": {
@@ -31958,7 +32225,8 @@
         "summary": "Inbox Reprocess",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/intake/leads": {
@@ -32035,7 +32303,8 @@
         "summary": "Submit Lead",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/intake/surveys/responses": {
@@ -32112,7 +32381,8 @@
         "summary": "Submit Survey Response",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/marketing/commands": {
@@ -32250,7 +32520,8 @@
         "summary": "Submit Marketing Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/marketing/operations": {
@@ -32307,7 +32578,8 @@
         "summary": "List Marketing Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/marketing/operations/{operation_id}": {
@@ -32413,7 +32685,8 @@
         "summary": "Get Marketing Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/marketing/operations/{operation_id}/cancel": {
@@ -32549,7 +32822,8 @@
         "summary": "Cancel Marketing Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/marketing/operations/{operation_id}/reconcile": {
@@ -32685,7 +32959,8 @@
         "summary": "Reconcile Marketing Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/observability/agents": {
@@ -32793,7 +33068,8 @@
         "summary": "Agents",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/backups": {
@@ -32885,7 +33161,8 @@
         "summary": "List Monitoring Backup",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/campaigns/{campaign_id}": {
@@ -32963,7 +33240,8 @@
         "summary": "Campaign",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/certificates": {
@@ -33055,7 +33333,8 @@
         "summary": "List Monitoring Certificate",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/dashboards": {
@@ -33147,7 +33426,8 @@
         "summary": "List Monitoring Dashboard",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/events/stream": {
@@ -33224,7 +33504,8 @@
         "summary": "Stream",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/incidents": {
@@ -33321,7 +33602,8 @@
         "summary": "Submit Incident",
         "tags": [
           "kyyow-observability-sync"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/integrations": {
@@ -33380,7 +33662,8 @@
         "summary": "Integrations",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/integrations/{integration_id}": {
@@ -33481,7 +33764,8 @@
         "summary": "Integration",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/kpis": {
@@ -33610,7 +33894,8 @@
         "summary": "List Kpis",
         "tags": [
           "kyyow-observability-sync"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       },
       "post": {
         "operationId": "submit_kpi_v1_observability_kpis_post",
@@ -33705,7 +33990,8 @@
         "summary": "Submit Kpi",
         "tags": [
           "kyyow-observability-sync"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/kpis/{event_id}": {
@@ -33781,7 +34067,8 @@
         "summary": "Get Kpi",
         "tags": [
           "kyyow-observability-sync"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/logs/query": {
@@ -33880,7 +34167,8 @@
         "summary": "Query Logs",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/metrics/query": {
@@ -33979,7 +34267,8 @@
         "summary": "Query Metrics",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/metrics/query-range": {
@@ -34078,7 +34367,8 @@
         "summary": "Query Metrics Range",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/odoo-sync": {
@@ -34135,7 +34425,8 @@
         "summary": "Odoo Sync Status",
         "tags": [
           "kyyow-observability-sync"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/overview": {
@@ -34194,7 +34485,8 @@
         "summary": "Overview",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/probe-runs": {
@@ -34293,7 +34585,8 @@
         "summary": "Probe",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/probe-runs/{probe_run_id}": {
@@ -34371,7 +34664,8 @@
         "summary": "Probe Result",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/secrets/health": {
@@ -34430,7 +34724,8 @@
         "summary": "Secrets Health",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/services/{service_id}/health": {
@@ -34518,7 +34813,8 @@
         "summary": "Health",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/slo": {
@@ -34610,7 +34906,8 @@
         "summary": "List Monitoring Slo",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/topology": {
@@ -34669,7 +34966,8 @@
         "summary": "Topology",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/traces/search": {
@@ -34768,7 +35066,8 @@
         "summary": "Query Traces Search",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/observability/traces/{trace_id}": {
@@ -34846,7 +35145,8 @@
         "summary": "Trace",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/odoo/commands": {
@@ -34984,7 +35284,8 @@
         "summary": "Submit Odoo Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/odoo/mappings/validate": {
@@ -35111,7 +35412,8 @@
         "summary": "Mapping Validate",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/odoo/operations": {
@@ -35168,7 +35470,8 @@
         "summary": "List Odoo Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/odoo/operations/{operation_id}": {
@@ -35274,7 +35577,8 @@
         "summary": "Get Odoo Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/odoo/operations/{operation_id}/cancel": {
@@ -35410,7 +35714,8 @@
         "summary": "Cancel Odoo Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/odoo/operations/{operation_id}/reconcile": {
@@ -35546,7 +35851,8 @@
         "summary": "Reconcile Odoo Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/odoo/provider-health": {
@@ -35603,7 +35909,8 @@
         "summary": "Odoo Health",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations": {
@@ -35775,7 +36082,8 @@
         "summary": "List Operations",
         "tags": [
           "operations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/auth-gateway": {
@@ -35832,7 +36140,8 @@
         "summary": "Auth Gateway",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/canaries": {
@@ -35889,7 +36198,8 @@
         "summary": "Canaries",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/messages/lifecycle": {
@@ -35946,7 +36256,8 @@
         "summary": "Message Lifecycle",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/overview": {
@@ -36003,7 +36314,8 @@
         "summary": "Overview",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/providers": {
@@ -36060,7 +36372,8 @@
         "summary": "Providers",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/queues": {
@@ -36117,7 +36430,8 @@
         "summary": "Queues",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/release-gates": {
@@ -36174,7 +36488,8 @@
         "summary": "Release Gates",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/routes": {
@@ -36231,7 +36546,8 @@
         "summary": "Routes",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/tenants/{tenant_id}": {
@@ -36336,7 +36652,8 @@
         "summary": "Tenant Activity",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations-dashboard/webhooks": {
@@ -36381,7 +36698,8 @@
         "summary": "Webhooks",
         "tags": [
           "operations-dashboard"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations/{command_id}": {
@@ -36489,7 +36807,8 @@
         "summary": "Get Operation",
         "tags": [
           "operations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations/{command_id}/attempts": {
@@ -36625,7 +36944,8 @@
         "summary": "List Attempts",
         "tags": [
           "operations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations/{command_id}/cancel": {
@@ -36763,7 +37083,8 @@
         "summary": "Cancel Operation",
         "tags": [
           "operations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations/{command_id}/events": {
@@ -36899,7 +37220,8 @@
         "summary": "List Events",
         "tags": [
           "operations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/operations/{command_id}/reconcile": {
@@ -37037,7 +37359,8 @@
         "summary": "Reconcile Operation",
         "tags": [
           "operations"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/outbox": {
@@ -37161,7 +37484,8 @@
         "summary": "Outbox List",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/outbox/{record_id}": {
@@ -37266,7 +37590,8 @@
         "summary": "Outbox Detail",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/outbox/{record_id}/attempts": {
@@ -37371,7 +37696,8 @@
         "summary": "Outbox Attempts",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/outbox/{record_id}/cancel": {
@@ -37506,7 +37832,8 @@
         "summary": "Outbox Cancel",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/outbox/{record_id}/reconcile": {
@@ -37641,7 +37968,8 @@
         "summary": "Outbox Reconcile",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/outbox/{record_id}/retry": {
@@ -37776,7 +38104,8 @@
         "summary": "Outbox Retry",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/policy/decisions": {
@@ -37902,7 +38231,8 @@
         "summary": "Policy Decision",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/policy/effective": {
@@ -37959,7 +38289,8 @@
         "summary": "Effective Policy",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/providers/status": {
@@ -38016,7 +38347,8 @@
         "summary": "Provider Status",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/reconciliation/operations": {
@@ -38124,7 +38456,8 @@
         "summary": "Reconciliation List",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/reconciliation/operations/{record_id}/request": {
@@ -38259,7 +38592,8 @@
         "summary": "Outbox Reconcile",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/runtime/safety": {
@@ -38306,7 +38640,8 @@
         "summary": "Runtime Safety",
         "tags": [
           "appolon-control-plane"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/sms/commands": {
@@ -38444,7 +38779,8 @@
         "summary": "Submit Sms Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/sms/operations": {
@@ -38501,7 +38837,8 @@
         "summary": "List Sms Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/sms/operations/{operation_id}": {
@@ -38607,7 +38944,8 @@
         "summary": "Get Sms Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/social/commands": {
@@ -38745,7 +39083,8 @@
         "summary": "Submit Social Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/social/operations": {
@@ -38802,7 +39141,8 @@
         "summary": "List Social Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/social/operations/{operation_id}": {
@@ -38908,7 +39248,8 @@
         "summary": "Get Social Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/social/operations/{operation_id}/cancel": {
@@ -39044,7 +39385,8 @@
         "summary": "Cancel Social Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/social/operations/{operation_id}/reconcile": {
@@ -39180,7 +39522,8 @@
         "summary": "Reconcile Social Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/system/capabilities": {
@@ -39237,7 +39580,8 @@
         "summary": "System Capabilities",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/system/readiness": {
@@ -39294,7 +39638,8 @@
         "summary": "System Readiness",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/system/safety-state": {
@@ -39351,7 +39696,8 @@
         "summary": "System Safety",
         "tags": [
           "durable-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telemetry/browser-events": {
@@ -39450,7 +39796,8 @@
         "summary": "Browser Event",
         "tags": [
           "integrated-monitoring"
-        ]
+        ],
+        "x-codestra-auth-mode": "shared-secret-bearer"
       }
     },
     "/v1/telephony/calls/originate": {
@@ -39589,7 +39936,8 @@
         "tags": [
           "domain-control",
           "odoo-calling"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/calls/requests/{operation_id}": {
@@ -39698,7 +40046,8 @@
         "tags": [
           "domain-control",
           "odoo-calling"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/calls/requests/{operation_id}/hangup": {
@@ -39847,7 +40196,8 @@
         "tags": [
           "domain-control",
           "odoo-calling"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/calls/requests/{operation_id}/reconcile": {
@@ -39996,7 +40346,8 @@
         "tags": [
           "domain-control",
           "odoo-calling"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/commands": {
@@ -40134,7 +40485,8 @@
         "summary": "Submit Telephony Command",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/operations": {
@@ -40191,7 +40543,8 @@
         "summary": "List Telephony Operations",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/operations/{operation_id}": {
@@ -40297,7 +40650,8 @@
         "summary": "Get Telephony Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/operations/{operation_id}/cancel": {
@@ -40433,7 +40787,8 @@
         "summary": "Cancel Telephony Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/telephony/operations/{operation_id}/reconcile": {
@@ -40569,7 +40924,8 @@
         "summary": "Reconcile Telephony Operation",
         "tags": [
           "domain-control"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v1/webhooks/{connector_id}/{endpoint_key}/{webhook_id}": {
@@ -40685,7 +41041,8 @@
         "summary": "Generic Webhook",
         "tags": [
           "provider-webhooks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/approvals": {
@@ -40750,7 +41107,8 @@
         "summary": "Request Automation Approval",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/approvals/{approval_id}": {
@@ -40817,7 +41175,8 @@
         "summary": "Read Automation Approval",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/capabilities/{capability}": {
@@ -40883,7 +41242,8 @@
         "summary": "Read Automation Capability",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/commands": {
@@ -40948,7 +41308,8 @@
         "summary": "Submit Automation Command",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/commands/{command_id}": {
@@ -41015,7 +41376,8 @@
         "summary": "Read Automation Command",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/dead-letters/{dead_letter_id}/replay": {
@@ -41092,7 +41454,8 @@
         "summary": "Replay Automation Dead Letter",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/claim": {
@@ -41157,7 +41520,8 @@
         "summary": "Claim Automation Job",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/reconcile": {
@@ -41222,7 +41586,8 @@
         "summary": "Reconcile Automation Jobs",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/{job_id}": {
@@ -41289,7 +41654,8 @@
         "summary": "Read Automation Job",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/{job_id}/complete": {
@@ -41366,7 +41732,8 @@
         "summary": "Complete Automation Job",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/{job_id}/fail": {
@@ -41443,7 +41810,8 @@
         "summary": "Fail Automation Job",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/{job_id}/heartbeat": {
@@ -41520,7 +41888,8 @@
         "summary": "Heartbeat Automation Job",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/v2/automation/jobs/{job_id}/steps": {
@@ -41597,7 +41966,8 @@
         "summary": "Record Automation Step",
         "tags": [
           "automation-v2"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     },
     "/version": {
@@ -41640,7 +42010,8 @@
         "summary": "Version",
         "tags": [
           "health"
-        ]
+        ],
+        "x-codestra-auth-mode": "public"
       }
     },
     "/webhooks/vicidial/call-result/{webhook_id}": {
@@ -41738,7 +42109,8 @@
         "summary": "Vicidial Call Result",
         "tags": [
           "provider-webhooks"
-        ]
+        ],
+        "x-codestra-auth-mode": "handler-bearer"
       }
     }
   }

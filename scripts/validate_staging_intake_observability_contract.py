@@ -19,6 +19,7 @@ canonical application:
 Every clause is proven from executable Python syntax; nothing is asserted
 from documentation.
 """
+
 from __future__ import annotations
 
 import ast
@@ -109,7 +110,10 @@ EXPECTED_REGISTRY_ROUTERS = {
     "internal_ai_jobs_router": ("api.internal.ai_jobs", "router"),
     "internal_database_router": ("api.internal.database", "router"),
     "internal_provider_canaries_router": ("api.internal.provider_canaries", "router"),
-    "internal_production_decision_router": ("api.internal.production_decision", "router"),
+    "internal_production_decision_router": (
+        "api.internal.production_decision",
+        "router",
+    ),
     "internal_release_certification_router": (
         "api.internal.release_certification",
         "router",
@@ -238,6 +242,7 @@ EXPECTED_REGISTRY_TUPLES = {
             "sales_router",
             "booking_router",
             "platform_router",
+            "social_router",
         }
     ),
     "APPOLON_ROUTERS": frozenset(
@@ -271,7 +276,6 @@ EXPECTED_REGISTRY_TUPLES = {
             "registry_router",
             "recordings_router",
             "recording_identity_router",
-            "social_router",
         }
     ),
     "LEGACY_MONOLITH_ONLY_ROUTERS": frozenset(
@@ -623,7 +627,9 @@ def registration_path_argument(call: ast.Call) -> ast.expr:
         "route registration uses expanded keywords",
     )
     candidates: list[ast.expr] = list(call.args[:1])
-    candidates.extend(keyword.value for keyword in call.keywords if keyword.arg == "path")
+    candidates.extend(
+        keyword.value for keyword in call.keywords if keyword.arg == "path"
+    )
     require(len(candidates) == 1, "route registration path is missing or ambiguous")
     return candidates[0]
 
@@ -670,7 +676,9 @@ def assert_request_binding(tree: ast.Module, module_name: str) -> None:
             for imported in candidate.names:
                 if (imported.asname or imported.name.split(".", 1)[0]) == "Request":
                     request_bindings.append("another import")
-        elif isinstance(candidate, (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef)):
+        elif isinstance(
+            candidate, (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef)
+        ):
             if candidate.name == "Request":
                 request_bindings.append("a definition")
         elif (
@@ -728,7 +736,9 @@ def registered_paths(
             paths.append(full_path)
 
     for candidate in ast.walk(module_tree):
-        if not isinstance(candidate, ast.Call) or not isinstance(candidate.func, ast.Attribute):
+        if not isinstance(candidate, ast.Call) or not isinstance(
+            candidate.func, ast.Attribute
+        ):
             continue
         receiver = attribute_path(candidate.func.value)
         if receiver is None or len(receiver) != 1:
@@ -843,7 +853,9 @@ class Sources:
             if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
                 continue
             targets = (
-                statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+                statement.targets
+                if isinstance(statement, ast.Assign)
+                else [statement.target]
             )
             value = statement.value
             if not (
@@ -861,13 +873,19 @@ class Sources:
                 if keyword.arg == "prefix"
             ]
             require(
-                len(prefix_values) <= 1 and all(item is not None for item in prefix_values),
+                len(prefix_values) <= 1
+                and all(item is not None for item in prefix_values),
                 f"router prefix is dynamic or ambiguous: {module_name}.{name}",
             )
             prefix = prefix_values[0] if prefix_values else ""
             if prefix is None:
-                raise ContractError(f"router prefix is dynamic or ambiguous: {module_name}.{name}")
-            require(name not in prefixes, f"duplicate router definition: {module_name}.{name}")
+                raise ContractError(
+                    f"router prefix is dynamic or ambiguous: {module_name}.{name}"
+                )
+            require(
+                name not in prefixes,
+                f"duplicate router definition: {module_name}.{name}",
+            )
             prefixes[name] = prefix
         self.local_prefix_cache[module_name] = prefixes
         return prefixes
@@ -920,7 +938,10 @@ class Sources:
         )
         if binding_name in local:
             return local[binding_name]
-        require(binding_name in imported, f"router binding is unresolved: {module_name}.{binding_name}")
+        require(
+            binding_name in imported,
+            f"router binding is unresolved: {module_name}.{binding_name}",
+        )
         source_module, source_binding = imported[binding_name]
         return self.router_prefix(source_module, source_binding, active)
 
@@ -932,7 +953,9 @@ def verify_factory(sources: Sources) -> None:
     """``app/application.py``: one factory, one FastAPI, only approved helpers."""
     tree = sources.load(FACTORY_MODULE)
     factories = [
-        node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "create_app"
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "create_app"
     ]
     require(len(factories) == 1, "application factory definition is not unique")
     factory = factories[0]
@@ -952,7 +975,9 @@ def verify_factory(sources: Sources) -> None:
     if not isinstance(constructor, ast.Call):
         raise ContractError("FastAPI app binding is missing or ambiguous")
     require(
-        not any(keyword.arg in {None, "middleware"} for keyword in constructor.keywords),
+        not any(
+            keyword.arg in {None, "middleware"} for keyword in constructor.keywords
+        ),
         "FastAPI constructor middleware is not permitted",
     )
     canonical_app_target = app_assignments[0].targets[0]
@@ -977,7 +1002,10 @@ def verify_factory(sources: Sources) -> None:
     # ``app`` is only ever handed to the approved helpers, each exactly once,
     # and the factory itself registers nothing on it.
     for candidate in ast.walk(factory):
-        if isinstance(candidate, ast.Call) and attribute_path(candidate.func) is not None:
+        if (
+            isinstance(candidate, ast.Call)
+            and attribute_path(candidate.func) is not None
+        ):
             path = attribute_path(candidate.func)
             if path and path[0] == "app":
                 raise ContractError(
@@ -988,13 +1016,16 @@ def verify_factory(sources: Sources) -> None:
         if not isinstance(call, ast.Call):
             continue
         receives_app = any(
-            isinstance(argument, ast.Name) and argument.id == "app" for argument in call.args
+            isinstance(argument, ast.Name) and argument.id == "app"
+            for argument in call.args
         )
         if not receives_app:
             continue
         path = attribute_path(call.func)
         if path is None:
-            raise ContractError("FastAPI app is passed to an untracked registration helper")
+            raise ContractError(
+                "FastAPI app is passed to an untracked registration helper"
+            )
         name = path[-1]
         owner = path[0] if len(path) == 2 else None
         expected_owner = EXPECTED_FACTORY_APP_CALLS.get(name, "unexpected")
@@ -1042,16 +1073,22 @@ def verify_factory(sources: Sources) -> None:
     control_plane_imports = {
         imported.asname or imported.name
         for statement in tree.body
-        if isinstance(statement, ast.ImportFrom) and statement.level == 0 and statement.module == "app"
+        if isinstance(statement, ast.ImportFrom)
+        and statement.level == 0
+        and statement.module == "app"
         for imported in statement.names
     }
-    require(CONTROL_PLANE_ROUTES_MODULE in control_plane_imports, "control-plane routes import drifted")
+    require(
+        CONTROL_PLANE_ROUTES_MODULE in control_plane_imports,
+        "control-plane routes import drifted",
+    )
     rebound = {
         candidate.id
         for candidate in current_scope_nodes(tree)
         if isinstance(candidate, ast.Name)
         and isinstance(candidate.ctx, (ast.Store, ast.Del))
-        and candidate.id in set(EXPECTED_FACTORY_APP_CALLS) | {CONTROL_PLANE_ROUTES_MODULE}
+        and candidate.id
+        in set(EXPECTED_FACTORY_APP_CALLS) | {CONTROL_PLANE_ROUTES_MODULE}
     }
     require(not rebound, "application factory helper binding is reassigned")
 
@@ -1063,9 +1100,13 @@ def verify_guard(sources: Sources) -> None:
     middleware_calls = [
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and attribute_path(node.func) == ["app", "middleware"]
+        if isinstance(node, ast.Call)
+        and attribute_path(node.func) == ["app", "middleware"]
     ]
-    require(len(middleware_calls) == 1, "HTTP middleware registration is missing or ambiguous")
+    require(
+        len(middleware_calls) == 1,
+        "HTTP middleware registration is missing or ambiguous",
+    )
     decorator = middleware_calls[0]
     require(
         len(decorator.args) == 1
@@ -1088,14 +1129,17 @@ def verify_guard(sources: Sources) -> None:
     require(len(installs) == 1, "HTTP middleware is not installed as the request guard")
     require(
         not any(
-            isinstance(node, ast.Call) and attribute_path(node.func) == ["app", "add_middleware"]
+            isinstance(node, ast.Call)
+            and attribute_path(node.func) == ["app", "add_middleware"]
             for node in ast.walk(tree)
         ),
         "custom middleware is not permitted",
     )
 
     guard_classes = [
-        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "RequestGuard"
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "RequestGuard"
     ]
     require(len(guard_classes) == 1, "request guard class is missing or ambiguous")
     handlers = [
@@ -1135,10 +1179,13 @@ def verify_guard(sources: Sources) -> None:
     call_next_loads = [
         node
         for node in scope
-        if isinstance(node, ast.Name) and node.id == "call_next" and isinstance(node.ctx, ast.Load)
+        if isinstance(node, ast.Name)
+        and node.id == "call_next"
+        and isinstance(node.ctx, ast.Load)
     ]
     require(
-        isinstance(delegated_call, ast.Call) and call_next_loads == [delegated_call.func],
+        isinstance(delegated_call, ast.Call)
+        and call_next_loads == [delegated_call.func],
         "HTTP middleware delegation callable is reused or aliased",
     )
     response_assignments = [
@@ -1150,7 +1197,10 @@ def verify_guard(sources: Sources) -> None:
         and node.targets[0].id == "response"
         and node.value is delegated[0]
     ]
-    require(len(response_assignments) == 1, "HTTP middleware does not preserve the delegated response")
+    require(
+        len(response_assignments) == 1,
+        "HTTP middleware does not preserve the delegated response",
+    )
     response_bindings = [
         node
         for node in scope
@@ -1189,7 +1239,9 @@ def verify_guard(sources: Sources) -> None:
                     and isinstance(target.slice, ast.Constant)
                     and target.slice.value in GUARD_RESPONSE_HEADERS
                 ):
-                    raise ContractError("HTTP middleware mutates the delegated response")
+                    raise ContractError(
+                        "HTTP middleware mutates the delegated response"
+                    )
                 mutated_headers.append(str(target.slice.value))
             elif root == "request":
                 target_path = attribute_path(target)
@@ -1228,7 +1280,9 @@ def verify_guard(sources: Sources) -> None:
             "HTTP middleware may return without routing the request",
         )
         statuses = [
-            keyword.value for keyword in value.keywords if keyword.arg == "status_code"  # type: ignore[union-attr]
+            keyword.value
+            for keyword in value.keywords
+            if keyword.arg == "status_code"  # type: ignore[union-attr]
         ]
         require(
             len(statuses) == 1
@@ -1246,9 +1300,14 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
     def authentication_binding(node: ast.AsyncFunctionDef) -> tuple[str, str]:
         positional = [*node.args.posonlyargs, *node.args.args]
         request_arguments = [
-            (index, argument) for index, argument in enumerate(positional) if argument.arg == "request"
+            (index, argument)
+            for index, argument in enumerate(positional)
+            if argument.arg == "request"
         ]
-        require(len(request_arguments) == 1, "governed GET route request binding is missing or ambiguous")
+        require(
+            len(request_arguments) == 1,
+            "governed GET route request binding is missing or ambiguous",
+        )
         request_index, request_argument = request_arguments[0]
         require(
             isinstance(request_argument.annotation, ast.Name)
@@ -1256,7 +1315,10 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
             "governed GET route request parameter is not FastAPI Request",
         )
         default_start = len(positional) - len(node.args.defaults)
-        require(request_index < default_start, "governed GET route request parameter has a dependency default")
+        require(
+            request_index < default_start,
+            "governed GET route request parameter has a dependency default",
+        )
         statements = list(node.body)
         if (
             statements
@@ -1269,7 +1331,9 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
             raise ContractError("governed GET route body is empty")
         first = statements[0]
         if not isinstance(first, ast.Expr) or not isinstance(first.value, ast.Await):
-            raise ContractError("governed GET route must authenticate before executing its body")
+            raise ContractError(
+                "governed GET route must authenticate before executing its body"
+            )
         call = first.value.value
         if not isinstance(call, ast.Call) or attribute_path(call.func) != [
             "request",
@@ -1279,18 +1343,28 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
             "tokens",
             "verify",
         ]:
-            raise ContractError("governed GET route does not await the runtime token verifier")
+            raise ContractError(
+                "governed GET route does not await the runtime token verifier"
+            )
         if len(call.args) != 1 or not isinstance(call.args[0], ast.Call):
-            raise ContractError("governed GET route does not verify its Authorization header")
+            raise ContractError(
+                "governed GET route does not verify its Authorization header"
+            )
         header_call = call.args[0]
         if (
             attribute_path(header_call.func) != ["request", "headers", "get"]
             or len(header_call.args) != 2
             or not all(isinstance(item, ast.Constant) for item in header_call.args)
-            or [item.value for item in header_call.args if isinstance(item, ast.Constant)]
+            or [
+                item.value
+                for item in header_call.args
+                if isinstance(item, ast.Constant)
+            ]
             != ["Authorization", ""]
         ):
-            raise ContractError("governed GET route does not verify its Authorization header")
+            raise ContractError(
+                "governed GET route does not verify its Authorization header"
+            )
         require(
             all(keyword.arg is not None for keyword in call.keywords),
             "governed GET route authentication uses expanded keywords",
@@ -1308,7 +1382,9 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
             or not isinstance(scope, ast.Constant)
             or not isinstance(scope.value, str)
         ):
-            raise ContractError("governed GET route authentication binding is not static")
+            raise ContractError(
+                "governed GET route authentication binding is not static"
+            )
         return client.value, scope.value
 
     routes: dict[str, tuple[str, str]] = {}
@@ -1331,9 +1407,15 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
         paths = [path for path in paths if path in GOVERNED_READ_PATHS]
         if not paths:
             continue
-        require(len(node.decorator_list) == 1, "governed GET route has a handler-replacing decorator")
+        require(
+            len(node.decorator_list) == 1,
+            "governed GET route has a handler-replacing decorator",
+        )
         for path in paths:
-            require(path not in routes, f"duplicate GET route in control-plane routes: {path}")
+            require(
+                path not in routes,
+                f"duplicate GET route in control-plane routes: {path}",
+            )
             if not isinstance(node, ast.AsyncFunctionDef):
                 raise ContractError(f"governed GET route must be asynchronous: {path}")
             routes[path] = authentication_binding(node)
@@ -1365,7 +1447,10 @@ def verify_governed_routes(sources: Sources) -> dict[str, tuple[str, str]]:
             f"route helper call is missing or ambiguous: {helper_name}",
         )
     local = sources.local_router_prefixes(CONTROL_PLANE_ROUTES_MODULE)
-    require(set(local) == {"router"} and local["router"] == "", "control-plane router definition drifted")
+    require(
+        set(local) == {"router"} and local["router"] == "",
+        "control-plane router definition drifted",
+    )
     return routes
 
 
@@ -1392,7 +1477,9 @@ def verify_router_registry(sources: Sources) -> None:
     side_effect_modules = {
         imported_name.name
         for statement in registry_tree.body
-        if isinstance(statement, ast.ImportFrom) and statement.level == 0 and statement.module == "app"
+        if isinstance(statement, ast.ImportFrom)
+        and statement.level == 0
+        and statement.module == "app"
         for imported_name in statement.names
     }
     require(
@@ -1409,7 +1496,9 @@ def verify_router_registry(sources: Sources) -> None:
     require(not rebound, "router registry rebinds an approved router")
     tuples: dict[str, list[str]] = {}
     for statement in registry_tree.body:
-        if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+        if isinstance(statement, ast.AnnAssign) and isinstance(
+            statement.target, ast.Name
+        ):
             target_name, value = statement.target.id, statement.value
         elif (
             isinstance(statement, ast.Assign)
@@ -1421,25 +1510,38 @@ def verify_router_registry(sources: Sources) -> None:
             continue
         if target_name not in EXPECTED_REGISTRY_TUPLES:
             continue
-        require(target_name not in tuples, f"router registry tuple is duplicated: {target_name}")
         require(
-            isinstance(value, ast.Tuple) and all(isinstance(item, ast.Name) for item in value.elts),
+            target_name not in tuples,
+            f"router registry tuple is duplicated: {target_name}",
+        )
+        require(
+            isinstance(value, ast.Tuple)
+            and all(isinstance(item, ast.Name) for item in value.elts),
             f"router registry tuple is not a literal tuple of routers: {target_name}",
         )
         names = [item.id for item in value.elts]  # type: ignore[union-attr]
         require(
-            len(names) == len(set(names)) and set(names) == EXPECTED_REGISTRY_TUPLES[target_name],
+            len(names) == len(set(names))
+            and set(names) == EXPECTED_REGISTRY_TUPLES[target_name],
             f"router registry tuple drifted from the approved router set: {target_name}",
         )
         tuples[target_name] = names
-    require(set(tuples) == set(EXPECTED_REGISTRY_TUPLES), "router registry tuples are incomplete")
+    require(
+        set(tuples) == set(EXPECTED_REGISTRY_TUPLES),
+        "router registry tuples are incomplete",
+    )
     all_names = [name for names in tuples.values() for name in names]
-    require(len(all_names) == len(set(all_names)), "a router is mounted by more than one group")
+    require(
+        len(all_names) == len(set(all_names)),
+        "a router is mounted by more than one group",
+    )
 
     # ``_mount`` is the only place ``app.include_router`` is called: one loop
     # over its ``routers`` argument, including exactly the loop variable.
     mounts = [
-        node for node in registry_tree.body if isinstance(node, ast.FunctionDef) and node.name == "_mount"
+        node
+        for node in registry_tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_mount"
     ]
     require(len(mounts) == 1, "router registry _mount helper is not unique")
     loops = [
@@ -1453,7 +1555,8 @@ def verify_router_registry(sources: Sources) -> None:
     includes = [
         node
         for node in ast.walk(registry_tree)
-        if isinstance(node, ast.Call) and attribute_path(node.func) == ["app", "include_router"]
+        if isinstance(node, ast.Call)
+        and attribute_path(node.func) == ["app", "include_router"]
     ]
     require(
         len(loops) == 1
@@ -1470,11 +1573,16 @@ def verify_router_registry(sources: Sources) -> None:
             for node in registry_tree.body
             if isinstance(node, ast.FunctionDef) and node.name == mounter_name
         ]
-        require(len(definitions) == 1, f"router registry mounter is not unique: {mounter_name}")
+        require(
+            len(definitions) == 1,
+            f"router registry mounter is not unique: {mounter_name}",
+        )
         mount_calls = [
             node
             for node in ast.walk(definitions[0])
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_mount"
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_mount"
         ]
         require(
             len(mount_calls) == 1
@@ -1568,12 +1676,19 @@ def verify_route_sources(
         imported_bindings = sources.imported_router_bindings(module_name)
         receiver_names = set(local) | set(imported_bindings)
         require(receiver_names, f"included router module has no router: {module_name}")
-        receiver_prefixes = {name: sources.router_prefix(module_name, name) for name in receiver_names}
+        receiver_prefixes = {
+            name: sources.router_prefix(module_name, name) for name in receiver_names
+        }
         for candidate in ast.walk(module_tree):
             if not isinstance(candidate, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
                 continue
-            if isinstance(candidate.value, ast.Name) and candidate.value.id in receiver_names:
-                raise ContractError(f"router alias makes registration ambiguous: {module_name}")
+            if (
+                isinstance(candidate.value, ast.Name)
+                and candidate.value.id in receiver_names
+            ):
+                raise ContractError(
+                    f"router alias makes registration ambiguous: {module_name}"
+                )
         all_registered_paths.extend(
             registered_paths(
                 module_tree,
@@ -1594,7 +1709,9 @@ def verify_route_sources(
                 continue
             receiver = attribute_path(candidate.func.value)
             require(
-                receiver is not None and len(receiver) == 1 and receiver[0] in receiver_names,
+                receiver is not None
+                and len(receiver) == 1
+                and receiver[0] in receiver_names,
                 f"included-router receiver is unresolved: {module_name}",
             )
             if (
@@ -1603,7 +1720,9 @@ def verify_route_sources(
                 or not isinstance(candidate.args[0], ast.Name)
                 or candidate.args[0].id not in receiver_names
             ):
-                raise ContractError(f"included-router binding is dynamic or ambiguous: {module_name}")
+                raise ContractError(
+                    f"included-router binding is dynamic or ambiguous: {module_name}"
+                )
             included_name = candidate.args[0].id
             if included_name in imported_bindings:
                 pending_modules.append(imported_bindings[included_name][0])
@@ -1625,7 +1744,9 @@ def verify_application_sources(
     verify_guard(sources)
     verify_router_registry(sources)
     routes = verify_governed_routes(sources)
-    verify_route_sources(sources, webhook_paths=webhook_paths, provider_paths=provider_paths)
+    verify_route_sources(
+        sources, webhook_paths=webhook_paths, provider_paths=provider_paths
+    )
     return routes
 
 
@@ -1656,7 +1777,9 @@ def main() -> None:
     profiles = json.loads((ROOT / "config/runtime-profiles.v1.json").read_text())
     require(profiles["schema_version"] == "1.0", "profile schema version drift")
     matches = [
-        item for item in profiles["profiles"] if item["profile_id"] == EXPECTED_PROFILE["profile_id"]
+        item
+        for item in profiles["profiles"]
+        if item["profile_id"] == EXPECTED_PROFILE["profile_id"]
     ]
     require(matches == [EXPECTED_PROFILE], "staging runtime profile drift")
     embedded = release["embedded_runtime_profile"]
@@ -1679,8 +1802,14 @@ def main() -> None:
 
     runtime = contract["runtime"]
     require(runtime["environment"] == "staging", "runtime environment drift")
-    require(runtime["profile_id"] == EXPECTED_PROFILE["profile_id"], "runtime profile binding drift")
-    require(runtime["allow_in_memory_storage"] is False, "in-memory storage must remain disabled")
+    require(
+        runtime["profile_id"] == EXPECTED_PROFILE["profile_id"],
+        "runtime profile binding drift",
+    )
+    require(
+        runtime["allow_in_memory_storage"] is False,
+        "in-memory storage must remain disabled",
+    )
     require(runtime["host_ports_published"] is False, "host ports must not publish")
     require(runtime["private_network_only"] is True, "runtime must remain private")
     require(
@@ -1691,20 +1820,53 @@ def main() -> None:
     require(runtime["temporal_worker_mode"] == "disabled", "Temporal worker enabled")
     require(runtime["outbox_dispatch_enabled"] is False, "outbox dispatch enabled")
     require(runtime["production_dialing"] == "DISABLED", "production dialing enabled")
-    require(runtime["production_activation_configured"] is False, "production activation configured")
+    require(
+        runtime["production_activation_configured"] is False,
+        "production activation configured",
+    )
 
     endpoints = contract["authenticated_read_endpoints"]
     expected_endpoints = {
-        ("GET", "/metrics", "monitoring-readonly", "metrics.read", "middleware-api", False),
-        ("GET", "/v1/runtime/safety", "monitoring-readonly", "health.read", "middleware-api", False),
+        (
+            "GET",
+            "/metrics",
+            "monitoring-readonly",
+            "metrics.read",
+            "middleware-api",
+            False,
+        ),
+        (
+            "GET",
+            "/v1/runtime/safety",
+            "monitoring-readonly",
+            "health.read",
+            "middleware-api",
+            False,
+        ),
     }
     actual = {
-        (e["method"], e["path"], e["client_id"], e["scope"], e["audience"], e["public_exposure"])
+        (
+            e["method"],
+            e["path"],
+            e["client_id"],
+            e["scope"],
+            e["audience"],
+            e["public_exposure"],
+        )
         for e in endpoints
     }
-    require(actual == expected_endpoints and len(endpoints) == 2, "authenticated read endpoint policy drift")
-    require(contract["token_policy"]["maximum_lifetime_seconds"] == 300, "token lifetime policy drift")
-    require(contract["token_policy"]["minimum_independent_tokens"] == 2, "independent token policy drift")
+    require(
+        actual == expected_endpoints and len(endpoints) == 2,
+        "authenticated read endpoint policy drift",
+    )
+    require(
+        contract["token_policy"]["maximum_lifetime_seconds"] == 300,
+        "token lifetime policy drift",
+    )
+    require(
+        contract["token_policy"]["minimum_independent_tokens"] == 2,
+        "independent token policy drift",
+    )
     require(
         contract["token_policy"]["token_values_in_logs_or_artifacts"] is False,
         "token values may enter evidence",
@@ -1725,33 +1887,61 @@ def main() -> None:
         "dispatch control drift",
     )
     require(
-        all(value is False for value in contract["defense_in_depth_compatibility_flags"].values()),
+        all(
+            value is False
+            for value in contract["defense_in_depth_compatibility_flags"].values()
+        ),
         "compatibility effect is enabled",
     )
     require(
         contract["evidence"]["checksum_state"] == "PENDING_RUNTIME_EXECUTION",
         "runtime checksum evidence was asserted from source",
     )
-    require(contract["evidence"]["prometheus_target_state"] == "pending", "Prometheus evidence was asserted from source")
-    require(contract["evidence"]["blackbox_target_state"] == "pending", "blackbox evidence was asserted from source")
+    require(
+        contract["evidence"]["prometheus_target_state"] == "pending",
+        "Prometheus evidence was asserted from source",
+    )
+    require(
+        contract["evidence"]["blackbox_target_state"] == "pending",
+        "blackbox evidence was asserted from source",
+    )
     require(contract["production_authorized"] is False, "production authorized")
 
-    env = parse_env(ROOT / "config/environments/staging.intake-observability.runtime.env.example")
+    env = parse_env(
+        ROOT / "config/environments/staging.intake-observability.runtime.env.example"
+    )
     require(env["APP_ENV"] == "staging", "environment template is not staging")
-    require(env["RUNTIME_PROFILE_ID"] == EXPECTED_PROFILE["profile_id"], "environment profile drift")
+    require(
+        env["RUNTIME_PROFILE_ID"] == EXPECTED_PROFILE["profile_id"],
+        "environment profile drift",
+    )
     require(env["APP_SOURCE_SHA"] == EXPECTED_SOURCE, "environment source drift")
     require(env["IMAGE_DIGEST"] == EXPECTED_DIGEST, "environment digest drift")
     require(env["SCHEMA_HEAD"] == release["schema_head"], "environment schema drift")
-    require(env["ALLOW_IN_MEMORY_STORAGE"] == "false", "environment permits in-memory storage")
+    require(
+        env["ALLOW_IN_MEMORY_STORAGE"] == "false",
+        "environment permits in-memory storage",
+    )
     assert_database_url(env["DATABASE_URL"])
     assert_redis_url(env["REDIS_URL"])
     require(env["NATS_URL"] == "", "NATS URL must remain unset")
-    require(env["NATS_STREAM"] == EXPECTED_PROFILE["nats"]["stream"], "NATS stream drift")
-    require(env["NATS_SUBJECT_PREFIX"] == EXPECTED_PROFILE["nats"]["subject_prefix"], "NATS subject drift")
+    require(
+        env["NATS_STREAM"] == EXPECTED_PROFILE["nats"]["stream"], "NATS stream drift"
+    )
+    require(
+        env["NATS_SUBJECT_PREFIX"] == EXPECTED_PROFILE["nats"]["subject_prefix"],
+        "NATS subject drift",
+    )
     require(env["NATS_DISPATCH_MODE"] == "disabled", "NATS dispatch enabled")
     require(env["TEMPORAL_ADDRESS"] == "", "Temporal address must remain unset")
-    require(env["TEMPORAL_NAMESPACE"] == EXPECTED_PROFILE["temporal"]["namespace"], "Temporal namespace drift")
-    require(env["TEMPORAL_TASK_QUEUE"] == EXPECTED_PROFILE["temporal"]["task_queue"], "Temporal task queue drift")
+    require(
+        env["TEMPORAL_NAMESPACE"] == EXPECTED_PROFILE["temporal"]["namespace"],
+        "Temporal namespace drift",
+    )
+    require(
+        env["TEMPORAL_TASK_QUEUE"] == EXPECTED_PROFILE["temporal"]["task_queue"],
+        "Temporal task queue drift",
+    )
     require(env["TEMPORAL_WORKER_MODE"] == "disabled", "Temporal worker enabled")
     require(env["PRODUCTION_DIALING"] == "DISABLED", "production dialing enabled")
     for name in effects:
@@ -1759,21 +1949,32 @@ def main() -> None:
     require(env["OUTBOX_DISPATCH_ENABLED"] == "false", "outbox dispatch enabled")
     for name in contract["defense_in_depth_compatibility_flags"]:
         require(env[name] == "false", f"compatibility effect enabled: {name}")
-    require(WEBHOOK_SECRET_NAMES.issubset(env), "environment webhook secret placeholders are incomplete")
     require(
-        all(len(env[name]) >= 32 and env[name].startswith("REPLACE_WITH_") for name in WEBHOOK_SECRET_NAMES),
+        WEBHOOK_SECRET_NAMES.issubset(env),
+        "environment webhook secret placeholders are incomplete",
+    )
+    require(
+        all(
+            len(env[name]) >= 32 and env[name].startswith("REPLACE_WITH_")
+            for name in WEBHOOK_SECRET_NAMES
+        ),
         "environment webhook secret placeholder is unsafe",
     )
 
     security_source = (ROOT / "app/security.py").read_text()
-    webhook_contract = json.loads((ROOT / "config/api-webhook-contracts.json").read_text(encoding="utf-8"))
+    webhook_contract = json.loads(
+        (ROOT / "config/api-webhook-contracts.json").read_text(encoding="utf-8")
+    )
     raw_webhooks = webhook_contract.get("webhooks", [])
     require(isinstance(raw_webhooks, list), "dynamic webhook policy is malformed")
     webhook_paths: list[str] = []
     for item in raw_webhooks:
         require(isinstance(item, dict), "dynamic webhook policy is malformed")
         path = item.get("path")
-        require(isinstance(path, str) and path.startswith("/"), "dynamic webhook path is invalid")
+        require(
+            isinstance(path, str) and path.startswith("/"),
+            "dynamic webhook path is invalid",
+        )
         webhook_paths.append(path)
     require(
         webhook_paths
@@ -1781,17 +1982,28 @@ def main() -> None:
         and GOVERNED_READ_PATHS.isdisjoint(webhook_paths),
         "dynamic webhook paths are duplicated or shadow a governed GET route",
     )
-    provider_policy = json.loads((ROOT / "config/provider-operation-policy.json").read_text(encoding="utf-8"))
-    require(provider_policy.get("schemaVersion") == 1, "provider operation policy version drift")
+    provider_policy = json.loads(
+        (ROOT / "config/provider-operation-policy.json").read_text(encoding="utf-8")
+    )
+    require(
+        provider_policy.get("schemaVersion") == 1,
+        "provider operation policy version drift",
+    )
     raw_provider_operations = provider_policy.get("operations", [])
-    require(isinstance(raw_provider_operations, list), "provider operation policy is malformed")
+    require(
+        isinstance(raw_provider_operations, list),
+        "provider operation policy is malformed",
+    )
     provider_paths: list[str] = []
     for operation in raw_provider_operations:
         require(isinstance(operation, dict), "provider operation policy is malformed")
         if operation.get("externalEffect") is not True:
             continue
         path = operation.get("route")
-        require(isinstance(path, str) and path.startswith("/"), "provider operation route is invalid")
+        require(
+            isinstance(path, str) and path.startswith("/"),
+            "provider operation route is invalid",
+        )
         provider_paths.append(path)
     require(
         provider_paths
@@ -1808,16 +2020,23 @@ def main() -> None:
         "metrics authentication binding drift",
     )
     require(
-        route_bindings.get("/v1/runtime/safety") == ("monitoring-readonly", "health.read"),
+        route_bindings.get("/v1/runtime/safety")
+        == ("monitoring-readonly", "health.read"),
         "runtime safety authentication binding drift",
     )
-    require("expires_at - issued_at > 300" in security_source, "token lifetime enforcement is missing")
-    workflow_source = (ROOT / ".github/workflows/staging-intake-observability-contract.yml").read_text(
-        encoding="utf-8"
+    require(
+        "expires_at - issued_at > 300" in security_source,
+        "token lifetime enforcement is missing",
     )
+    workflow_source = (
+        ROOT / ".github/workflows/staging-intake-observability-contract.yml"
+    ).read_text(encoding="utf-8")
     for trigger in ("pull_request", "push"):
         paths = workflow_trigger_paths(workflow_source, trigger)
-        require(WORKFLOW_REQUIRED_PATHS <= paths, f"workflow {trigger} paths omit a bound contract source")
+        require(
+            WORKFLOW_REQUIRED_PATHS <= paths,
+            f"workflow {trigger} paths omit a bound contract source",
+        )
     print("MIDDLEWARE_STAGING_INTAKE_OBSERVABILITY_CONTRACT=PASS")
 
 

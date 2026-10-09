@@ -132,7 +132,9 @@ async def read_limited_body(request: Request, maximum: int) -> bytes:
         if not raw_length.isascii() or not raw_length.isdecimal():
             raise RequestValidationError("Content-Length must contain only digits")
         if len(raw_length) > 20:
-            raise RequestValidationError("Content-Length is outside the supported range")
+            raise RequestValidationError(
+                "Content-Length is outside the supported range"
+            )
         length = int(raw_length)
         if length > maximum:
             raise PayloadTooLargeError(f"request body exceeds {maximum} bytes")
@@ -298,11 +300,23 @@ def install_canonical_openapi(app: FastAPI) -> None:
                 }
             },
         }
+        security_schemes = schema.get("components", {}).get("securitySchemes", {})
         for path, path_item in schema.get("paths", {}).items():
             for method, operation in path_item.items():
                 if not isinstance(operation, dict):
                     continue
-                if guard is not None and not guard.control_plane_route(method.upper(), path):
+                if guard is not None:
+                    auth_mode = guard.openapi_auth_mode(method.upper(), path)
+                    operation["x-codestra-auth-mode"] = auth_mode
+                    if (
+                        auth_mode in {"handler-bearer", "shared-secret-bearer"}
+                        and "security" not in operation
+                        and "HTTPBearer" in security_schemes
+                    ):
+                        operation["security"] = [{"HTTPBearer": []}]
+                if guard is not None and not guard.control_plane_route(
+                    method.upper(), path
+                ):
                     continue
                 responses = operation.get("responses", {})
                 if responses.get("422") != automatic_validation:
@@ -311,7 +325,9 @@ def install_canonical_openapi(app: FastAPI) -> None:
                 invalid = responses.setdefault(
                     "400", {"description": "Invalid canonical request"}
                 )
-                invalid["content"] = {"application/json": {"schema": CANONICAL_ERROR_SCHEMA}}
+                invalid["content"] = {
+                    "application/json": {"schema": CANONICAL_ERROR_SCHEMA}
+                }
         return schema
 
     setattr(app, "openapi", canonical_openapi)
@@ -321,7 +337,9 @@ def install_canonical_openapi(app: FastAPI) -> None:
 # Realtime
 # ----------------------------------------------------------------------
 @router.post("/internal/v1/realtime/tickets/consume", include_in_schema=False)
-async def consume_realtime_ticket(body: TicketConsumeRequest, request: Request) -> JSONResponse:
+async def consume_realtime_ticket(
+    body: TicketConsumeRequest, request: Request
+) -> JSONResponse:
     claims = await authorize_realtime(request, "realtime.ticket.consume")
     authorize_tenant(claims, body.tenant_id)
     principal = await realtime_store(request).consume_ticket(
@@ -425,12 +443,18 @@ async def create_communication_message(
     command_type, target, _, _ = CHANNEL_COMMAND[body.channel]
     authorize_command(caller, command_type=command_type, target=target)
     authorization = authorization_header(request)
-    correlation_id = required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
-    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+    correlation_id = required_header(
+        request, "X-Correlation-ID", minimum=1, maximum=180
+    )
+    idempotency_key = required_header(
+        request, "Idempotency-Key", minimum=8, maximum=180
+    )
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
         raise AuthorizationError("authenticated token subject is required")
-    actor = optional_header(request, "X-Codestra-Actor", minimum=1, maximum=300) or subject
+    actor = (
+        optional_header(request, "X-Codestra-Actor", minimum=1, maximum=300) or subject
+    )
     if actor != subject:
         raise AuthorizationError("requested actor must equal token subject")
     message, duplicate = await communications_service(request).submit_message(
@@ -449,11 +473,15 @@ async def create_communication_message(
     )
 
 
-@router.get("/v1/communications/messages/by-idempotency", response_model=CommunicationMessage)
+@router.get(
+    "/v1/communications/messages/by-idempotency", response_model=CommunicationMessage
+)
 async def get_communication_by_idempotency(request: Request) -> CommunicationMessage:
     caller, _, tenant_id = await authenticated_tenant(request)
     key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
-    message = await communications_service(request).store.message_by_idempotency(tenant_id, key)
+    message = await communications_service(request).store.message_by_idempotency(
+        tenant_id, key
+    )
     expected_channel = {"odoo-sms": "sms", "odoo-email": "email"}.get(caller.client_id)
     if expected_channel is not None and message.channel != expected_channel:
         raise CommunicationsNotFound("message was not found")
@@ -480,8 +508,12 @@ async def list_communication_messages(request: Request) -> JSONResponse:
     )
 
 
-@router.get("/v1/communication/messages/{messageId}", response_model=CommunicationMessage)
-@router.get("/v1/communications/messages/{messageId}", response_model=CommunicationMessage)
+@router.get(
+    "/v1/communication/messages/{messageId}", response_model=CommunicationMessage
+)
+@router.get(
+    "/v1/communications/messages/{messageId}", response_model=CommunicationMessage
+)
 async def get_communication_message(messageId: UUID, request: Request) -> JSONResponse:
     tenant_id = await _authorize_communication_read(request)
     service = communications_service(request)
@@ -493,7 +525,9 @@ async def get_communication_message(messageId: UUID, request: Request) -> JSONRe
     "/v1/communications/messages/{messageId}/events",
     response_model=CommunicationEventPage,
 )
-async def list_communication_message_events(messageId: UUID, request: Request) -> JSONResponse:
+async def list_communication_message_events(
+    messageId: UUID, request: Request
+) -> JSONResponse:
     tenant_id = await _authorize_communication_read(request)
     service = communications_service(request)
     await service.refresh_command_status(tenant_id, messageId)
@@ -513,15 +547,21 @@ async def list_communication_message_events(messageId: UUID, request: Request) -
     response_model=CommunicationMessage,
     responses={202: {"model": CommunicationMessage}},
 )
-async def cancel_communication_message(messageId: UUID, request: Request) -> JSONResponse:
+async def cancel_communication_message(
+    messageId: UUID, request: Request
+) -> JSONResponse:
     _, claims, tenant_id = await authenticated_tenant(request, mutation=True)
     authorization = authorization_header(request)
     required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
-    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+    idempotency_key = required_header(
+        request, "Idempotency-Key", minimum=8, maximum=180
+    )
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
         raise AuthorizationError("authenticated token subject is required")
-    actor = optional_header(request, "X-Codestra-Actor", minimum=1, maximum=300) or subject
+    actor = (
+        optional_header(request, "X-Codestra-Actor", minimum=1, maximum=300) or subject
+    )
     if actor != subject:
         raise AuthorizationError("requested actor must equal token subject")
     message, duplicate = await communications_service(request).cancel(
@@ -532,7 +572,9 @@ async def cancel_communication_message(messageId: UUID, request: Request) -> JSO
         authorization=authorization,
         token_verifier=_runtime(request).tokens,
     )
-    return JSONResponse(status_code=200 if duplicate else 202, content=message.model_dump(mode="json"))
+    return JSONResponse(
+        status_code=200 if duplicate else 202, content=message.model_dump(mode="json")
+    )
 
 
 @router.get("/v1/communications/provider-health", response_model=ProviderHealthReport)
@@ -540,14 +582,18 @@ async def cancel_communication_message(messageId: UUID, request: Request) -> JSO
 async def get_communication_provider_health(request: Request) -> JSONResponse:
     tenant_id = await _authorize_communication_read(request)
     service = communications_service(request)
-    return JSONResponse(status_code=200, content=await service.adapter.health(tenant_id))
+    return JSONResponse(
+        status_code=200, content=await service.adapter.health(tenant_id)
+    )
 
 
 @router.get("/v1/communications/reputation", response_model=ProviderReputationReport)
 async def get_communication_reputation(request: Request) -> JSONResponse:
     tenant_id = await _authorize_communication_read(request)
     service = communications_service(request)
-    return JSONResponse(status_code=200, content=await service.adapter.reputation(tenant_id))
+    return JSONResponse(
+        status_code=200, content=await service.adapter.reputation(tenant_id)
+    )
 
 
 @router.get("/v1/communications/usage", response_model=CommunicationUsageReport)
@@ -572,7 +618,9 @@ async def get_communication_usage(
             "totals": [
                 {
                     "channel": channel,
-                    "accepted": len([item for item in messages if item.channel == channel]),
+                    "accepted": len(
+                        [item for item in messages if item.channel == channel]
+                    ),
                     "delivered": len(
                         [
                             item
@@ -618,8 +666,12 @@ async def submit_lead(request: Request) -> JSONResponse:
         raise RequestValidationError("Content-Type must be application/json")
 
     tenant_id = required_header(request, "X-Tenant-ID", minimum=1, maximum=128)
-    correlation_id = required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
-    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+    correlation_id = required_header(
+        request, "X-Correlation-ID", minimum=1, maximum=180
+    )
+    idempotency_key = required_header(
+        request, "Idempotency-Key", minimum=8, maximum=180
+    )
     authorize_tenant(claims, tenant_id)
 
     raw = await read_limited_body(request, active.settings.max_request_body_bytes)
@@ -678,18 +730,27 @@ async def submit_command(command: CommandEnvelope, request: Request) -> JSONResp
     tenant_id = required_header(request, "X-Tenant-ID", minimum=1, maximum=128)
     if tenant_id != command.tenant_id:
         raise RequestValidationError("X-Tenant-ID does not match command tenant")
-    correlation_id = required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
+    correlation_id = required_header(
+        request, "X-Correlation-ID", minimum=1, maximum=180
+    )
     if correlation_id != command.correlation_id:
-        raise RequestValidationError("X-Correlation-ID does not match command correlation_id")
-    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+        raise RequestValidationError(
+            "X-Correlation-ID does not match command correlation_id"
+        )
+    idempotency_key = required_header(
+        request, "Idempotency-Key", minimum=8, maximum=180
+    )
     if idempotency_key != command.idempotency_key:
-        raise RequestValidationError("Idempotency-Key does not match command idempotency_key")
+        raise RequestValidationError(
+            "Idempotency-Key does not match command idempotency_key"
+        )
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
         raise AuthorizationError("token subject is required for commands")
     if (
         caller.client_id == "n8n-automation"
-        and active.settings.umbrella_controls.get("N8N_EXTERNAL_PROVIDER_WRITES") is not True
+        and active.settings.umbrella_controls.get("N8N_EXTERNAL_PROVIDER_WRITES")
+        is not True
     ):
         raise CommandCapabilityDisabled("N8N_EXTERNAL_PROVIDER_WRITES is disabled")
     if active.commands is None:
@@ -739,7 +800,9 @@ def _register_ingress(route: WebhookRoute) -> None:
 
             envelope = EventEnvelope.model_validate(json.loads(raw))
             await active.communications.record_provider_event(envelope)
-        return JSONResponse(status_code=status_code, content=result.model_dump(mode="json"))
+        return JSONResponse(
+            status_code=status_code, content=result.model_dump(mode="json")
+        )
 
     router.add_api_route(
         route.path,
