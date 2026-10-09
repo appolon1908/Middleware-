@@ -3544,6 +3544,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Policy-Revision
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Policy-Revision
       requestBody:
         required: true
         content:
@@ -3592,6 +3600,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Policy-Revision
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Policy-Revision
       requestBody:
         required: true
         content:
@@ -3640,6 +3656,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Policy-Revision
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Policy-Revision
       requestBody:
         required: true
         content:
@@ -3688,6 +3712,14 @@ paths:
           type: string
           format: uuid
           title: Request Id
+      - name: X-Policy-Revision
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Policy-Revision
       requestBody:
         required: true
         content:
@@ -19869,7 +19901,7 @@ components:
         existing_extension:
           anyOf:
           - type: string
-            maxLength: 16
+            pattern: ^[0-9]{2,16}$
           - type: 'null'
           title: Existing Extension
         incoming_allowed:
@@ -19889,7 +19921,7 @@ components:
         extension_pool:
           anyOf:
           - type: string
-            maxLength: 32
+            pattern: ^[a-z][a-z0-9_]{0,31}$
           - type: 'null'
           title: Extension Pool
       type: object

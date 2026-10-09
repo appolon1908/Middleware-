@@ -725,6 +725,13 @@ class Settings(BaseSettings):
     odoo_identity_lookup_hmac_file: str = ""
     agent_provisioning_authorized_parties: str = "provisioning-service"
     agent_provisioning_policy_revision: str = "1"
+    # A saga commits after every provider step; a row left in an in-flight
+    # state longer than this was abandoned by a crashed runner and may be
+    # resumed (by reconcile, a same-key retry, or the reconciler worker).
+    agent_provisioning_lease_seconds: int = Field(default=300, ge=30, le=3600)
+    # Runs as a pass of the middleware-reconciler process, on its cadence.
+    agent_provisioning_reconciler_enabled: bool = False
+    agent_provisioning_reconciler_batch_size: int = Field(default=20, ge=1, le=200)
     live_identity_provisioning_enabled: bool = False
     keycloak_lifecycle_admin_base_url: str = ""
     keycloak_lifecycle_realm: str = "codestra"

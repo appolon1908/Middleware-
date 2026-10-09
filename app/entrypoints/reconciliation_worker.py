@@ -4,7 +4,9 @@ internal outbox reconciliation and quarantine cleanup.
 Every cycle drains the quarantined adapter-command rows through
 :class:`app.platform.reconciler.Reconciler` (lease, adapter readback,
 ledger transition, immutable audit; never a blind re-send) on the same
-RuntimeContainer the API and worker use, then runs the legacy report."""
+RuntimeContainer the API and worker use, then runs the legacy report and,
+when ``agent_provisioning_reconciler_enabled`` is set, resumes abandoned
+agent provisioning sagas (``app.workers.agent_provisioning_reconciler``)."""
 
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ from app.core.config import settings
 from app.core.runtime import RuntimeContainer, build_runtime_container
 from app.db.session import SessionFactory
 from app.entrypoints.runtime import run_worker
+from app.workers.agent_provisioning_reconciler import reconcile_once as reconcile_agent_provisioning
 from app.workers.reconciliation import reconcile_internal_outbox
 from app.workers.quarantine import CLEANUP, cleanup_expired
 
@@ -60,7 +63,11 @@ async def cycle() -> dict[str, object]:
         except Exception:
             CLEANUP.labels("failure").inc()
             raise
-        return {"kernel": kernel, "reconciliation": reconciliation, "quarantine_cleanup": cleanup}
+    agent_provisioning = await reconcile_agent_provisioning()
+    return {
+        "kernel": kernel, "reconciliation": reconciliation, "quarantine_cleanup": cleanup,
+        "agent_provisioning": agent_provisioning,
+    }
 
 
 if __name__ == "__main__":

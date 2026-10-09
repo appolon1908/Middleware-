@@ -446,19 +446,19 @@ async def test_phone_and_webrtc_channels_reach_effective_when_adapters_succeed(
         def __init__(self, _settings):
             pass
 
-        def sync_agent(self, payload):
+        def sync_agent(self, payload, **_kwargs):
             calls.append(("sync_agent", payload))
             return {"actual": {"user_id": payload["agent"]["user_id"], "active": False}}
 
-        def reserve_extension(self, payload):
+        def reserve_extension(self, payload, **_kwargs):
             calls.append(("reserve_extension", payload))
             return {"actual": {"extension": "6203", "active": True}}
 
-        def adopt_extension(self, payload):
+        def adopt_extension(self, payload, **_kwargs):
             calls.append(("adopt_extension", payload))
             return {"actual": {"extension": payload["adoption"]["extension"], "active": True}}
 
-        def provision_webrtc(self, payload):
+        def provision_webrtc(self, payload, **_kwargs):
             calls.append(("provision_webrtc", payload))
             return {"extension": "6203", "credential": "synthetic", "expires_at": "later"}
 
@@ -573,19 +573,19 @@ async def test_reconcile_resumes_past_a_partial_webrtc_failure_without_redoing_p
         def __init__(self, _settings):
             pass
 
-        def sync_agent(self, payload):
+        def sync_agent(self, payload, **_kwargs):
             calls.append("sync_agent")
             return {"actual": {"user_id": payload["agent"]["user_id"], "active": False}}
 
-        def reserve_extension(self, payload):
+        def reserve_extension(self, payload, **_kwargs):
             calls.append("reserve_extension")
             return {"actual": {"extension": "6204", "active": True}}
 
-        def adopt_extension(self, payload):
+        def adopt_extension(self, payload, **_kwargs):
             calls.append("adopt_extension")
             return {"actual": {"extension": payload["adoption"]["extension"], "active": True}}
 
-        def provision_webrtc(self, payload):
+        def provision_webrtc(self, payload, **_kwargs):
             calls.append("provision_webrtc")
             if webrtc_should_fail["value"]:
                 raise VicidialMtlsError("synthetic transient failure")
