@@ -417,6 +417,8 @@ class NoEffectRehearsal:
             tenant_backlog, global_backlog = await self.runtime.commands.backlog(REHEARSAL_TENANT)  # type: ignore[union-attr]
         except Exception as exc:  # noqa: BLE001 - a probe failure is a failed check, not a 500
             return RehearsalCheck("worker_backlog", "fail", {"error": type(exc).__name__})
+        if global_backlog is None:
+            return RehearsalCheck("worker_backlog", "fail", {"error": "global_backlog_unavailable"})
         saturated = global_backlog >= limits.global_backlog_bound
         return RehearsalCheck(
             "worker_backlog",

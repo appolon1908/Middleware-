@@ -1481,6 +1481,10 @@ class PostgresCommandStore:
                     raise CommandConflict(
                         f"invalid command transition {previous_state} -> {new_state}"
                     )
+                # Never mark a provider operation completed without a durable
+                # read-back payload. This check precedes any state mutation.
+                if new_state == "completed" and safe_readback is None:
+                    raise CommandConflict("read-back evidence is required for completion")
                 row = await conn.fetchrow(
                     """
                     UPDATE middleware_commands

@@ -330,7 +330,7 @@ def evaluate_plan(
     # Evidence prerequisites: every kind exactly once.
     kinds = [item.kind for item in plan.evidence]
     for kind in REQUIRED_EVIDENCE_KINDS:
-        count = kinds.count(kind)
+        count = sum(item.kind == kind for item in plan.evidence)
         if count == 0:
             deny(f"EVIDENCE_MISSING:{kind}")
         elif count > 1:
