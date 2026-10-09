@@ -52,7 +52,7 @@ def test_social_media_routes_are_served_by_canonical_integration_profile(
     from app.application import AppProfile, create_app
 
     app = create_app(settings=test_settings, profile=AppProfile.INTEGRATION)
-    paths = {route.path for route in app.routes}
+    paths = app.openapi()["paths"]
     assert "/api/v1/social/media" in paths
     assert "/api/v1/social/media/{asset_id}" in paths
 
