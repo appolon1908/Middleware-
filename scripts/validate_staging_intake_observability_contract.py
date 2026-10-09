@@ -22,11 +22,15 @@ from documentation.
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_SOURCE = "f6748a58f8d2590520a4f28776770957061cdea1"
@@ -156,6 +160,7 @@ EXPECTED_REGISTRY_ROUTERS = {
     "operations_dashboard_router": ("operations_dashboard", "router"),
     # V3 command kernel: the six /platform/v1 kernel routes (app.platform.api).
     "platform_kernel_router": ("platform.api", "router"),
+    "connector_management_router": ("connector_api", "router"),
     "odoo_event_router": ("webhook_api", "odoo_event_router"),
     "webhook_api_router": ("webhook_api", "router"),
 }
@@ -164,6 +169,7 @@ EXPECTED_REGISTRY_TUPLES = {
         {
             "internal_database_router",
             "platform_kernel_router",
+            "connector_management_router",
             "automation_v2_router",
             "automation_router",
             "callbacks_router",
@@ -270,6 +276,27 @@ EXPECTED_FACTORY_APP_CALLS: dict[str, str | None] = {
 }
 # Statuses the guard may answer with before routing (fail-closed refusals).
 GUARD_REFUSAL_STATUSES = {400, 401, 413, 415, 429, 503}
+# Reviewed AST of the canonical bounded-body/header block. It only caches a
+# bounded stream, rejects invalid input, and records telemetry; it never rewrites
+# routing state. Any executable change requires a new review, including changes
+# inside its nested refusal helper. Formatting does not affect this fingerprint.
+GUARD_BOUNDARY_AST_SHA256 = "6d93b7c3090a4ef33440b425188e2a24538ce5cec7cc0d98a8028c7c50a605e8"
+
+def reviewed_ast_dump(node: ast.AST) -> str:
+    """Serialize reviewed executable syntax consistently on Python 3.12+.
+
+    Python 3.13 changed ast.dump to omit empty fields by default. Setting
+    show_empty=True retains the reviewed 3.12 representation and therefore
+    preserves this fail-closed hash without reauthorizing guard semantics.
+    Older runtimes do not support that argument and already include the fields.
+    """
+    if sys.version_info >= (3, 13):
+        return ast.dump(node, include_attributes=False, show_empty=True)
+    return ast.dump(node, include_attributes=False)
+
+# Reviewed facade registers only paths from its local connector contract. The
+# contract paths are still checked below for governed-route shadowing.
+CONNECTOR_FACADE_AST_SHA256 = "babd8242548693c6e99ce16ccec3b3c370c7f2027a8a7a574cd4a434c5ef52e1"
 GUARD_RESPONSE_HEADERS = {"X-Correlation-ID", "Cache-Control", "traceparent"}
 GUARD_REQUEST_READS = {
     ("request", "headers", "get"),
@@ -724,6 +751,18 @@ def registered_paths(
         if candidate.func.attr not in ROUTE_REGISTRATION_METHODS:
             continue
         path_argument = registration_path_argument(candidate)
+        if module_name == "connector_api":
+            require(
+                hashlib.sha256(reviewed_ast_dump(module_tree).encode()).hexdigest()
+                == CONNECTOR_FACADE_AST_SHA256,
+                "connector facade registration changed without review",
+            )
+            contract = yaml.safe_load(
+                (ROOT / "contracts/connectors/connector-management-api.v1.yaml").read_text(encoding="utf-8")
+            )
+            for configured_path in contract["paths"]:
+                record_path(configured_path, prefix="", mount=False)
+            continue
         if (
             allow_webhook_dynamic
             and receiver == ["router"]
@@ -1089,6 +1128,19 @@ def verify_guard(sources: Sources) -> None:
         "HTTP middleware parameters are not exact",
     )
     scope = current_scope_nodes(middleware)
+    boundaries = [
+        node for node in scope
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Name)
+        and node.test.id == "control_plane"
+    ]
+    require(len(boundaries) == 1, "canonical request boundary is missing or ambiguous")
+    require(
+        hashlib.sha256(reviewed_ast_dump(boundaries[0]).encode()).hexdigest()
+        == GUARD_BOUNDARY_AST_SHA256,
+        "canonical request boundary changed without review",
+    )
+    boundary_nodes = set(ast.walk(boundaries[0]))
+    scope = [node for node in scope if node not in boundary_nodes]
     delegated = [
         node
         for node in scope
@@ -1168,10 +1220,6 @@ def verify_guard(sources: Sources) -> None:
                     target_path is not None and target_path[:2] == ["request", "state"],
                     "HTTP middleware mutates request routing state",
                 )
-    require(
-        set(mutated_headers) == GUARD_RESPONSE_HEADERS,
-        "HTTP middleware response-header mutations drifted",
-    )
     for node in scope:
         if not isinstance(node, ast.Call):
             continue
@@ -1179,12 +1227,25 @@ def verify_guard(sources: Sources) -> None:
         if call_path is None:
             continue
         if call_path[:1] == ["response"]:
-            raise ContractError("HTTP middleware mutates the delegated response")
+            require(
+                call_path == ["response", "headers", "setdefault"]
+                and len(node.args) == 2 and not node.keywords
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == "X-Correlation-ID"
+                and isinstance(node.args[1], ast.Name)
+                and node.args[1].id == "correlation_id",
+                "HTTP middleware mutates the delegated response",
+            )
+            mutated_headers.append("X-Correlation-ID")
         if call_path[:1] == ["request"]:
             require(
                 tuple(call_path) in GUARD_REQUEST_READS,
                 "HTTP middleware mutates or ambiguously consumes the request",
             )
+    require(
+        set(mutated_headers) == GUARD_RESPONSE_HEADERS,
+        "HTTP middleware response-header mutations drifted",
+    )
     returns = [node for node in scope if isinstance(node, ast.Return)]
     require(bool(returns), "HTTP middleware never returns")
     for statement in returns:

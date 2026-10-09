@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/validate_staging_intake_observability_contract.py"
 BOUND_FILES = (
+    "contracts/connectors/connector-management-api.v1.yaml",
     "contracts/staging-intake-observability-runtime.v1.json",
     "config/runtime-profiles.v1.json",
     "config/api-webhook-contracts.json",
@@ -75,6 +76,9 @@ def _replace_once(path: Path, marker: str, replacement: str) -> None:
         "constructor_middleware",
         "middleware_status_rewrite",
         "middleware_path_rewrite",
+        "middleware_unbounded_body",
+        "middleware_boundary_success",
+        "connector_governed_shadow",
         "second_middleware",
         "registry_extra_router",
     ],
@@ -293,6 +297,20 @@ def test_staging_contract_fails_closed(
             '        request.scope["path"] = "/health"\n'
             "        started = self.telemetry.start_request()",
         )
+    elif mutation == "middleware_unbounded_body":
+        _replace_once(
+            guard_path, "request._body = await read_limited_body(",
+            "request._body = await unbounded_body_reader(",
+        )
+    elif mutation == "middleware_boundary_success":
+        _replace_once(
+            guard_path, "status_code=status_code,", "status_code=200,",
+        )
+    elif mutation == "connector_governed_shadow":
+        _replace_once(
+            tmp_path / "contracts/connectors/connector-management-api.v1.yaml",
+            "  /v1/connectors:", "  /metrics:",
+        )
     elif mutation == "second_middleware":
         _replace_once(
             guard_path,
@@ -320,6 +338,47 @@ def test_staging_contract_fails_closed(
     )
     assert result.returncode != 0
     assert "ContractError" in result.stderr
+
+
+
+def test_reviewed_ast_pins_preserve_empty_fields_and_reject_executable_edits() -> None:
+    import ast
+    import hashlib
+    import runpy
+
+    validator = runpy.run_path(str(SCRIPT), run_name="reviewed_ast_portability_test")
+    dump = validator["reviewed_ast_dump"]
+
+    guard_tree = ast.parse((ROOT / GUARD).read_text(encoding="utf-8"))
+    guard = next(
+        node for node in guard_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "RequestGuard"
+    )
+    handler = next(
+        node for node in guard.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "__call__"
+    )
+    boundaries = [
+        node for node in ast.walk(handler)
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "control_plane"
+    ]
+    assert len(boundaries) == 1
+    digest = lambda node: hashlib.sha256(dump(node).encode()).hexdigest()
+    assert digest(boundaries[0]) == validator["GUARD_BOUNDARY_AST_SHA256"]
+
+    connector_tree = ast.parse(
+        (ROOT / "app" / "connector_api.py").read_text(encoding="utf-8")
+    )
+    assert digest(connector_tree) == validator["CONNECTOR_FACADE_AST_SHA256"]
+
+    # Keep the reviewed hash fail-closed for executable changes, even when
+    # the Python minor version emits AST dumps with different default fields.
+    boundaries[0].body.append(ast.Pass())
+    connector_tree.body.append(ast.Pass())
+    assert digest(boundaries[0]) != validator["GUARD_BOUNDARY_AST_SHA256"]
+    assert digest(connector_tree) != validator["CONNECTOR_FACADE_AST_SHA256"]
 
 
 def test_committed_staging_contract_is_valid() -> None:

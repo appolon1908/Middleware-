@@ -271,6 +271,7 @@ class Settings(BaseSettings):
     # startup failed; readiness stays closed in between.
     runtime_rebuild_interval_seconds: int = 30
     allow_in_memory_storage: bool = False
+    connector_management_base_url: str | None = None
     max_request_body_bytes: int = 1_048_576
     webhook_max_clock_skew_seconds: int = 300
     webhook_replay_retention_seconds: int = 86_400
@@ -998,6 +999,21 @@ class Settings(BaseSettings):
         if isinstance(value, bool) or not 5 <= value <= 600:
             raise ValueError("runtime rebuild interval must be between 5 and 600 seconds")
         return value
+
+    @field_validator("connector_management_base_url")
+    @classmethod
+    def validate_connector_management_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlparse(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname not in {"127.0.0.1", "localhost", "connector-runtime", "codestra-connector-runtime"}
+            or parsed.username is not None or parsed.password is not None
+            or parsed.path not in {"", "/"} or parsed.query or parsed.fragment
+        ):
+            raise ValueError("connector management URL must name an explicit local connector-runtime origin without credentials")
+        return value.rstrip("/")
 
     @field_validator("max_request_body_bytes")
     @classmethod

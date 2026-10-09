@@ -95,6 +95,10 @@ OUTPUT_PATHS = {
     "yaml": ROOT / "contracts/platform/integration-fabric-api.v2.yaml",
     "matrix": ROOT / "config/api-completion-matrix.yaml",
 }
+INTEGRATION_OPENAPI = (
+    ROOT / "contracts/platform/middleware-integration-openapi.generated.json"
+)
+INTEGRATION_MATRIX = ROOT / "config/api-integration-completion-matrix.yaml"
 
 
 def _governed_api_path(path: str) -> bool:
@@ -174,6 +178,31 @@ def _normalize_schema_defaults(value: Any) -> None:
                 _normalize_schema_defaults(child)
 
 
+CANONICAL_HEADER_NAMES = {
+    "x-tenant-id": "X-Tenant-ID",
+    "x-correlation-id": "X-Correlation-ID",
+    "idempotency-key": "Idempotency-Key",
+}
+
+
+def _normalize_header_authority(value: Any) -> None:
+    """Canonicalize governed header names and remove display-only title drift."""
+    if isinstance(value, dict):
+        if value.get("in") == "header":
+            raw_name = str(value.get("name", ""))
+            canonical = CANONICAL_HEADER_NAMES.get(raw_name.casefold())
+            if canonical is not None:
+                value["name"] = canonical
+                parameter_schema = value.get("schema")
+                if isinstance(parameter_schema, dict):
+                    parameter_schema.pop("title", None)
+        for child in value.values():
+            _normalize_header_authority(child)
+    elif isinstance(value, list):
+        for child in value:
+            _normalize_header_authority(child)
+
+
 def build_documents() -> tuple[dict[str, Any], dict[str, Any]]:
     """Build the enriched OpenAPI document and completion matrix in memory."""
     # These imports follow the explicit repository-root path setup above so this
@@ -190,6 +219,7 @@ def build_documents() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     schema: dict[str, Any] = create_app(settings=settings).openapi()
     _normalize_schema_defaults(schema)
+    _normalize_header_authority(schema)
     schema["info"]["description"] = DESCRIPTION
     components = schema.setdefault("components", {})
     security_schemes = components.setdefault("securitySchemes", {})
@@ -206,7 +236,9 @@ def build_documents() -> tuple[dict[str, Any], dict[str, Any]]:
                 operation["security"] = [{SPECIALIZED_INGRESS_SECURITY[path]: []}]
             elif path not in PUBLIC_PATHS:
                 operation["security"] = [{"bearerAuth": []}]
-            if _governed_api_path(path):
+            if _governed_api_path(
+                path
+            ) and "connector-management-facade" not in operation.get("tags", []):
                 parameters = operation.setdefault("parameters", [])
                 _ensure_header(parameters, "X-Tenant-ID")
                 if method in MUTATION_METHODS:
@@ -260,7 +292,50 @@ def render_documents(
         OUTPUT_PATHS["matrix"]: yaml.safe_dump(matrix, sort_keys=False),
     }
     documents.update(_klyrow_contract_documents())
+    documents.update(_integration_documents())
     return documents
+
+
+def _integration_documents() -> dict[Path, str]:
+    """The deployed :8095 profile has a distinct route and auth surface."""
+    from app.application import AppProfile, create_app
+    from app.core.config import Settings
+
+    settings = Settings.from_env(
+        {
+            "APP_ENV": "test",
+            "ALLOW_IN_MEMORY_STORAGE": "true",
+            "EXTERNAL_EFFECTS": "false",
+        }
+    )
+    schema = create_app(settings=settings, profile=AppProfile.INTEGRATION).openapi()
+    _normalize_schema_defaults(schema)
+    _normalize_header_authority(schema)
+    operations = [
+        {
+            "method": method.upper(),
+            "path": path,
+            "canonical_operation_id": operation["operationId"],
+            "runtime_state": "DEPRECATED"
+            if operation.get("deprecated")
+            else "IMPLEMENTED",
+        }
+        for path, item in sorted(schema["paths"].items())
+        for method, operation in sorted(item.items())
+        if method in HTTP_METHODS
+    ]
+    matrix = {
+        "schema_version": "2.0",
+        "profile": "integration",
+        "listener_port": 8095,
+        "classification_complete": True,
+        "unknown_endpoints": 0,
+        "operations": operations,
+    }
+    return {
+        INTEGRATION_OPENAPI: json.dumps(schema, indent=2, sort_keys=True) + "\n",
+        INTEGRATION_MATRIX: yaml.safe_dump(matrix, sort_keys=False),
+    }
 
 
 def _klyrow_contract_documents() -> dict[Path, str]:
@@ -336,7 +411,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     else:
         for path, content in documents.items():
-            path.write_text(content, encoding="utf-8")
+            path.write_text(content, encoding="utf-8", newline="\n")
 
     print(f"OPENAPI_ROUTES={len(matrix['operations'])}")
     return 0

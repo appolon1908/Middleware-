@@ -27,7 +27,7 @@ RUN apk add --no-cache \
       readline-dev=8.3.3-r1 \
       tar=1.35-r5 \
       xz-dev=5.8.4-r0 \
-      zlib-dev=1.3.2-r0
+      zlib-dev=1.3.2-r1
 RUN curl --fail --location --proto '=https' --tlsv1.2 \
       --output /tmp/sqlite.apk \
       https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/sqlite-3.53.4-r0.apk \

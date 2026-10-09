@@ -5,7 +5,12 @@ from typing import Any
 from fastapi import Request
 
 from .control_plane_auth import ControlPlaneCaller, caller_for_authorization
-from .security import AuthorizationError, RequestValidationError, SecurityError, authorize_tenant
+from .security import (
+    AuthorizationError,
+    RequestValidationError,
+    SecurityError,
+    authorize_tenant,
+)
 
 
 async def restrict_sms_identity(request: Request) -> None:
@@ -27,7 +32,9 @@ async def restrict_sms_identity(request: Request) -> None:
         ("POST", "/v1/communications/messages"),
         ("GET", "/v1/communications/messages/by-idempotency"),
     }:
-        raise AuthorizationError("SMS bridge is restricted to message submission and idempotency readback")
+        raise AuthorizationError(
+            "SMS bridge is restricted to message submission and idempotency readback"
+        )
 
 
 def reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -50,7 +57,13 @@ def required_header(
     if len(values) != 1:
         raise RequestValidationError(f"{name} must be provided exactly once")
     value = values[0]
-    if not minimum <= len(value) <= maximum:
+    if (
+        not minimum <= len(value) <= maximum
+        or not value.strip()
+        or value != value.strip()
+        or not value.isascii()
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    ):
         raise RequestValidationError(f"{name} is malformed")
     return value
 
@@ -68,7 +81,13 @@ def optional_header(
     if not values:
         return None
     value = values[0]
-    if not minimum <= len(value) <= maximum:
+    if (
+        not minimum <= len(value) <= maximum
+        or not value.strip()
+        or value != value.strip()
+        or not value.isascii()
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    ):
         raise RequestValidationError(f"{name} is malformed")
     return value
 
@@ -77,10 +96,11 @@ def authorization_header(request: Request) -> str:
     values = request.headers.getlist("Authorization")
     if len(values) > 1:
         raise RequestValidationError("Authorization must be provided at most once")
-    value = values[0] if values else ""
-    if len(value) > 8192:
-        raise RequestValidationError("Authorization is malformed")
-    return value
+    if values == [""]:
+        # Preserve the legacy missing-credential 401 contract. Canonical
+        # boundaries reject explicitly empty headers before reaching this reader.
+        return ""
+    return optional_header(request, "Authorization", minimum=1, maximum=8192) or ""
 
 
 async def authenticated_tenant(

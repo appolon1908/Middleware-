@@ -269,6 +269,10 @@ def second_owner_of_v2(tree: Path) -> None:
     )
 
 
+def mount_boundary_policy_as_routes(tree: Path) -> None:
+    append(tree, "app/router_registry.py", "\n_mount(app, API_BOUNDARY_ROUTERS)\n")
+
+
 # The exact factory block the mutations rewrite: aliases mounted only under
 # the monolith profile.
 MONOLITH_ONLY_MOUNT = (
@@ -332,6 +336,7 @@ def test_committed_source_passes_the_validator(tmp_path):
         (bind_v2_twice, "exactly once in CANONICAL_ROUTERS"),
         (mount_aliases_directly_in_main, "owned outside the registry"),
         (second_owner_of_v2, "owned outside the registry"),
+        (mount_boundary_policy_as_routes, "boundary routers must not be mounted"),
         (mount_aliases_unconditionally, "outside the monolith profile"),
         (mount_aliases_on_the_control_plane_profile, "outside the monolith profile"),
         (expose_an_alias_at_the_edge, "not denied at the edge"),

@@ -110,6 +110,7 @@ from app.monitoring.routes import router as monitoring_router
 from app.n8n_control_plane import router as n8n_control_plane_router
 from app.operations import router as appolon_operations_router
 from app.platform.api import router as platform_kernel_router
+from app.connector_api import router as connector_management_router
 from app.operations_dashboard import router as operations_dashboard_router
 from app import provider_control_api as _provider_control_api  # noqa: F401  (registers control routes)
 from app.security import SecurityError
@@ -123,12 +124,21 @@ class DuplicateRouteError(RuntimeError):
     """The same (method, path) is registered more than once."""
 
 
+# Body/header validation only; this does not grant an authentication exemption
+# or mount routes. Route ownership remains in the profile groups below.
+API_BOUNDARY_ROUTERS: tuple[APIRouter, ...] = (
+    platform_router, automation_router, automation_v2_router,
+    platform_kernel_router, connector_management_router,
+)
+
+
 CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     # Private read-only database operational evidence; explicit auth,
     # edge-denied under /internal/*, and shared by every profile.
     internal_database_router,
     # The V3 command kernel: the six /platform/v1 kernel routes, on every profile.
     platform_kernel_router,
+    connector_management_router,
     automation_v2_router,
     automation_router,
     callbacks_router,
@@ -313,7 +323,11 @@ def route_operations(app: FastAPI) -> list[tuple[str, str]]:
             methods = getattr(route, "methods", None)
             if not methods:
                 # Starlette Mount / WebSocketRoute
-                methods = ("WEBSOCKET",) if not hasattr(route, "app") or isinstance(route, APIRoute) else ("MOUNT",)
+                methods = (
+                    ("WEBSOCKET",)
+                    if not hasattr(route, "app") or isinstance(route, APIRoute)
+                    else ("MOUNT",)
+                )
             for method in sorted(methods):
                 operations.append((method, prefix + path))
 

@@ -52,9 +52,15 @@ EDGE_CONTRACT = ROOT / "deploy" / "public-api-route-contract.json"
 
 READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 KERNEL_CALLS = (
-    ("submit_crm_command(", "app.api.v1.crm_common.submit_crm_command -> CommandKernel.submit"),
+    (
+        "submit_crm_command(",
+        "app.api.v1.crm_common.submit_crm_command -> CommandKernel.submit",
+    ),
     ("platform.kernel.submit(", "CommandKernel.submit"),
-    ("platform.kernel.cancel(", "CommandKernel.cancel -> CommandStore.mutate_operation"),
+    (
+        "platform.kernel.cancel(",
+        "CommandKernel.cancel -> CommandStore.mutate_operation",
+    ),
     ("platform.kernel.replay(", "CommandKernel.replay"),
     ("platform.kernel.get(", "CommandKernel.get"),
     ("platform.kernel.timeline(", "CommandKernel.timeline"),
@@ -99,7 +105,9 @@ def _routes(app):
             original = getattr(route, "original_router", None)
             if original is not None:
                 context = getattr(route, "include_context", None)
-                yield from walk(original.routes, prefix + (getattr(context, "prefix", "") or ""))
+                yield from walk(
+                    original.routes, prefix + (getattr(context, "prefix", "") or "")
+                )
                 continue
             if isinstance(route, APIRoute):
                 yield prefix + route.path_format, route
@@ -121,7 +129,11 @@ def _source(endpoint) -> str:
     parts = [own]
     for name in sorted(set(re.findall(r"(?<![\w.])(_?[a-z][a-z0-9_]*)\(", own))):
         helper = getattr(module, name, None)
-        if helper is endpoint or not callable(helper) or getattr(helper, "__module__", None) != module.__name__:
+        if (
+            helper is endpoint
+            or not callable(helper)
+            or getattr(helper, "__module__", None) != module.__name__
+        ):
             continue
         try:
             parts.append(inspect.getsource(helper))
@@ -130,7 +142,9 @@ def _source(endpoint) -> str:
     return chr(10).join(parts)
 
 
-def classify(method: str, path: str, route, overrides: dict[str, Any]) -> dict[str, Any]:
+def classify(
+    method: str, path: str, route, overrides: dict[str, Any]
+) -> dict[str, Any]:
     endpoint = route.endpoint
     module = getattr(endpoint, "__module__", "")
     source = _source(endpoint)
@@ -156,6 +170,17 @@ def classify(method: str, path: str, route, overrides: dict[str, Any]) -> dict[s
         row["source"] = "override"
         return row
     row["source"] = "derived"
+    if module == "app.connector_api":
+        row["classification"] = "READ_ONLY" if method in READ_METHODS or path.endswith("/validate") else "DIRECT_INTERNAL_SERVICE"
+        row["effectful"] = method not in READ_METHODS and not path.endswith("/validate")
+        row["provider"] = "connector-runtime"
+        row["scope"] = (getattr(route, "openapi_extra", None) or {}).get(
+            "x-required-scope"
+        )
+        row["justification"] = (
+            "delegates to the canonical connector domain API with the original verified token; domain state and effect gates remain owned by connector-runtime"
+        )
+        return row
     if method in READ_METHODS:
         row["classification"] = "READ_ONLY"
         return row
@@ -164,23 +189,41 @@ def classify(method: str, path: str, route, overrides: dict[str, Any]) -> dict[s
             row["classification"] = "KERNEL_WRAPPER"
             row["kernel_delegate"] = delegate
             row["effectful"] = True
-            if path.startswith("/platform/v1/commands") or path.startswith("/platform/v1/operations"):
-                row["scope"] = "platform.command.replay" if path.endswith("/replay") else "platform.command"
+            if path.startswith("/platform/v1/commands") or path.startswith(
+                "/platform/v1/operations"
+            ):
+                row["scope"] = (
+                    "platform.command.replay"
+                    if path.endswith("/replay")
+                    else "platform.command"
+                )
             return row
     if any(re.search(pattern, path) for pattern in READ_ONLY_POSTS):
         row["classification"] = "READ_ONLY"
         row["justification"] = "computes or looks up; no durable mutation"
         return row
-    if any(needle in source for needle in ("OutboxEvent(", "INSERT INTO middleware_outbox", "await _enqueue(", ".enqueue(")):
+    if any(
+        needle in source
+        for needle in (
+            "OutboxEvent(",
+            "INSERT INTO middleware_outbox",
+            "await _enqueue(",
+            ".enqueue(",
+        )
+    ):
         row["classification"] = "DURABLE_OUTBOX_INTENT"
         row["effectful"] = True
-        row["justification"] = "persists a durable outbox intent executed by a worker under the Settings effect gates; kernel convergence pending"
+        row["justification"] = (
+            "persists a durable outbox intent executed by a worker under the Settings effect gates; kernel convergence pending"
+        )
         return row
     if "_provisioning_call(" in source:
         row["classification"] = "DIRECT_INTERNAL_SERVICE"
         row["effectful"] = True
         row["provider"] = "provisioning-service"
-        row["justification"] = "synchronous browser session issuance against the Codestra provisioning service (internal control service, not an external provider); convergence onto the kernel needs a product decision because the browser needs the credential in the response"
+        row["justification"] = (
+            "synchronous browser session issuance against the Codestra provisioning service (internal control service, not an external provider); convergence onto the kernel needs a product decision because the browser needs the credential in the response"
+        )
         return row
     if any(re.search(pattern, path) for pattern in INGRESS_PATTERNS):
         row["classification"] = "INTERNAL_EVENT_INGRESS"
@@ -191,20 +234,30 @@ def classify(method: str, path: str, route, overrides: dict[str, Any]) -> dict[s
         return row
     # A POST/PUT/PATCH/DELETE that mutates Middleware-owned state only.
     row["classification"] = "INTERNAL_EVENT_INGRESS"
-    row["justification"] = "mutates Middleware-owned durable state; no provider transport in the handler"
+    row["justification"] = (
+        "mutates Middleware-owned durable state; no provider transport in the handler"
+    )
     return row
 
 
 def build() -> dict[str, Any]:
     from app.application import AppProfile, create_app
 
-    overrides = json.loads(OVERRIDES.read_text(encoding="utf-8"))["routes"] if OVERRIDES.exists() else {}
+    overrides = (
+        json.loads(OVERRIDES.read_text(encoding="utf-8"))["routes"]
+        if OVERRIDES.exists()
+        else {}
+    )
     app = create_app(profile=AppProfile.INTEGRATION)
     rows: list[dict[str, Any]] = []
     for path, route in _routes(app):
         for method in sorted(route.methods or ()):
             rows.append(classify(method, path, route, overrides))
-    edge = json.loads(EDGE_CONTRACT.read_text(encoding="utf-8")) if EDGE_CONTRACT.exists() else {"routes": []}
+    edge = (
+        json.loads(EDGE_CONTRACT.read_text(encoding="utf-8"))
+        if EDGE_CONTRACT.exists()
+        else {"routes": []}
+    )
     for item in edge.get("routes", []):
         if item.get("classification") == "denied":
             rows.append(
@@ -232,10 +285,20 @@ def build() -> dict[str, Any]:
     bypasses = [
         f"{row['method']} {row['path']}"
         for row in rows
-        if row["effectful"] and row["classification"] not in {"KERNEL_WRAPPER", "DURABLE_OUTBOX_INTENT", "DIRECT_INTERNAL_SERVICE"}
+        if row["effectful"]
+        and row["classification"]
+        not in {"KERNEL_WRAPPER", "DURABLE_OUTBOX_INTENT", "DIRECT_INTERNAL_SERVICE"}
     ]
-    internal_direct = [f"{row['method']} {row['path']}" for row in rows if row["classification"] == "DIRECT_INTERNAL_SERVICE"]
-    pending = [f"{row['method']} {row['path']}" for row in rows if row["classification"] == "DURABLE_OUTBOX_INTENT"]
+    internal_direct = [
+        f"{row['method']} {row['path']}"
+        for row in rows
+        if row["classification"] == "DIRECT_INTERNAL_SERVICE"
+    ]
+    pending = [
+        f"{row['method']} {row['path']}"
+        for row in rows
+        if row["classification"] == "DURABLE_OUTBOX_INTENT"
+    ]
     return {
         "schema": "codestra.middleware.route-authority.v1",
         "service": "middleware-integration-api",
@@ -261,8 +324,14 @@ def render(report: dict[str, Any]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="fail when the committed report differs")
-    parser.add_argument("--write", action="store_true", help="write config/route-authority-report.v1.json")
+    parser.add_argument(
+        "--check", action="store_true", help="fail when the committed report differs"
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="write config/route-authority-report.v1.json",
+    )
     args = parser.parse_args()
     report = build()
     text = render(report)
@@ -271,7 +340,9 @@ def main() -> int:
         if current != text:
             print("ROUTE_AUTHORITY=STALE", file=sys.stderr)
             return 1
-        print(f"ROUTE_AUTHORITY=MATCH operations={report['summary']['operations']} DIRECT_EFFECT_BYPASSES={report['summary']['DIRECT_EFFECT_BYPASSES']}")
+        print(
+            f"ROUTE_AUTHORITY=MATCH operations={report['summary']['operations']} DIRECT_EFFECT_BYPASSES={report['summary']['DIRECT_EFFECT_BYPASSES']}"
+        )
         return 0
     if args.write:
         OUTPUT.write_text(text, encoding="utf-8", newline="\n")

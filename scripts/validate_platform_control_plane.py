@@ -61,7 +61,9 @@ def _mounted_only_under_monolith_profile(source: str) -> bool:
         for child in ast.iter_child_nodes(node):
             if isinstance(child, ast.Call):
                 func = child.func
-                name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+                name = (
+                    func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+                )
                 if name == "mount_legacy_monolith_routers":
                     calls.append(child)
                     if under_guard:
@@ -213,8 +215,23 @@ def main() -> int:
     for alias in ("n8n_control_plane_router", "domain_legacy_n8n_router"):
         if alias in canonical_tuple:
             fail(f"legacy n8n compatibility router must not be canonical: {alias}")
-    if registry_source.count("automation_v2_router,") != 1:
+    # Boundary registration references routers for validation; it never mounts
+    # them. Exclude that policy tuple from the route ownership count.
+    boundary_tuple = (
+        registry_source.split("API_BOUNDARY_ROUTERS: tuple[APIRouter, ...] = (", 1)[
+            -1
+        ].split(")", 1)[0]
+        if "API_BOUNDARY_ROUTERS:" in registry_source
+        else ""
+    )
+    if (
+        registry_source.count("automation_v2_router,")
+        - boundary_tuple.count("automation_v2_router,")
+        != 1
+    ):
         fail("automation v2 router is bound more than once by the registry")
+    if "_mount(app, API_BOUNDARY_ROUTERS)" in registry_source:
+        fail("validation-only API boundary routers must not be mounted")
     # Every group is mounted through the single ``_mount`` helper, so the
     # registry holds exactly one ``include_router`` call site.
     if registry_source.count("app.include_router(") != 1:

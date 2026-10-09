@@ -25,6 +25,7 @@ JWT through ``authenticated_tenant``). The guard never widens by prefix.
 from __future__ import annotations
 
 import logging
+import json
 import re
 import time
 from collections import OrderedDict, deque
@@ -40,7 +41,11 @@ from app.core import route_policy
 from app.core.auth import BearerAuthError, verify_bearer
 from app.core.config import Settings
 from app.monitoring.routes import is_monitoring_route
-from app.observability import MiddlewareObservability, safe_correlation_id, safe_traceparent
+from app.observability import (
+    MiddlewareObservability,
+    safe_correlation_id,
+    safe_traceparent,
+)
 
 logger = logging.getLogger("codestra.runtime")
 
@@ -94,11 +99,16 @@ AI_CONSOLE_SELF_AUTHENTICATED_PATHS = (
     ("POST", re.compile(r"^/api/v1/ai/commands$")),
     ("GET", re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}$")),
     ("GET", re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}/result$")),
-    ("POST", re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}/(?:cancel|approve|reject)$")),
+    (
+        "POST",
+        re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}/(?:cancel|approve|reject)$"),
+    ),
     ("GET", re.compile(r"^/api/v1/ai/(?:capabilities|usage)$")),
     ("POST", re.compile(r"^/api/v1/ai/tts/stream$")),
 )
-N8N_TRANSITION_PATH = re.compile(r"^/api/v1/n8n/executions/[0-9a-fA-F-]{36}/transitions$")
+N8N_TRANSITION_PATH = re.compile(
+    r"^/api/v1/n8n/executions/[0-9a-fA-F-]{36}/transitions$"
+)
 RECORDING_EXPORTER_PATH = re.compile(
     r"^/api/v1/recordings(?:/reservations|/REC-[0-9a-f]{32}/(?:complete|failure))$"
 )
@@ -111,7 +121,9 @@ def _is_ai_console_jwt_route(method: str, path: str) -> bool:
     )
 
 
-def _compiled_routes(routers: Iterable[APIRouter]) -> list[tuple[frozenset[str], re.Pattern[str]]]:
+def _compiled_routes(
+    routers: Iterable[APIRouter],
+) -> list[tuple[frozenset[str], re.Pattern[str]]]:
     compiled: list[tuple[frozenset[str], re.Pattern[str]]] = []
 
     def walk(routes, prefix: str = "") -> None:
@@ -124,7 +136,9 @@ def _compiled_routes(routers: Iterable[APIRouter]) -> list[tuple[frozenset[str],
             if isinstance(route, APIRoute):
                 pattern = route.path_regex
                 if prefix:
-                    pattern = re.compile("^" + re.escape(prefix) + pattern.pattern.lstrip("^"))
+                    pattern = re.compile(
+                        "^" + re.escape(prefix) + pattern.pattern.lstrip("^")
+                    )
                 compiled.append((frozenset(route.methods or ()), pattern))
 
     for router in routers:
@@ -140,6 +154,7 @@ class RequestGuard:
         settings: Settings,
         *,
         handler_authenticated_routers: Iterable[APIRouter] = (),
+        boundary_routers: Iterable[APIRouter] = (),
         telemetry: MiddlewareObservability | None = None,
         runtime_available: Callable[[], bool] | None = None,
     ) -> None:
@@ -147,6 +162,7 @@ class RequestGuard:
         self.telemetry = telemetry
         self.runtime_available = runtime_available or (lambda: True)
         self._handler_routes = _compiled_routes(handler_authenticated_routers)
+        self._boundary_routes = _compiled_routes(boundary_routers)
         self._rate_windows: OrderedDict[str, deque[float]] = OrderedDict()
 
     def reset_rate_limits(self) -> None:
@@ -156,7 +172,8 @@ class RequestGuard:
     # -- policy ---------------------------------------------------------
     def is_signed_write(self, method: str, path: str) -> bool:
         return method == "POST" and (
-            path in RATE_LIMITED_SIGNED_WRITES or N8N_TRANSITION_PATH.fullmatch(path) is not None
+            path in RATE_LIMITED_SIGNED_WRITES
+            or N8N_TRANSITION_PATH.fullmatch(path) is not None
         )
 
     def control_plane_route(self, method: str, path: str) -> bool:
@@ -185,13 +202,22 @@ class RequestGuard:
             return True
         return self.control_plane_route(method, path)
 
+    def boundary_route(self, method: str, path: str) -> bool:
+        """Whether the route opts into canonical body/header validation."""
+        return any(
+            method in methods and pattern.fullmatch(path) is not None
+            for methods, pattern in self._boundary_routes
+        )
+
     def guarded(self, request: Request) -> bool:
         path = request.url.path
         if not (path.startswith("/api/") or path.startswith("/v1/")):
             return False
         if self.handler_authenticated(request.method, path):
             return False
-        return not (is_monitoring_route(request) or is_observability_sync_route(request))
+        return not (
+            is_monitoring_route(request) or is_observability_sync_route(request)
+        )
 
     def rate_limited(self, request: Request) -> bool:
         identity = request.client.host if request.client else "unknown"
@@ -216,20 +242,28 @@ class RequestGuard:
     async def __call__(self, request: Request, call_next):
         settings = self.settings
         path = request.url.path
-        # Control-plane handlers validate Content-Length and body size with
-        # the canonical error envelope (read_limited_body); every other route
-        # is bounded here.
-        control_plane = self.control_plane_route(request.method, path)
+        # Canonical boundaries buffer the body before typed handler parsing;
+        # their registration does not change authentication ownership.
+        identity_boundary = self.boundary_route(request.method, path)
+        control_plane = (
+            self.control_plane_route(request.method, path) or identity_boundary
+        )
         content_length = 0
         if not control_plane:
             try:
                 content_length = int(request.headers.get("content-length", "0") or 0)
             except ValueError:
-                return JSONResponse({"detail": "invalid content length"}, status_code=400)
+                return JSONResponse(
+                    {"detail": "invalid content length"}, status_code=400
+                )
             if content_length < 0:
-                return JSONResponse({"detail": "invalid content length"}, status_code=400)
+                return JSONResponse(
+                    {"detail": "invalid content length"}, status_code=400
+                )
 
-        correlation_id = safe_correlation_id(request.headers.get("X-Correlation-ID")) or str(uuid4())
+        correlation_id = safe_correlation_id(
+            request.headers.get("X-Correlation-ID")
+        ) or str(uuid4())
         request.state.correlation_id = correlation_id
         client_correlation = request.headers.get("x-correlation-id", "").strip()
         request.state.client_correlation_id = (
@@ -241,8 +275,93 @@ class RequestGuard:
         )
         request.state.traceparent = safe_traceparent(request.headers.get("traceparent"))
 
+        if control_plane:
+            # Bound the stream before FastAPI parses typed bodies. Checking only
+            # Content-Length misses chunked requests and dishonest clients.
+            from app.appolon_routes import error_response, read_limited_body
+            from app.api_inputs import optional_header, reject_duplicate_pairs
+            from app.security import SecurityError
+            from app.service import IngressError
+
+            boundary_started = (
+                self.telemetry.start_request() if self.telemetry is not None else None
+            )
+
+            def boundary_response(status_code: int, code: str, message: str):
+                response = error_response(
+                    request,
+                    status_code=status_code,
+                    code=code,
+                    message=message,
+                    retryable=False,
+                )
+                response.headers["X-Correlation-ID"] = correlation_id
+                response.headers["Cache-Control"] = "no-store"
+                if self.telemetry is not None and boundary_started is not None:
+                    self.telemetry.finish_request(
+                        started=boundary_started,
+                        operation="api.boundary",
+                        method=request.method,
+                        status_code=status_code,
+                        correlation_id=correlation_id,
+                        traceparent=request.state.traceparent,
+                    )
+                return response
+
+            try:
+                # Validate supplied identity metadata even when the handler does
+                # not consume it. Never normalize an ambiguous client identity.
+                for name, maximum in (
+                    ("Authorization", 8192),
+                    ("X-Tenant-ID", 128),
+                    ("X-Correlation-ID", 180),
+                    ("Idempotency-Key", 180),
+                    ("X-Codestra-Actor", 300),
+                    ("X-Request-ID", 180),
+                ):
+                    if not identity_boundary:
+                        # Legacy reads authenticate before interpreting tenant
+                        # metadata through the shared header readers.
+                        continue
+                    optional_header(request, name, minimum=1, maximum=maximum)
+                request._body = await read_limited_body(
+                    request, settings.max_request_body_bytes
+                )
+            except (SecurityError, IngressError) as exc:
+                return boundary_response(
+                    exc.status_code,
+                    exc.code,
+                    "request does not match the canonical API boundary contract",
+                )
+            content_type = (
+                request.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            )
+            if request._body and (
+                not content_type
+                or content_type == "application/json"
+                or content_type.endswith("+json")
+            ):
+
+                def reject_constant(value: str):
+                    raise ValueError("non-finite JSON number")
+
+                try:
+                    json.loads(
+                        request._body,
+                        object_pairs_hook=reject_duplicate_pairs,
+                        parse_constant=reject_constant,
+                    )
+                except (ValueError, UnicodeError, RecursionError):
+                    return boundary_response(
+                        400,
+                        "invalid_request",
+                        "request body must be unambiguous valid JSON",
+                    )
+
         if request.method == "POST" and path.startswith("/api/v1/sales/"):
-            content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            content_type = (
+                request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            )
             if content_type != "application/json":
                 return JSONResponse(
                     {
@@ -253,7 +372,10 @@ class RequestGuard:
                     },
                     status_code=415,
                 )
-        if path.startswith("/api/v1/sales/") and content_length > settings.sales_lead_request_max_bytes:
+        if (
+            path.startswith("/api/v1/sales/")
+            and content_length > settings.sales_lead_request_max_bytes
+        ):
             return JSONResponse(
                 {
                     "code": "REQUEST_TOO_LARGE",
@@ -275,7 +397,9 @@ class RequestGuard:
 
         if self.guarded(request):
             try:
-                verify_bearer(request.headers.get("Authorization", ""), settings.middleware_secret)
+                verify_bearer(
+                    request.headers.get("Authorization", ""), settings.middleware_secret
+                )
             except BearerAuthError:
                 if not settings.middleware_secret:
                     return JSONResponse(
@@ -305,14 +429,16 @@ class RequestGuard:
                 template = getattr(route, "path", None)
                 self.telemetry.finish_request(
                     started=started,
-                    operation=template if isinstance(template, str) and template.startswith("/") else "unmatched",
+                    operation=template
+                    if isinstance(template, str) and template.startswith("/")
+                    else "unmatched",
                     method=request.method,
                     status_code=status_code,
                     correlation_id=correlation_id,
                     traceparent=request.state.traceparent,
                     intake_context=getattr(request.state, "intake_metrics", None),
                 )
-        response.headers["X-Correlation-ID"] = correlation_id
+        response.headers.setdefault("X-Correlation-ID", correlation_id)
         response.headers["Cache-Control"] = "no-store"
         # A valid client traceparent is echoed, an invalid one is dropped, and
         # a request without one gets a fresh trace context.
