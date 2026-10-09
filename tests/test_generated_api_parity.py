@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import yaml  # type: ignore[import-untyped]
 
+from app.application import AppProfile
 from app.main import create_app
 from scripts.generate_api_contracts import (
     HTTP_METHODS,
@@ -48,9 +49,7 @@ def test_generated_openapi_contract_and_matrix_match_runtime(test_settings) -> N
     matrix = _load_yaml("config/api-completion-matrix.yaml")
     expected = _routes(runtime["paths"])
     assert expected == _routes(generated["paths"]) == _routes(contract["paths"])
-    assert expected == {
-        (row["method"], row["path"]) for row in matrix["operations"]
-    }
+    assert expected == {(row["method"], row["path"]) for row in matrix["operations"]}
     assert matrix["classification_complete"] is True
     assert matrix["unknown_endpoints"] == 0
     assert not {"MISSING", "PARTIAL", "UNKNOWN"} & {
@@ -137,9 +136,7 @@ def test_generated_contract_documents_mutation_headers() -> None:
         ("/v1/intake/surveys/responses", "post"),
     )
     for path, method in operations:
-        names = {
-            item["name"] for item in contract["paths"][path][method]["parameters"]
-        }
+        names = {item["name"] for item in contract["paths"][path][method]["parameters"]}
         assert {"X-Tenant-ID", "X-Correlation-ID", "Idempotency-Key"} <= names
 
 
@@ -220,9 +217,53 @@ def test_webhook_business_422_responses_remain_documented(test_settings) -> None
     assert webhook_operations
     for operation in webhook_operations:
         response = operation["responses"]["422"]
-        assert response["description"] == (
-            "Event type is not allowed for this webhook"
-        )
+        assert response["description"] == ("Event type is not allowed for this webhook")
         assert response["content"]["application/json"]["schema"]["required"] == [
             "error"
         ]
+
+
+def test_generated_integration_contract_matches_deployed_profile(test_settings) -> None:
+    runtime = create_app(
+        settings=test_settings,
+        profile=AppProfile.INTEGRATION,
+    ).openapi()
+    generated = _load_json(
+        "contracts/platform/middleware-integration-openapi.generated.json"
+    )
+    matrix = _load_yaml("config/api-integration-completion-matrix.yaml")
+    expected = _routes(runtime["paths"])
+    assert expected == _routes(generated["paths"])
+    assert expected == {(row["method"], row["path"]) for row in matrix["operations"]}
+    assert matrix["profile"] == "integration"
+    assert matrix["listener_port"] == 8095
+    assert matrix["classification_complete"] is True
+    assert matrix["unknown_endpoints"] == 0
+    assert "/api/v1/social/media" in generated["paths"]
+
+
+def test_live_integration_openapi_has_explicit_auth_classification(
+    test_settings,
+) -> None:
+    schema = create_app(
+        settings=test_settings,
+        profile=AppProfile.INTEGRATION,
+    ).openapi()
+    operations = [
+        (path, method, operation)
+        for path, item in schema["paths"].items()
+        for method, operation in item.items()
+        if method in HTTP_METHODS and isinstance(operation, dict)
+    ]
+    assert operations
+    assert not [
+        (path, method)
+        for path, method, operation in operations
+        if "x-codestra-auth-mode" not in operation
+    ]
+    assert schema["paths"]["/health"]["get"]["x-codestra-auth-mode"] == "public"
+    media = schema["paths"]["/api/v1/social/media"]["post"]
+    assert media["x-codestra-auth-mode"] == "handler-bearer"
+    assert media["security"]
+    webhook = schema["paths"]["/api/v1/social/webhooks/{provider}"]["post"]
+    assert webhook["x-codestra-auth-mode"] == "signed-ingress"

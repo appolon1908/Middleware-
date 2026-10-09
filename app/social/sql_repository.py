@@ -245,6 +245,8 @@ class SqlSocialRepository:
         storage_reference: str,
         checksum_sha256: str,
         metadata: dict[str, Any],
+        actor_subject: str,
+        actor_authorized_party: str,
         idempotency_key: str,
         correlation_id: str,
         request_id: str,
@@ -255,6 +257,14 @@ class SqlSocialRepository:
         identical content returns the existing row; a replay with different
         content fails closed with SOCIAL_IDEMPOTENCY_CONFLICT.
         """
+        actor_subject = actor_subject.strip()
+        actor_authorized_party = actor_authorized_party.strip()
+        if not actor_subject or not actor_authorized_party:
+            raise SocialError(
+                "SOCIAL_AUDIT_PRINCIPAL_REQUIRED",
+                "Verified social audit principal is required",
+                status_code=403,
+            )
         asset_id = uuid5(tenant_id, f"codestra-social-media:{idempotency_key}")
         key_hash = hashlib.sha256(idempotency_key.encode()).hexdigest()
         normalized_metadata = dict(metadata)
@@ -322,11 +332,12 @@ class SqlSocialRepository:
             text("""INSERT INTO social_audit_events
             (id,tenant_id,actor_type,actor_id,action,correlation_id,request_id,
              idempotency_key_hash,result,metadata)
-            VALUES (:id,:tenant,'machine','codestra-video-controller','MEDIA_REGISTERED',
+            VALUES (:id,:tenant,'keycloak',:actor_subject,'MEDIA_REGISTERED',
              :correlation,:request,:key_hash,'REGISTERED',CAST(:metadata AS jsonb))"""),
             {
                 "id": uuid4(),
                 "tenant": tenant_id,
+                "actor_subject": actor_subject,
                 "correlation": correlation_id,
                 "request": request_id,
                 "key_hash": key_hash,
@@ -336,6 +347,7 @@ class SqlSocialRepository:
                         "media_type": media_type,
                         "content_type": content_type,
                         "checksum_sha256": checksum_sha256,
+                        "authorized_party": actor_authorized_party,
                     }
                 ),
             },
