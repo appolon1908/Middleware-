@@ -314,7 +314,13 @@ class CallingApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_bound_hangup_is_durable_and_idempotent(self):
         identity = await self.accept_call()
         path = f"/v1/telephony/calls/requests/{identity}/hangup"
-        mutation = dict(idempotency_key="test-hangup-0001", expected_version=1, reason="Agent hangup")
+        # A stale optimistic version must never authorize a hangup.
+        stale_status, _, _ = await asgi_request(
+            self.app, "POST", path,
+            dict(idempotency_key="test-hangup-stale-0001", expected_version=1, reason="Agent hangup"),
+        )
+        self.assertEqual(stale_status, 409)
+        mutation = dict(idempotency_key="test-hangup-0001", expected_version=4, reason="Agent hangup")
         first_status, first, _ = await asgi_request(self.app, "POST", path, mutation)
         second_status, second, _ = await asgi_request(self.app, "POST", path, mutation)
         self.assertEqual((first_status, second_status), (202, 200))
@@ -325,7 +331,7 @@ class CallingApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_owner_can_status_and_reconcile_hangup_after_start_grant_expiry(self):
         identity = await self.accept_call()
         mutation = dict(
-            idempotency_key="test-hangup-status-0001", expected_version=1,
+            idempotency_key="test-hangup-status-0001", expected_version=4,
             reason="Agent hangup",
         )
         status, created, _ = await asgi_request(
@@ -359,7 +365,7 @@ class CallingApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_hangup_relationship_tampering_and_hangup_of_hangup_are_denied(self):
         identity = await self.accept_call()
         mutation = dict(
-            idempotency_key="test-hangup-relation-0001", expected_version=1,  # gitleaks:allow test fixture
+            idempotency_key="test-hangup-relation-0001", expected_version=4,  # gitleaks:allow test fixture
             reason="Agent hangup",
         )
         status, created, _ = await asgi_request(
@@ -399,7 +405,7 @@ class CallingApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_reconciliation_does_not_resubmit_originate(self):
         identity = await self.accept_call()
         status, _, _ = await asgi_request(self.app, "POST", f"/v1/telephony/calls/requests/{identity}/reconcile",
-                                         dict(idempotency_key="test-reconcile-0001", expected_version=1, reason="Read back outcome"))
+                                         dict(idempotency_key="test-reconcile-0001", expected_version=4, reason="Read back outcome"))
         self.assertEqual(status, 202)
         self.assertEqual(len(self.store._commands), 1)
         current = await self.store.get(principal().tenant_id, identity)

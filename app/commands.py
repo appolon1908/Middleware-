@@ -1485,6 +1485,7 @@ class PostgresCommandStore:
                     """
                     UPDATE middleware_commands
                     SET state=$3,
+                        resource_version=resource_version+1,
                         provider_operation_id=COALESCE($4, provider_operation_id),
                         last_error=CASE
                             WHEN $3 IN ('failed','reconciliation_required') THEN $5
