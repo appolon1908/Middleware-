@@ -43,6 +43,7 @@ rewritten, and stays fail-closed.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -474,23 +475,11 @@ class Derivation:
         self.stale("gate-test", "repaired", repaired.group(1), validator_sha256)
         gate_text, _ = replace_digest(gate_text, repaired.group(1), validator_sha256)
 
-        # Phase 7: project the protected launcher; never write it.
-        successor = re.search(
-            r'SUCCESSOR_VALIDATOR_SHA256 = \(\s*"([0-9a-f]{64})"', launcher_text
+        # Phase 7: project an approved successor launcher, or verify a strict
+        # steady-state launcher without changing its protected trust-root bytes.
+        projected_launcher, launcher_report = project_protected_launcher(
+            launcher_text, validator_sha256, fingerprint
         )
-        successor_fp = re.search(
-            r'SUCCESSOR_RELEASE_SECURITY_FINGERPRINT = \(\s*"([0-9a-f]{64})"',
-            launcher_text,
-        )
-        if successor is None or successor_fp is None:
-            raise DerivationError("launcher successor constants are missing")
-        projected_launcher, _ = replace_digest(
-            launcher_text, successor.group(1), validator_sha256
-        )
-        projected_launcher, _ = replace_digest(
-            projected_launcher, successor_fp.group(1), fingerprint
-        )
-        launcher_parity = projected_launcher == launcher_text
 
         # Phase 8: source closure over the projected final tree, injected last.
         proposed = {
@@ -531,6 +520,11 @@ class Derivation:
         )
         if closure_after != closure:
             raise DerivationError("source closure is not a fixed point")
+        if launcher_report["mode"] == "steady-state":
+            if sha256_bytes(proposed[RELEASE]) != launcher_report["current_release_validator_in_tree"]:
+                raise DerivationError(
+                    "steady-state release validator bytes differ from protected launcher"
+                )
 
         discovery = validator_ns["APPROVED_DEFAULT_TEST_DISCOVERY_SOURCE_SHA256"].get(
             REPOSITORY
@@ -553,16 +547,121 @@ class Derivation:
             "leaf_pin_count": self.counts["leaf"],
             "read_only_script_pin_count": self.counts["read_only"],
             "workflow_pin_count": self.counts["workflow"],
-            "launcher": {
-                "successor_in_tree": successor.group(1),
-                "successor_fingerprint_in_tree": successor_fp.group(1),
-                "required_successor": validator_sha256,
-                "required_successor_fingerprint": fingerprint,
-                "parity": launcher_parity,
-            },
+            "launcher": launcher_report,
             "findings": self.findings,
         }
         return proposed
+
+
+def _safe_policy_value(node: ast.AST, constants: dict[str, str]) -> Any:
+    """Interpret only literal policy structures; never execute candidate source."""
+    if isinstance(node, ast.Name) and node.id in constants:
+        return constants[node.id]
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Tuple):
+        return tuple(_safe_policy_value(x, constants) for x in node.elts)
+    if isinstance(node, ast.Dict):
+        return {
+            _safe_policy_value(k, constants): _safe_policy_value(v, constants)
+            for k, v in zip(node.keys, node.values, strict=True)
+        }
+    raise DerivationError("launcher policy contains nonliteral or unsupported source")
+
+
+def project_protected_launcher(
+    launcher_text: str, validator_sha256: str, fingerprint: str
+) -> tuple[str, dict[str, Any]]:
+    """Support an approved transition or a strict steady-state trust launcher.
+
+    The steady-state form has no successor edge and must already match the
+    exact computed validator digest and fingerprint. No protected trust-root
+    file may be changed by the projection.
+    """
+    if not HEX64.fullmatch(validator_sha256) or not HEX64.fullmatch(fingerprint):
+        raise DerivationError("invalid exact validator digest or security fingerprint")
+
+    def binding(name: str) -> str | None:
+        declarations = re.findall(rf"(?m)^{re.escape(name)}\s*=", launcher_text)
+        matches = re.findall(
+            rf'(?m)^{re.escape(name)}\s*=\s*\(\s*"([0-9a-f]{{64}})"\s*\)',
+            launcher_text,
+        )
+        if len(declarations) != len(matches) or len(declarations) > 1:
+            raise DerivationError(f"malformed or shadowed launcher binding: {name}")
+        return matches[0] if matches else None
+
+    successor = binding("SUCCESSOR_VALIDATOR_SHA256")
+    successor_fp = binding("SUCCESSOR_RELEASE_SECURITY_FINGERPRINT")
+    declared_successor = bool(
+        re.search(r"(?m)^\s*SUCCESSOR_VALIDATOR_SHA256\s*=", launcher_text)
+    )
+    declared_fp = bool(
+        re.search(r"(?m)^\s*SUCCESSOR_RELEASE_SECURITY_FINGERPRINT\s*=", launcher_text)
+    )
+    if declared_successor != declared_fp or (
+        declared_successor and not (successor and successor_fp)
+    ):
+        raise DerivationError("mixed or malformed launcher successor generation")
+    if successor and successor_fp:
+        projected_launcher, _ = replace_digest(launcher_text, successor, validator_sha256)
+        projected_launcher, _ = replace_digest(
+            projected_launcher, successor_fp, fingerprint
+        )
+        return projected_launcher, {
+            "mode": "transition",
+            "successor_in_tree": successor,
+            "successor_fingerprint_in_tree": successor_fp,
+            "required_successor": validator_sha256,
+            "required_successor_fingerprint": fingerprint,
+            "current_release_validator_in_tree": None,
+            "parity": projected_launcher == launcher_text,
+        }
+
+    current = binding("CURRENT_VALIDATOR_SHA256")
+    current_fp = binding("CURRENT_RELEASE_SECURITY_FINGERPRINT")
+    current_release = binding("CURRENT_RELEASE_VALIDATOR_SHA256")
+    if not all((current, current_fp, current_release)):
+        raise DerivationError("steady-state launcher current trust pins are missing")
+    if current != validator_sha256:
+        raise DerivationError("steady-state validator digest differs from protected launcher")
+    if current_fp != fingerprint:
+        raise DerivationError("steady-state fingerprint differs from protected launcher")
+
+    try:
+        parsed = ast.parse(launcher_text)
+    except SyntaxError as error:
+        raise DerivationError("invalid protected launcher Python") from error
+    policy_nodes = [
+        node.value
+        for node in parsed.body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "APPROVED_VALIDATOR_TRANSITIONS"
+    ]
+    if len(policy_nodes) != 1:
+        raise DerivationError("steady-state exact trust policy is missing or duplicated")
+    actual_policy = _safe_policy_value(
+        policy_nodes[0],
+        {
+            "CURRENT_VALIDATOR_SHA256": current,
+            "CURRENT_RELEASE_SECURITY_FINGERPRINT": current_fp,
+        },
+    )
+    expected_policy = {current: {current: ("security-fingerprint", current_fp)}}
+    if actual_policy != expected_policy:
+        raise DerivationError("steady-state policy is not self-only; rollback denied")
+
+    return launcher_text, {
+        "mode": "steady-state",
+        "successor_in_tree": None,
+        "successor_fingerprint_in_tree": None,
+        "required_successor": validator_sha256,
+        "required_successor_fingerprint": fingerprint,
+        "current_release_validator_in_tree": current_release,
+        "parity": True,
+    }
 
 
 def compile_check(rel: str, data: bytes) -> None:
