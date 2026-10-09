@@ -31,12 +31,65 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: python3 governance/promotion_guard.py
 
+  development-ci-admission:
+    name: development-ci-admission
+    needs: promotion-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Require exact-SHA CI before Development Department admission
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -Eeuo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          state=""
+          # Exact-SHA CI may wait in the self-hosted runner queue longer than its runtime budget.
+          # Keep admission fail-closed while waiting for its authoritative final status.
+          for attempt in {1..320}; do
+            state="$(
+              curl --fail --silent --show-error \
+                --header "Authorization: Bearer ${GH_TOKEN}" \
+                --header "Accept: application/vnd.github+json" \
+                --header "X-GitHub-Api-Version: 2022-11-28" \
+                "${api}/commits/${HEAD_SHA}/statuses?per_page=100" \
+              | jq -r '[.[] | select(.context == "codestra/required-ci")][0].state // ""'
+            )"
+            case "${state}" in
+              success)
+                echo "DEVELOPMENT_CI_ADMISSION=PASS head_sha=${HEAD_SHA}"
+                exit 0
+                ;;
+              failure|error)
+                echo "DEVELOPMENT_CI_ADMISSION=BLOCK required_ci=${state} head_sha=${HEAD_SHA}" >&2
+                exit 1
+                ;;
+              pending|"")
+                if (( attempt % 20 == 0 )); then
+                  echo "Waiting for exact-SHA CI: attempt=${attempt} state=${state:-unpublished} sha=${HEAD_SHA}"
+                fi
+                sleep 15
+                ;;
+              *)
+                echo "unexpected required-ci state: ${state}" >&2
+                exit 1
+                ;;
+            esac
+          done
+          echo "DEVELOPMENT_CI_ADMISSION=BLOCK required_ci_timeout head_sha=${HEAD_SHA}" >&2
+          exit 1
+
   control-plane-certification:
     name: control-plane-certification
+    needs:
+      - promotion-guard
+      - development-ci-admission
     runs-on: [self-hosted, linux, x64, codestra-control-plane]
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Verify exact SHA in Codestra development control plane
+      - name: Verify exact SHA in Codestra Development Department control plane
         run: |
           /srv/codestra/dev-platform/control-plane/bin/codestra-github-check \
             --product 'Middleware-' \
@@ -44,3 +97,30 @@ jobs:
             --head-ref '${{ github.head_ref }}' \
             --base-ref '${{ github.base_ref }}' \
             --head-sha '${{ github.event.pull_request.head.sha }}'
+
+  promotion-gate:
+    name: promotion-gate
+    if: ${{ always() }}
+    needs:
+      - promotion-guard
+      - development-ci-admission
+      - control-plane-certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Certify Development Department promotion gate
+        shell: bash
+        env:
+          GUARD_RESULT: ${{ needs.promotion-guard.result }}
+          CI_ADMISSION_RESULT: ${{ needs.development-ci-admission.result }}
+          CONTROL_PLANE_RESULT: ${{ needs.control-plane-certification.result }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -Eeuo pipefail
+          test "${GUARD_RESULT}" = "success"
+          test "${CI_ADMISSION_RESULT}" = "success"
+          test "${CONTROL_PLANE_RESULT}" = "success"
+          echo "DEVELOPMENT_DEPARTMENT=PASS"
+          echo "PROMOTION_GATE=PASS head=${HEAD_REF} base=${BASE_REF} sha=${HEAD_SHA}"
