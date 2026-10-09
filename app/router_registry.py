@@ -42,6 +42,15 @@ from app.api.internal.ai_jobs import router as internal_ai_jobs_router
 from app.api.internal.database import router as internal_database_router
 from app.api.internal.klyrow_events import router as klyrow_events_router
 from app.api.internal.klyrow_mail import router as klyrow_mail_router
+from app.api.internal.provider_canaries import (
+    router as internal_provider_canaries_router,
+)
+from app.api.internal.production_decision import (
+    router as internal_production_decision_router,
+)
+from app.api.internal.release_certification import (
+    router as internal_release_certification_router,
+)
 from app.api.internal.telnexa_events import router as telnexa_events_router
 from app.api.v1.activity import router as activity_router
 from app.api.v1.agent_provisioning import router as agent_provisioning_router
@@ -127,6 +136,12 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     # Private read-only database operational evidence; explicit auth,
     # edge-denied under /internal/*, and shared by every profile.
     internal_database_router,
+    # Private fail-closed release certification: candidate, backup, restore
+    # rehearsal, rollback readiness, seal and lock readback; evaluation only.
+    internal_release_certification_router,
+    # Private production GO/NO_GO decision readback; read-only, explicit
+    # scopes, edge-denied under /internal/*, and shared by every profile.
+    internal_production_decision_router,
     # The V3 command kernel: the six /platform/v1 kernel routes, on every profile.
     platform_kernel_router,
     automation_v2_router,
@@ -177,6 +192,9 @@ INTEGRATION_ROUTERS: tuple[APIRouter, ...] = (
     sales_router,
     booking_router,
     platform_router,
+    # PAS-57 synthetic provider-canary controller; explicit auth, edge-denied
+    # under /internal/*, disabled by default.
+    internal_provider_canaries_router,
 )
 
 APPOLON_ROUTERS: tuple[APIRouter, ...] = (
@@ -321,8 +339,12 @@ def route_operations(app: FastAPI) -> list[tuple[str, str]]:
     return operations
 
 
-def assert_unique_routes(app: FastAPI) -> None:
-    """Refuse an application that registers the same operation twice."""
+def assert_unique_routes(app: FastAPI, *, deployed: bool = False) -> None:
+    """Refuse an application that registers the same operation twice.
+
+    ``deployed`` marks a non-monolith profile (the :8095 integration process
+    included): it must also never mount an edge-denied legacy route.
+    """
     counts = Counter(route_operations(app))
     duplicates = sorted(op for op, count in counts.items() if count > 1)
     if duplicates:
@@ -330,3 +352,21 @@ def assert_unique_routes(app: FastAPI) -> None:
             "duplicate route registrations: "
             + ", ".join(f"{method} {path}" for method, path in duplicates)
         )
+    if deployed:
+        assert_no_legacy_monolith_routes(app)
+
+
+def assert_no_legacy_monolith_routes(app: FastAPI) -> None:
+    """Fail startup, rather than wait for the release endpoint audit, when a
+    deployed composition mounts a LEGACY_MONOLITH_ONLY_ROUTERS route."""
+    forbidden = {
+        (method, path)
+        for router in LEGACY_MONOLITH_ONLY_ROUTERS
+        for route in router.routes
+        for path in [getattr(route, "path", None)]
+        for method in (getattr(route, "methods", None) or ())
+        if path is not None
+    }
+    leaked = sorted(forbidden & set(route_operations(app)))
+    if leaked:
+        raise RuntimeError(f"deployed composition leaked legacy monolith-only routes: {leaked}")

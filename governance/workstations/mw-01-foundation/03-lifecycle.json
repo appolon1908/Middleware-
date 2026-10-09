@@ -1,0 +1,23 @@
+{
+  "workstation": "middleware::mw-01-foundation::03-lifecycle",
+  "product": "middleware",
+  "section": "mw-01-foundation",
+  "subsection": "03-lifecycle",
+  "branch": "subsection/mw-01-foundation--03-lifecycle",
+  "parent_branch": "section/mw-01-foundation",
+  "order": 3,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-01-foundation/subsections/03-lifecycle/repo",
+  "depends_on": [
+    "middleware::mw-01-foundation::02-config-errors"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

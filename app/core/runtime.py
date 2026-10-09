@@ -409,7 +409,8 @@ async def build_runtime_container(
             raise RuntimeStartupError("automation v2 schema is unavailable or stale")
         realtime = PostgresRealtimeStore(pool, owns_pool=False)
         communications_store = PostgresCommunicationsStore(pool, owns_pool=False)
-        await communications_store._load()
+        if not await communications_store.ready():
+            raise RuntimeStartupError("communications schema is not ready")
 
         commands = CommandService(
             store=command_store,

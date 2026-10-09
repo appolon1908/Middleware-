@@ -28,12 +28,18 @@ async def pool() -> asyncpg.Pool:
         for path in sorted(Path("migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
     ]
     async with pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS middleware_outbox_attempt_events CASCADE")
+        await conn.execute(
+            "DROP TABLE IF EXISTS middleware_outbox_attempt_events CASCADE"
+        )
         await conn.execute("DROP TABLE IF EXISTS middleware_control_mutations CASCADE")
         await conn.execute("DROP TABLE IF EXISTS middleware_control_audit CASCADE")
-        await conn.execute("DROP TABLE IF EXISTS middleware_operation_mutations CASCADE")
+        await conn.execute(
+            "DROP TABLE IF EXISTS middleware_operation_mutations CASCADE"
+        )
         await conn.execute("DROP TABLE IF EXISTS middleware_event_ledger CASCADE")
-        await conn.execute("DROP TABLE IF EXISTS middleware_reconciliation_audit CASCADE")
+        await conn.execute(
+            "DROP TABLE IF EXISTS middleware_reconciliation_audit CASCADE"
+        )
         await conn.execute("DROP TABLE IF EXISTS middleware_outbox CASCADE")
         await conn.execute("DROP TABLE IF EXISTS middleware_inbox CASCADE")
         await conn.execute("DROP TABLE IF EXISTS middleware_schema_migrations CASCADE")
@@ -48,7 +54,9 @@ async def pool() -> asyncpg.Pool:
         await pool.close()
 
 
-async def insert_and_quarantine(pool: asyncpg.Pool, *, key: str, worker_id: str) -> tuple[PostgresOutboxStore, int]:
+async def insert_and_quarantine(
+    pool: asyncpg.Pool, *, key: str, worker_id: str
+) -> tuple[PostgresOutboxStore, int]:
     async with pool.acquire() as conn:
         row_id = await conn.fetchval(
             """
@@ -74,6 +82,51 @@ async def insert_and_quarantine(pool: asyncpg.Pool, *, key: str, worker_id: str)
         lease_seconds=30,
     )
     return store, row_id
+
+
+@pytest.mark.asyncio
+async def test_exhausted_safe_retry_requires_live_dispatch_owner(
+    pool: asyncpg.Pool,
+) -> None:
+    store, row_id = await insert_and_quarantine(
+        pool, key="exhausted-safe-retry", worker_id="owner"
+    )
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE middleware_outbox SET attempt_count=3 WHERE id=$1", row_id
+        )
+    for worker_id in (None, "stale-owner"):
+        with pytest.raises(ReconciliationError):
+            await store.resolve_reconciliation(
+                row_id,
+                operator_id="test",
+                action="retry",
+                reason="safe failure",
+                max_attempts=3,
+                worker_id=worker_id,
+            )
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE middleware_outbox SET lease_until=now() - interval '1 second' WHERE id=$1",
+            row_id,
+        )
+    for worker_id in (None, "owner"):
+        with pytest.raises(ReconciliationError):
+            await store.resolve_reconciliation(
+                row_id,
+                operator_id="test",
+                action="retry",
+                reason="safe failure",
+                max_attempts=3,
+                worker_id=worker_id,
+            )
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT reconciliation_required_at, dead_lettered_at FROM middleware_outbox WHERE id=$1",
+            row_id,
+        )
+    assert row["reconciliation_required_at"] is not None
+    assert row["dead_lettered_at"] is None
 
 
 @pytest.mark.asyncio
@@ -111,11 +164,14 @@ async def test_pre_dispatch_quarantine_refreshes_full_lease_atomically(
             max_attempts=3,
         )
 
-    assert await store.claim(
-        worker_id="worker-other",
-        lease_seconds=30,
-        max_attempts=3,
-    ) is None
+    assert (
+        await store.claim(
+            worker_id="worker-other",
+            lease_seconds=30,
+            max_attempts=3,
+        )
+        is None
+    )
 
 
 @pytest.mark.asyncio
@@ -163,3 +219,44 @@ async def test_active_dispatch_heartbeat_renews_same_owner_from_database_time(
         lease_seconds=30,
         max_attempts=3,
     ) is None
+
+
+@pytest.mark.asyncio
+async def test_reclaimed_outbox_fencing_rejects_stale_worker_completion(
+    pool: asyncpg.Pool,
+) -> None:
+    async with pool.acquire() as conn:
+        row_id = await conn.fetchval(
+            """
+            INSERT INTO middleware_outbox
+              (tenant_id,destination,event_type,payload,idempotency_key)
+            VALUES ('tenant-test','sandbox-provider','codestra.test.delivery','{}'::jsonb,
+                    'delivery-fencing-reclaim')
+            RETURNING id
+            """
+        )
+    store = PostgresOutboxStore(pool)
+    first = await store.claim(worker_id="worker-old", lease_seconds=1, max_attempts=3)
+    assert first is not None and first.id == row_id
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE middleware_outbox SET lease_until=now()-interval '1 second' WHERE id=$1",
+            row_id,
+        )
+    second = await store.claim(worker_id="worker-new", lease_seconds=30, max_attempts=3)
+    assert second is not None and second.id == row_id
+    assert second.fencing_token == first.fencing_token + 1
+
+    from app.storage import StorageError
+    with pytest.raises(StorageError, match="ownership"):
+        await store.complete(
+            row_id,
+            worker_id="worker-old",
+            fencing_token=first.fencing_token,
+        )
+
+    await store.complete(
+        row_id,
+        worker_id="worker-new",
+        fencing_token=second.fencing_token,
+    )

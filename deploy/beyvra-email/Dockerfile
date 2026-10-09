@@ -5,10 +5,14 @@ ARG VERSION
 LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source=$SOURCE_URL \
       org.opencontainers.image.version=$VERSION
-# Debian security update for libpcre2-8-0 (CVE-2026-86145, CVE-2026-89157,
-# CVE-2026-89161); the same pin Dockerfile.runtime applies in patched-final-base.
+# Debian bookworm-security patches, including perl-base vulnerabilities
+# CVE-2026-13221, CVE-2026-42496/42497, CVE-2026-57432/57433.
+# Keep the reviewed libpcre2 pin; never ignore findings in the image scan.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libpcre2-8-0=10.42-1+deb12u2 \
+ && apt-get install -y --no-install-recommends \
+      libpcre2-8-0=10.42-1+deb12u2 \
+      perl-base=5.36.0-7+deb12u4 \
+ && dpkg-query -W -f='${Version}\n' perl-base | grep -Fx '5.36.0-7+deb12u4' \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/codestra
 COPY requirements.lock /tmp/requirements.lock

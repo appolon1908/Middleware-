@@ -1,0 +1,25 @@
+{
+  "workstation": "middleware::mw-05-api::01-command-api",
+  "product": "middleware",
+  "section": "mw-05-api",
+  "subsection": "01-command-api",
+  "branch": "subsection/mw-05-api--01-command-api",
+  "parent_branch": "section/mw-05-api",
+  "order": 1,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-05-api/subsections/01-command-api/repo",
+  "depends_on": [
+    "middleware::mw-02-command-kernel::07-recovery",
+    "middleware::mw-03-connectors::05-control-api",
+    "middleware::mw-04-identity::04-replay-defense"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
