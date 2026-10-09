@@ -37,8 +37,11 @@ jobs:
           POSTGRES_PASSWORD: ci-only-password
         ports:
           - 5432/tcp
+        # initdb and its temporary socket-only server must finish before readiness.
+        # Keep failures bounded while allowing slow persistent-runner disk syncs.
         options: >-
-          --health-cmd "pg_isready -U middleware_ci -d middleware_rehearsal"
+          --health-cmd "pg_isready -h 127.0.0.1 -U middleware_ci -d middleware_rehearsal"
+          --health-start-period 180s
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12

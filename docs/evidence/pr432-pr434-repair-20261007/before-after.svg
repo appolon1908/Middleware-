@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title description">
+  <title id="title">Middleware PR #432 and PR #434 repair</title>
+  <desc id="description">Observed container initialization failure and intended certification path. The after path is a candidate pending local certification, normal merge and GitHub CI.</desc>
+  <style>text{font-family:Arial,sans-serif;fill:#182538}.title{font-size:26px;font-weight:bold}.label{font-size:18px;font-weight:bold}.body{font-size:16px}.small{font-size:14px}.box{fill:#fff;stroke:#718096;stroke-width:2}.arrow{stroke:#526478;stroke-width:2;marker-end:url(#arrow)}</style>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#526478"/></marker></defs>
+  <rect width="1200" height="700" fill="#f3f6fa"/>
+  <text x="35" y="45" class="title">Middleware | PR #432 + PR #434 repair</text>
+  <text x="35" y="76" class="small">#432: fix/source-hygiene-post430-20261005</text>
+  <text x="35" y="99" class="small">#434: convergence/middleware-saas-certified-20261005</text>
+  <text x="35" y="143" class="label">BEFORE — observed in run 37560401308</text>
+  <rect x="35" y="160" width="190" height="75" rx="8" class="box"/><text x="55" y="191" class="body">GitHub PR #432</text><text x="55" y="217" class="small">Required exact-SHA CI</text>
+  <path d="M225 198H265" class="arrow"/>
+  <rect x="270" y="160" width="200" height="75" rx="8" class="box"/><text x="287" y="191" class="body">Self-hosted runner</text><text x="287" y="217" class="small">PostgreSQL initialization</text>
+  <path d="M470 198H510" class="arrow"/>
+  <rect x="515" y="160" width="285" height="75" rx="8" fill="#ffe5e5" stroke="#bc3737"/><text x="531" y="191" class="body">Initialize containers FAIL</text><text x="531" y="217" class="small">Retries expire during init shutdown</text>
+  <path d="M800 198H840" class="arrow"/>
+  <rect x="845" y="160" width="315" height="75" rx="8" class="box"/><text x="865" y="191" class="body">All real tests skipped</text><text x="865" y="217" class="small">No checkout, migrations or certification</text>
+  <rect x="35" y="260" width="1125" height="60" rx="8" fill="#fff0df" stroke="#bd7b29"/><text x="55" y="296" class="body">PR #434 → changed #432 base → merge conflict / dirty state (reported mission baseline)</text>
+  <text x="35" y="371" class="label">AFTER — candidate path; merge and CI results must be verified</text>
+  <rect x="35" y="390" width="330" height="100" rx="8" fill="#e4f4ed" stroke="#34835e"/><text x="53" y="420" class="body">PR #432 startup repair</text><text x="53" y="448" class="small">TCP readiness + bounded 180s start period</text><text x="53" y="474" class="small">Digest pins and normal retries retained</text>
+  <path d="M365 440H405" class="arrow"/>
+  <rect x="410" y="390" width="330" height="100" rx="8" class="box"/><text x="428" y="420" class="body">Required exact-SHA job</text><text x="428" y="448" class="small">Final server healthy → actual tests</text><text x="428" y="474" class="small">Validators + migrations + evidence</text>
+  <path d="M740 440H780" class="arrow"/>
+  <rect x="785" y="390" width="375" height="100" rx="8" class="box"/><text x="803" y="420" class="body">Repaired #432 head → normal merge #434</text><text x="803" y="448" class="small">Resolve conflicts semantically</text><text x="803" y="474" class="small">Certification chain → mergeable candidate</text>
+  <text x="35" y="540" class="body">No rebase or force-push. No PR merge into main. Required gates remain fail-closed.</text>
+  <text x="35" y="578" class="small">PRODUCTION_GO=NO · LIVE_CAPABILITIES_ENABLED=NO · EXTERNAL_EFFECTS=false · MEDIA_RENDER=false</text>
+  <text x="35" y="625" class="small">This diagram describes the repair and intended verification path, not a claim of successful GitHub CI.</text>
+  <text x="35" y="653" class="small">See README.md for observed evidence, local validation and unresolved publication conditions.</text>
+</svg>

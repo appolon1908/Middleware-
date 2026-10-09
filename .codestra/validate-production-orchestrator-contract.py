@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "202365917d3541d56031898392647ff0b88e337fb21f0bb5f4c14093816ccbbf"
+    "02ed0303929bbe17f617cebfc5d18e14295df6df91854ed6904bfb4118d402fb"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -686,7 +686,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
+        ".github/workflows/required-ci.yml": "65c784afc30340d3d41b59151e1c4370e7e90c49ffe934cd2dc4de7bdcbed877",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -9373,8 +9373,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # The only external mutation is the required job posting its own exact
         # commit status through checks:write.
         ".github/workflows/required-ci.yml:test": (
-            "82afd5c0eb2a45cbd15c45312f37036b"
-            "ab123b68d2790497c6cb53be64eb8bc6"
+            "72257a5287061e21ac700c8705d8b30f"
+            "64209d0e7a7537c7919a867c67e16b20"
         ),
         # Single-lane governance mutates only runner-local Git refs/worktree
         # state to materialize the exact PR head before executing the

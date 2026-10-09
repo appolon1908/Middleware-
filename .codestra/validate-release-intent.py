@@ -221,7 +221,7 @@ KEYCLOAK_PRODUCTION_VALIDATOR_SHA256 = (
     "83d2fce102104543b871530f11115f20"
 )
 MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256 = (
-    "2928fcf4a575ae3d53c926a9626a8c6fb552242959b66d84779c30f45864973e"
+    "7128105c8fa999537169c792c40dd2d6c0f0956d27967a73a6eccfd9d6269966"
 )
 BACKEND_PRODUCTION_VALIDATOR_SHA256 = (
     "6006bbc7850ce7666de926b6cad2585b"
@@ -270,8 +270,8 @@ EXPECTED_CHECK_WORKFLOW_EXECUTABLE_SHA256 = {
         },
         ".github/workflows/middleware-ci.yml": {
             "Dockerfile.runtime": (
-                "309fd6852159e2bffe9da37e1d1876e8e"
-            "f2ff9e4db762dfb3e1ce2c4d1a3bdca"
+                "6b3510a0caa8dfa7987410e78c0e57945"
+            "36b1381541c21d7632f39d789d3b005"
             ),
             "scripts/integration_ci.sh": (
                 "8d9327fd9ad51d6ba7243d051336f623"
@@ -381,8 +381,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "fcdd0d5c3832479b10deda8c6a6afca6"
     ),
     "appolon1908/Middleware-": (
-        "821170b95b183fa70eb1810f0f805fda73"
-        "cd4bda0ac3abee0b593d0225de00d0"
+        "108481d223254a4fb98e3ff2e9a6c4fb49"
+        "b275860e5caba47e0f5bdc7ec51cfd"
     ),
     "appolon1908/codestra": (
         "4e3ea69c3ec2a4bd6e4b50395672f44d"
