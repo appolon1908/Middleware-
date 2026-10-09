@@ -87,6 +87,11 @@
       "head": "sync/agent06-mw07-provisioning-20261007-api",
       "base": "section/mw-07-provisioning",
       "expires": "2026-10-15"
+    },
+    {
+      "head": "trust/mw447-verified-validator-successor-20261008",
+      "base": "main",
+      "expires": "2026-10-10"
     }
   ],
   "protected": [

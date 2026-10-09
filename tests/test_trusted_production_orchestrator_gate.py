@@ -77,16 +77,18 @@ def test_launcher_does_not_allow_replay_of_candidate_controlled_bootstrap() -> N
     }
 
 
-def test_validator_transition_is_one_way_after_successor_merges() -> None:
+def test_trust_steady_state_rejects_old_validator_generations() -> None:
     launcher = load_launcher()
     current = launcher.CURRENT_VALIDATOR_SHA256
-    successor = launcher.SUCCESSOR_VALIDATOR_SHA256
-    transitions = launcher.APPROVED_VALIDATOR_TRANSITIONS
-
-    assert set(transitions[current]) == {current, successor}
-    assert set(transitions[successor]) == {successor}
-    assert current not in transitions[successor]
-
+    expected_policy = (
+        "security-fingerprint",
+        "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548",
+    )
+    assert launcher.APPROVED_VALIDATOR_TRANSITIONS == {
+        current: {current: expected_policy}
+    }
+    assert "dcfd8738b2186e38a1d61c3f4c322705735af4bf760f86a070156dd842fce2ea" not in launcher.APPROVED_VALIDATOR_TRANSITIONS
+    assert "2928fcf4a575ae3d53c926a9626a8c6fb552242959b66d84779c30f45864973e" not in launcher.APPROVED_VALIDATOR_TRANSITIONS
 
 def test_trust_file_comparison_rejects_candidate_drift(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -223,3 +225,44 @@ def test_repaired_candidate_requires_independent_protected_trust_transition(monk
         {repaired: {repaired: policy}},
     )
     assert launcher.validate_candidate(ROOT) == ORCHESTRATOR
+
+
+def test_protected_validator_generation_matches_exact_main_bytes() -> None:
+    """Pin the validator actually merged in PR #447, not its predecessor."""
+    import hashlib
+    launcher = load_launcher()
+    observed = hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest()
+    assert observed == "a0464ee3ac87ed1127d8ca349b821ab861d40451f595d74d40cd47e7f1f72dac"
+    assert launcher.CURRENT_VALIDATOR_SHA256 == observed
+    assert not hasattr(launcher, "SUCCESSOR_VALIDATOR_SHA256")
+    assert hashlib.sha256((ROOT / ".codestra/validate-release-intent.py").read_bytes()).hexdigest() == launcher.CURRENT_RELEASE_VALIDATOR_SHA256
+
+def test_mw447_current_trust_is_fingerprint_bound() -> None:
+    """Candidate needs an exact current-main digest and no historical downgrade."""
+    launcher = load_launcher()
+    current = launcher.CURRENT_VALIDATOR_SHA256
+    fingerprint = "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548"
+    orchestrator = runpy.run_path(str(ORCHESTRATOR), run_name="trusted_validator_test")
+    actual = orchestrator["release_validator_security_fingerprint"](
+        (ROOT / ".codestra/validate-release-intent.py").read_text(encoding="utf-8")
+    )
+    assert actual == fingerprint
+    assert launcher.APPROVED_VALIDATOR_TRANSITIONS == {
+        current: {current: ("security-fingerprint", fingerprint)}
+    }
+    assert launcher.validate_candidate(ROOT) == ORCHESTRATOR
+
+def test_unapproved_validator_remains_rejected_after_successor_pin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    real_digest = launcher.digest
+
+    def forged_digest(root: Path, relative: Path) -> str:
+        if relative == launcher.ORCHESTRATOR_PATH and root.resolve() == ROOT.resolve():
+            return "0" * 64
+        return real_digest(root, relative)
+
+    monkeypatch.setattr(launcher, "digest", forged_digest)
+    with pytest.raises(launcher.TrustError, match="not an approved generation"):
+        launcher.validate_candidate(ROOT)
