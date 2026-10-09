@@ -317,7 +317,7 @@ class CallingApiTests(unittest.IsolatedAsyncioTestCase):
         # A stale optimistic version must never authorize a hangup.
         stale_status, _, _ = await asgi_request(
             self.app, "POST", path,
-            dict(idempotency_key="test-hangup-stale-0001", expected_version=1, reason="Agent hangup"),
+            dict(idempotency_key="synthetic_stale_replay_check", expected_version=1, reason="Agent hangup"),
         )
         self.assertEqual(stale_status, 409)
         mutation = dict(idempotency_key="test-hangup-0001", expected_version=4, reason="Agent hangup")
