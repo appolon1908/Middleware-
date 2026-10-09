@@ -267,7 +267,8 @@ class PostlySocialAdapter:
                 "Postly connection failed before the publication was sent"
             ) from exc
         except httpx.HTTPError as exc:
-            return await self._resolve_unknown(request, payload, reason=str(exc))
+            # The exception text may echo URLs or provider data: keep the type only.
+            return await self._resolve_unknown(request, payload, reason=type(exc).__name__)
 
         if response.status_code in self.ACCEPTED_STATUSES:
             return ActivityResult(
@@ -294,9 +295,9 @@ class PostlySocialAdapter:
         """Resolve an ambiguous publish by reading back. Never by re-publishing."""
         try:
             reconciled = await self.readback(request)
-        except PostlySocialAdapterError as exc:
+        except Exception as exc:  # noqa: BLE001 - any read-back failure leaves the publication unknown
             raise PostlySocialUnknownOutcomeError(
-                f"Postly outcome unknown ({reason}) and the read-back failed: {exc}"
+                f"Postly outcome unknown ({reason}) and the read-back failed ({type(exc).__name__})"
             ) from exc
         if reconciled.status == "matched":
             return ActivityResult(

@@ -10,7 +10,11 @@ import httpx
 import pytest
 
 from app.core.config import ConfigurationError
-from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError
+from app.klyrow_email_adapter import (
+    KlyrowEmailAdapter,
+    KlyrowEmailAdapterError,
+    KlyrowEmailUnknownOutcomeError,
+)
 from app.temporal_workflows import CommandExecutionRequest
 
 BASE_URL = "https://klyrow-email-api:18000"
@@ -320,7 +324,9 @@ async def test_interrupted_write_stays_failed_when_readback_does_not_match() -> 
         )
 
     set_handler(handler)
-    with pytest.raises(KlyrowEmailAdapterError, match="submission failed"):
+    # The POST may have landed: the outcome is unknown (reconcile), never a
+    # clean pre-send failure the kernel could retry.
+    with pytest.raises(KlyrowEmailUnknownOutcomeError, match="did not confirm the submission"):
         await adapter().execute(command)
 
 

@@ -161,7 +161,7 @@ class AdapterDispatch:
                 return float(seconds)
         return self.bus.default_timeout_seconds
 
-    def context(self, operation: CommandOperation, *, attempt: int, timeout: float, trace: Mapping[str, str] | None = None, payload: Mapping[str, Any] | None = None) -> AdapterContext:
+    def context(self, operation: CommandOperation, *, attempt: int, timeout: float, trace: Mapping[str, str] | None = None, payload: Mapping[str, Any] | None = None, authenticated_client_id: str | None = None) -> AdapterContext:
         return AdapterContext(
             tenant_id=operation.tenant_id,
             command_id=str(operation.command_id),
@@ -174,6 +174,7 @@ class AdapterDispatch:
             trace_context=dict(trace or {}),
             test_syn=operation.tenant_id in self.safety.switches.synthetic_tenants,
             payload=dict(payload or {}),
+            authenticated_client_id=authenticated_client_id,
         )
 
     # ------------------------------------------------------------------
@@ -208,6 +209,7 @@ class AdapterDispatch:
             return self._record(DispatchOutcome(command_id, None, operation.state, False))
 
         envelope = await self.commands.load_envelope(tenant_id, command_id)
+        client_id = await self.commands.load_authenticated_client_id(tenant_id, command_id)
         ownership = self.registry.ownership(envelope.command_type)
         if ownership is None:
             await self._fail(operation, reason="no adapter owns this command", attempt=None)
@@ -219,11 +221,11 @@ class AdapterDispatch:
         if operation.state in {"dispatching", "accepted", "readback_pending"}:
             # Crash recovery (Phase 19): a previous attempt may have reached the
             # provider. Status/readback first; never a blind resend.
-            return await self._recover(operation, envelope, adapter, ownership, family, timeout, trace)
+            return await self._recover(operation, envelope, adapter, ownership, family, timeout, trace, client_id)
 
         # Safety is re-evaluated at execution time: a kill switch tripped after
         # acceptance must stop the effect here.
-        readiness = await adapter.readiness(self.context(operation, attempt=outbox_attempt, timeout=timeout, trace=trace, payload=envelope.payload))
+        readiness = await adapter.readiness(self.context(operation, attempt=outbox_attempt, timeout=timeout, trace=trace, payload=envelope.payload, authenticated_client_id=client_id))
         decision = self.safety.evaluate(
             SafetySubject(
                 tenant_id=operation.tenant_id,
@@ -256,7 +258,7 @@ class AdapterDispatch:
             operation = await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
         operation = await self.commands.transition(tenant_id, command_id, new_state="dispatching", actor_id=self.worker_id, reason=f"attempt via adapter {adapter.adapter_id}")
         attempt = await self.commands.latest_attempt(tenant_id, command_id)
-        context = self.context(operation, attempt=attempt, timeout=timeout, trace=trace, payload=envelope.payload)
+        context = self.context(operation, attempt=attempt, timeout=timeout, trace=trace, payload=envelope.payload, authenticated_client_id=client_id)
 
         self.metrics.adapter_requests.labels(adapter=adapter.adapter_id, operation="execute").inc()
         self.metrics.provider_effect_attempts.labels(adapter=adapter.adapter_id).inc()
@@ -394,9 +396,9 @@ class AdapterDispatch:
         self._record(DispatchOutcome(command_id, attempt, "reconciliation_required", True, None, readback))
         raise UnknownOutcomeError(f"readback {readback.status.value}")
 
-    async def _recover(self, operation: CommandOperation, envelope: CommandEnvelope, adapter: Adapter, ownership: Ownership, family: str, timeout: float, trace: Mapping[str, str] | None) -> DispatchOutcome:
+    async def _recover(self, operation: CommandOperation, envelope: CommandEnvelope, adapter: Adapter, ownership: Ownership, family: str, timeout: float, trace: Mapping[str, str] | None, client_id: str | None = None) -> DispatchOutcome:
         attempt = await self.commands.latest_attempt(operation.tenant_id, operation.command_id)
-        context = self.context(operation, attempt=attempt, timeout=timeout, trace=trace, payload=envelope.payload)
+        context = self.context(operation, attempt=attempt, timeout=timeout, trace=trace, payload=envelope.payload, authenticated_client_id=client_id)
         self.metrics.lease_expirations.inc()
         if operation.state == "dispatching":
             # The provider may or may not have received attempt N. Only a readback

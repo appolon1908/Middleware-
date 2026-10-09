@@ -142,6 +142,7 @@ class Reconciler:
         adapter = self.registry.adapter(ownership.adapter_id)
         attempt = await self.commands.latest_attempt(claim.tenant_id, claim.command_id)
         envelope = await self.commands.load_envelope(claim.tenant_id, claim.command_id)
+        client_id = await self.commands.load_authenticated_client_id(claim.tenant_id, claim.command_id)
         context = AdapterContext(
             tenant_id=operation.tenant_id,
             command_id=str(operation.command_id),
@@ -152,6 +153,7 @@ class Reconciler:
             deployment_sha=self.settings.source_sha,
             http=self.http,
             payload=envelope.payload,
+            authenticated_client_id=client_id,
         )
         self.metrics.adapter_requests.labels(adapter=adapter.adapter_id, operation="reconcile").inc()
         started = time.perf_counter()

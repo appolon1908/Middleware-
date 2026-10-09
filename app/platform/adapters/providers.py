@@ -11,6 +11,15 @@ each bridge maps a :class:`~app.commands.CommandEnvelope` onto the legacy
 ``CommandExecutionRequest``, classifies the legacy ``ActivityResult`` into the
 kernel's outcome classes and exposes ``readback``/``reconcile``.
 
+Error classification is the one place a bridge can cause a duplicate
+effect, so it is explicit per provider: ``unknown_errors`` are raised only
+after a request may have reached the provider and map to ``UNKNOWN``
+(reconcile through readback, never resend); ``rejected_errors`` are
+deterministic refusals; ``transient_errors`` must be raised *only before*
+anything was sent, because ``TRANSIENT`` is retried with a new attempt.
+``unknown_errors`` are checked first, so a legacy "unknown outcome" subclass
+of a provider's pre-send error class can never be retried.
+
 A provider adapter is registered only when its configuration validates
 (``validate_config``); an unconfigured provider leaves its capability
 unavailable, which the Safety Gate reports as ``adapter_not_registered``.
@@ -20,6 +29,7 @@ regardless: registering an adapter never activates an effect.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Mapping
@@ -39,6 +49,7 @@ from app.platform.adapter import (
     ReadbackResult,
     ReadbackStatus,
     classify_status,
+    error_class_for,
 )
 
 logger = logging.getLogger("codestra.platform.adapters.providers")
@@ -102,6 +113,28 @@ def _execution_request(command: CommandEnvelope | CommandOperation, *, client_id
     )
 
 
+_PRE_SEND_TRANSPORT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
+
+
+def _nothing_was_sent(error: BaseException, wrappers: tuple[type[BaseException], ...]) -> bool:
+    """Whether a legacy failure proves the request never left the process.
+
+    Only a connection failure proves that, and only when it was not raised
+    while handling an earlier send failure (a legacy adapter reconciling an
+    interrupted POST may hit a connect error on its read-back or token
+    endpoint). A legacy error class is retryable only when it directly wraps
+    such a connection failure; the same classes are raised after
+    transmission too (timeouts or 5xx whose read-back failed, 4xx, an answer
+    that did not bind the command identity), which stay ambiguous.
+    """
+    if isinstance(error, _PRE_SEND_TRANSPORT_ERRORS):
+        return error.__context__ is None
+    if wrappers and isinstance(error, wrappers):
+        cause = error.__cause__
+        return isinstance(cause, _PRE_SEND_TRANSPORT_ERRORS) and cause.__context__ is None
+    return False
+
+
 def _activity_status(raw: Any) -> tuple[str, str | None, dict[str, Any]]:
     status = str(getattr(raw, "status", "unknown")).lower()
     reference = getattr(raw, "provider_operation_id", None)
@@ -121,16 +154,25 @@ class LegacyBridge(BaseAdapter):
     legacy: Any = None
     supported_command_types: frozenset[str] = frozenset()
     required_settings: tuple[str, ...] = ()
-    transient_errors: tuple[type[BaseException], ...] = ()
+    # Legacy error classes that are retryable *when they wrap a connection
+    # failure* (see :func:`_nothing_was_sent`); otherwise they are ambiguous.
+    # Checked in this order: unknown (post-send) -> rejected -> transient (pre-send only).
+    unknown_errors: tuple[type[BaseException], ...] = ()
     rejected_errors: tuple[type[BaseException], ...] = ()
+    transient_errors: tuple[type[BaseException], ...] = ()
     readiness_probe: Callable[[], Awaitable[bool]] | None = None
     supports_cancel: bool = False
     supports_status: bool = True
     safe_reexecution: bool = False
     external_effect: bool = True
-    # The envelope payload is persisted with the authenticated client; the
-    # bridge needs it for the legacy provenance checks.
-    client_id_of: Callable[[CommandEnvelope | CommandOperation], str] = field(default=lambda command: "middleware-worker")
+    # Refines a legacy read-back verdict that the generic status table maps
+    # too coarsely (for example "still in progress" reported as a mismatch).
+    readback_status_of: Callable[[str, Mapping[str, Any]], ReadbackStatus | None] | None = None
+    # The legacy provenance checks need the client the command was
+    # authenticated as; the kernel hands it over in the context.
+    client_id_of: Callable[[CommandEnvelope | CommandOperation, AdapterContext], str] = field(
+        default=lambda command, context: context.authenticated_client_id or "middleware-worker"
+    )
 
     def validate_config(self) -> None:
         BaseAdapter.validate_config(self)
@@ -148,23 +190,27 @@ class LegacyBridge(BaseAdapter):
         if self.readiness_probe is None:
             return AdapterReadiness(ready=True, detail="configured")
         try:
-            return AdapterReadiness(ready=bool(await self.readiness_probe()), detail="probed")
+            ready = await asyncio.wait_for(self.readiness_probe(), timeout=context.timeout_seconds)
+            return AdapterReadiness(ready=bool(ready), detail="probed")
+        except asyncio.TimeoutError:
+            return AdapterReadiness(ready=False, detail="readiness_timeout")
         except Exception as exc:  # noqa: BLE001 - readiness never raises
             return AdapterReadiness(ready=False, detail=type(exc).__name__)
 
     async def execute(self, command: CommandEnvelope, context: AdapterContext) -> AdapterResult:
         if self.supported_command_types and command.command_type not in self.supported_command_types:
             return AdapterResult(Outcome.UNSUPPORTED, error_class=ErrorClass.UNSUPPORTED, safe_error_code="unsupported_command_type")
-        request = _execution_request(command, client_id=self.client_id_of(command), payload=command.payload)
+        request = _execution_request(command, client_id=self.client_id_of(command, context), payload=command.payload)
         try:
             raw = await self.legacy.execute(request)
+        except self.unknown_errors as exc:
+            logger.warning("legacy adapter %s outcome unknown after send: %s", self.adapter_id, type(exc).__name__)
+            return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code=type(exc).__name__)
         except self.rejected_errors as exc:
             return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code=type(exc).__name__)
-        except self.transient_errors as exc:
-            return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.RETRYABLE_BEFORE_EFFECT, safe_error_code=type(exc).__name__)
-        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
-            return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.RETRYABLE_BEFORE_EFFECT, safe_error_code=type(exc).__name__)
-        except Exception as exc:  # noqa: BLE001 - the provider outcome is unknown; the kernel reads back
+        except Exception as exc:  # noqa: BLE001 - the provider outcome is unknown unless nothing was sent; the kernel reads back
+            if _nothing_was_sent(exc, self.transient_errors):
+                return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.RETRYABLE_BEFORE_EFFECT, safe_error_code=type(exc).__name__)
             logger.warning("legacy adapter %s raised %s", self.adapter_id, type(exc).__name__)
             return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code=type(exc).__name__)
         return self.normalize_result(raw)
@@ -178,14 +224,17 @@ class LegacyBridge(BaseAdapter):
         return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code=readback.safe_error_code)
 
     async def readback(self, operation: CommandOperation, context: AdapterContext) -> ReadbackResult:
-        request = _execution_request(operation, client_id=self.client_id_of(operation), payload=context.payload)
+        request = _execution_request(operation, client_id=self.client_id_of(operation, context), payload=context.payload)
         try:
             raw = await self.legacy.readback(request)
         except Exception as exc:  # noqa: BLE001 - still unknown; the kernel keeps the operation open
             return ReadbackResult(ReadbackStatus.UNAVAILABLE, safe_error_code=type(exc).__name__)
         status, reference, evidence = _activity_status(raw)
+        verdict = _READBACK_STATUSES.get(status, ReadbackStatus.UNAVAILABLE)
+        if self.readback_status_of is not None:
+            verdict = self.readback_status_of(status, evidence) or verdict
         return ReadbackResult(
-            _READBACK_STATUSES.get(status, ReadbackStatus.UNAVAILABLE),
+            verdict,
             provider_operation_id=reference or operation.provider_operation_id,
             evidence=self.redact(evidence),
             safe_error_code=None if status in {"matched", "completed", "delivered", "accepted"} else f"readback_{status}",
@@ -306,7 +355,11 @@ class OdooAdapter(LegacyBridge):
 
     def normalize_result(self, raw: Any) -> AdapterResult:
         if isinstance(raw, Mapping) and "status_code" in raw:
-            status_code = int(raw["status_code"])
+            status_code = raw["status_code"]
+            if isinstance(status_code, bool) or not isinstance(status_code, int):
+                # The write already reached the bridge; an answer that cannot be
+                # read is an unknown outcome, never a deterministic failure.
+                return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code="odoo_status_unparseable")
             raw_body = raw.get("body")
             body: Mapping[str, Any] = raw_body if isinstance(raw_body, Mapping) else {}
             reference = None
@@ -325,7 +378,7 @@ class OdooAdapter(LegacyBridge):
             return AdapterResult(
                 outcome,
                 provider_operation_id=reference,
-                error_class=None if outcome is Outcome.ACCEPTED else ErrorClass.NON_RETRYABLE if outcome is Outcome.REJECTED else ErrorClass.AMBIGUOUS,
+                error_class=error_class_for(outcome, status_code),
                 safe_error_code=None if outcome is Outcome.ACCEPTED else f"odoo_http_{status_code}",
             )
         return LegacyBridge.normalize_result(self, raw)
@@ -426,6 +479,18 @@ class OdooAdapter(LegacyBridge):
         return ReadbackResult(ReadbackStatus.MATCHED, provider_operation_id=reference, evidence=evidence)
 
 
+# --- VICIdial: read-back verdicts --------------------------------------------------------
+
+
+def vicidial_readback_status(status: str, evidence: Mapping[str, Any]) -> ReadbackStatus | None:
+    """Server B answers "mismatch" for a call that is still nonterminal (or in
+    a state it does not recognise as terminal); binding failures raise instead.
+    A live call is not a failed command: keep the operation open."""
+    if status == "mismatch":
+        return ReadbackStatus.UNAVAILABLE
+    return None
+
+
 # --- factories --------------------------------------------------------------------------
 
 
@@ -442,10 +507,10 @@ def _try(name: str, build: Callable[[], BaseAdapter]) -> BaseAdapter | None:
 def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> tuple[BaseAdapter, ...]:
     """The real provider adapters, each registered only when it validates."""
     from app.calling_contract import HANGUP, ORIGINATE
-    from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError
-    from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError
-    from app.postly_social_adapter import PostlySocialAdapter, PostlySocialAdapterError
-    from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter
+    from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError, KlyrowEmailUnknownOutcomeError
+    from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError, OdooProviderUnknownOutcomeError
+    from app.postly_social_adapter import PostlySocialAdapter, PostlySocialAdapterError, PostlySocialUnknownOutcomeError
+    from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter, TelnexaUnknownOutcomeError
     from app.vicidial_internal_call_adapter import VicidialInternalCallAdapter, VicidialInternalCallPreDispatchRejected
 
     def odoo() -> BaseAdapter:
@@ -467,6 +532,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
             legacy=legacy,
             crm_bridge=crm_bridge,
             supported_command_types=frozenset({OdooProviderAdapter.UPSERT_LEAD}) | frozenset(CRM_BRIDGE_COMMANDS),
+            unknown_errors=(OdooProviderUnknownOutcomeError,),
             transient_errors=(OdooProviderAdapterError,),
         )
 
@@ -481,8 +547,15 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 served_capabilities=("EMAIL_DELIVERY",),
                 legacy=KlyrowEmailAdapter(settings),
                 supported_command_types=frozenset({KlyrowEmailAdapter.COMMAND_TYPE}),
+                unknown_errors=(KlyrowEmailUnknownOutcomeError,),
                 transient_errors=(KlyrowEmailAdapterError,),
-                required_settings=("KLYROW_EMAIL_API_BASE_URL", "KLYROW_EMAIL_MTLS_CA_FILE", "KLYROW_EMAIL_MTLS_CERT_FILE", "KLYROW_EMAIL_MTLS_KEY_FILE"),
+                required_settings=(
+                    "KLYROW_EMAIL_API_BASE_URL",
+                    "KLYROW_EMAIL_MTLS_CA_FILE",
+                    "KLYROW_EMAIL_MTLS_CERT_FILE",
+                    "KLYROW_EMAIL_MTLS_KEY_FILE",
+                    "KLYROW_EMAIL_OIDC_CLIENT_SECRET_FILE",
+                ),
             ),
         ),
         (
@@ -494,6 +567,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 served_capabilities=("SMS_DELIVERY",),
                 legacy=TelnexaSmsAdapter(settings),
                 supported_command_types=frozenset({TelnexaSmsAdapter.SUBMIT_SMS}),
+                unknown_errors=(TelnexaUnknownOutcomeError,),
                 transient_errors=(TelnexaProviderAdapterError,),
                 required_settings=("TELNEXA_SMS_BASE_URL", "TELNEXA_SMS_API_KEY"),
             ),
@@ -508,7 +582,13 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 legacy=VicidialInternalCallAdapter(settings, client=http),
                 supported_command_types=frozenset({ORIGINATE, HANGUP}),
                 rejected_errors=(VicidialInternalCallPreDispatchRejected,),
-                required_settings=("VICIDIAL_INTERNAL_CALL_BASE_URL", "VICIDIAL_INTERNAL_CALL_SERVICE_IDENTITY", "VICIDIAL_INTERNAL_CALL_HMAC_FILE"),
+                readback_status_of=vicidial_readback_status,
+                required_settings=(
+                    "VICIDIAL_INTERNAL_CALL_BASE_URL",
+                    "VICIDIAL_INTERNAL_CALL_EXPECTED_HOST",
+                    "VICIDIAL_INTERNAL_CALL_SERVICE_IDENTITY",
+                    "VICIDIAL_INTERNAL_CALL_HMAC_FILE",
+                ),
             ),
         ),
         (
@@ -520,6 +600,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 served_capabilities=("SOCIAL_PUBLISH",),
                 legacy=PostlySocialAdapter(settings),
                 supported_command_types=frozenset({PostlySocialAdapter.COMMAND_TYPE}),
+                unknown_errors=(PostlySocialUnknownOutcomeError,),
                 transient_errors=(PostlySocialAdapterError,),
                 required_settings=("POSTLY_SOCIAL_BASE_URL", "POSTLY_SOCIAL_API_KEY"),
             ),

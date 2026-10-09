@@ -8,7 +8,11 @@ from uuid import uuid4
 import httpx
 import pytest
 from app.core.config import ConfigurationError, Settings
-from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter
+from app.telnexa_provider_adapter import (
+    TelnexaProviderAdapterError,
+    TelnexaSmsAdapter,
+    TelnexaUnknownOutcomeError,
+)
 from app.temporal_workflows import CommandExecutionRequest
 
 BASE_URL = "https://telnexa.internal.invalid"
@@ -318,9 +322,36 @@ async def test_timeout_then_missing_readback_does_not_post_again() -> None:
         return httpx.Response(404, json={"detail": "submission_not_found"})
 
     set_handler(handler)
-    with pytest.raises(TelnexaProviderAdapterError, match="outcome unknown"):
+    with pytest.raises(TelnexaUnknownOutcomeError, match="outcome unknown"):
         await TelnexaSmsAdapter(settings_stub(), env=ENV).execute(execution_request())
     assert calls == ["POST", "GET"]
+
+
+@pytest.mark.asyncio
+async def test_timeout_then_failed_readback_is_unknown_not_retryable() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method)
+        if request.method == "POST":
+            raise httpx.ReadTimeout("unconfirmed", request=request)
+        raise httpx.ConnectError("read side down", request=request)
+
+    set_handler(handler)
+    with pytest.raises(TelnexaUnknownOutcomeError, match="reconciliation failed"):
+        await TelnexaSmsAdapter(settings_stub(), env=ENV).execute(execution_request())
+    assert calls == ["POST", "GET"]
+
+
+@pytest.mark.asyncio
+async def test_connection_refused_before_send_stays_a_plain_pre_send_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    set_handler(handler)
+    with pytest.raises(TelnexaProviderAdapterError, match="before the submission was sent") as raised:
+        await TelnexaSmsAdapter(settings_stub(), env=ENV).execute(execution_request())
+    assert not isinstance(raised.value, TelnexaUnknownOutcomeError)
 
 
 @pytest.mark.asyncio

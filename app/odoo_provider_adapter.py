@@ -26,6 +26,15 @@ class OdooProviderAdapterError(RuntimeError):
     pass
 
 
+class OdooProviderUnknownOutcomeError(OdooProviderAdapterError):
+    """The write may have been committed in Odoo and read-back did not settle it.
+
+    Raised only after the request left the process. It must never be retried
+    blindly: the caller reconciles through the read-only command-status route.
+    Every other :class:`OdooProviderAdapterError` is raised before sending.
+    """
+
+
 @lru_cache(maxsize=1)
 def _odoo_lead_command_validator() -> Draft202012Validator:
     """Load the local Odoo specialization without resolving its remote base ref.
@@ -254,8 +263,8 @@ class OdooProviderAdapter:
 
         try:
             reconciliation = await self.readback(request)
-        except OdooProviderAdapterError as reconciliation_error:
-            raise OdooProviderAdapterError(
+        except Exception as reconciliation_error:  # noqa: BLE001 - any read-back failure leaves the write unknown
+            raise OdooProviderUnknownOutcomeError(
                 "Odoo command outcome remains unknown after command-status reconciliation failed"
             ) from reconciliation_error
         if reconciliation.status == "matched":
@@ -267,7 +276,7 @@ class OdooProviderAdapter:
                 ),
                 provider_operation_id=request.command_id,
             )
-        raise OdooProviderAdapterError(
+        raise OdooProviderUnknownOutcomeError(
             "Odoo command outcome remains unknown after command-status mismatch"
         ) from original_error
 
@@ -275,18 +284,17 @@ class OdooProviderAdapter:
         self._require_active(request)
         method, path, payload = self._write_request(request)
         body = self._canonical_body(payload)
+        # Resolve the endpoint and the signed headers *before* the attempt: a
+        # misconfiguration is a clean pre-send failure, never an unknown write.
+        url = f"{self._base_url()}{path}"
+        headers = self._headers(method=method, path=path, body=body, request=request)
         try:
             async with httpx.AsyncClient(timeout=25.0) as client:
                 response = await client.request(
                     method,
-                    f"{self._base_url()}{path}",
+                    url,
                     content=body,
-                    headers=self._headers(
-                        method=method,
-                        path=path,
-                        body=body,
-                        request=request,
-                    ),
+                    headers=headers,
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -299,7 +307,7 @@ class OdooProviderAdapter:
             or data.get("external_id") != source_record_id
             or data.get("outcome") not in {"created", "updated"}
         ):
-            raise OdooProviderAdapterError(
+            raise OdooProviderUnknownOutcomeError(
                 "Odoo response did not confirm the canonical command identity"
             )
         return ActivityResult(
