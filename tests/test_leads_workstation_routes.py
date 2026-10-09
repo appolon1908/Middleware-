@@ -1,5 +1,6 @@
+import json
+
 from fastapi.routing import APIRoute
-import yaml
 
 from app.api.v1.leads_workstation import router as leads_router
 from app.router_registry import CANONICAL_ROUTERS
@@ -31,8 +32,14 @@ def test_canonical_leads_operations_are_declared():
     assert expected <= operations
 
 
-def test_permissions_manifest_declares_leads_scopes():
-    with open(".codestra/permissions.yaml", encoding="utf-8") as fh:
-        permissions = yaml.safe_load(fh)
-    assert "platform.leads.read" in permissions["scopes"]["read"]
-    assert "platform.leads.write" in permissions["scopes"]["write"]
+def test_generated_public_contract_declares_leads_scopes():
+    with open("deploy/public-api-route-contract.json", encoding="utf-8") as fh:
+        contract = json.load(fh)
+    routes = {
+        (row["method"], row["path"]): row
+        for row in contract["routes"]
+        if row["path"].startswith("/platform/v1/leads")
+    }
+    assert routes[("GET", "/platform/v1/leads")]["scope"] == "platform.leads.read"
+    assert routes[("POST", "/platform/v1/leads")]["scope"] == "platform.leads.write"
+    assert routes[("PATCH", "/platform/v1/leads/{lead_id}")]["scope"] == "platform.leads.write"
