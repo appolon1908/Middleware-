@@ -95,6 +95,9 @@ OUTPUT_PATHS = {
     "json": ROOT / "contracts/platform/middleware-openapi.generated.json",
     "yaml": ROOT / "contracts/platform/integration-fabric-api.v2.yaml",
     "matrix": ROOT / "config/api-completion-matrix.yaml",
+    "integration_json": ROOT
+    / "contracts/platform/middleware-integration-openapi.generated.json",
+    "integration_matrix": ROOT / "config/api-integration-completion-matrix.yaml",
 }
 
 
@@ -247,6 +250,91 @@ def build_documents() -> tuple[dict[str, Any], dict[str, Any]]:
     return schema, matrix
 
 
+def build_integration_documents() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build the exact deployed :8095 integration-profile API authority."""
+    from app.application import AppProfile
+    from app.core.config import Settings
+    from app.main import create_app
+
+    settings = Settings.from_env(
+        {
+            "APP_ENV": "test",
+            "ALLOW_IN_MEMORY_STORAGE": "true",
+            "EXTERNAL_EFFECTS": "false",
+        }
+    )
+    schema: dict[str, Any] = create_app(
+        settings=settings,
+        profile=AppProfile.INTEGRATION,
+    ).openapi()
+    _normalize_schema_defaults(schema)
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            for parameter in operation.get("parameters", []):
+                if parameter.get("in") != "header":
+                    continue
+                if parameter.get("name") not in {
+                    "X-Tenant-ID",
+                    "X-Correlation-ID",
+                    "Idempotency-Key",
+                }:
+                    continue
+                parameter_schema = parameter.get("schema")
+                if isinstance(parameter_schema, dict):
+                    parameter_schema.pop("title", None)
+    schema["info"]["description"] = (
+        "Exact generated Middleware integration-profile contract for the deployed "
+        ":8095 service. Operation-level x-codestra-auth-mode is derived from the "
+        "same request guard that enforces runtime authentication."
+    )
+    operations: list[dict[str, Any]] = []
+    for path, item in schema["paths"].items():
+        for method, operation in item.items():
+            if method not in HTTP_METHODS:
+                continue
+            operations.append(
+                {
+                    "domain": _domain_for_path(path),
+                    "method": method.upper(),
+                    "path": path,
+                    "canonical_operation_id": operation.get("operationId"),
+                    "implementation_file": "deployed AppProfile.INTEGRATION runtime",
+                    "runtime_state": (
+                        "DEPRECATED" if operation.get("deprecated") else "IMPLEMENTED"
+                    ),
+                    "auth_mode": operation.get("x-codestra-auth-mode", "unknown"),
+                }
+            )
+    operations.sort(key=lambda row: (row["path"], row["method"]))
+    matrix = {
+        "schema_version": "2.0",
+        "profile": "integration",
+        "listener_port": 8095,
+        "inventory_base_sha": INVENTORY_BASE_SHA,
+        "classification_complete": all(
+            row["auth_mode"] != "unknown" for row in operations
+        ),
+        "unknown_endpoints": sum(row["auth_mode"] == "unknown" for row in operations),
+        "operations": operations,
+    }
+    return schema, matrix
+
+
+def render_integration_documents(
+    schema: dict[str, Any],
+    matrix: dict[str, Any],
+) -> dict[Path, str]:
+    return {
+        OUTPUT_PATHS["integration_json"]: json.dumps(schema, indent=2, sort_keys=True)
+        + "\n",
+        OUTPUT_PATHS["integration_matrix"]: yaml.safe_dump(
+            matrix, sort_keys=False, allow_unicode=True
+        ),
+    }
+
+
 def render_documents(
     schema: dict[str, Any],
     matrix: dict[str, Any],
@@ -327,7 +415,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     schema, matrix = build_documents()
+    integration_schema, integration_matrix = build_integration_documents()
     documents = render_documents(schema, matrix)
+    documents.update(
+        render_integration_documents(integration_schema, integration_matrix)
+    )
 
     if args.check:
         stale = _check_documents(documents)
@@ -340,6 +432,7 @@ def main(argv: list[str] | None = None) -> int:
             path.write_text(content, encoding="utf-8")
 
     print(f"OPENAPI_ROUTES={len(matrix['operations'])}")
+    print(f"INTEGRATION_OPENAPI_ROUTES={len(integration_matrix['operations'])}")
     return 0
 
 

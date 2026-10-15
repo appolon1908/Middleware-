@@ -40,16 +40,36 @@ from app.core import route_policy
 from app.core.auth import BearerAuthError, verify_bearer
 from app.core.config import Settings
 from app.monitoring.routes import is_monitoring_route
-from app.observability import MiddlewareObservability, safe_correlation_id, safe_traceparent
+from app.observability import (
+    MiddlewareObservability,
+    safe_correlation_id,
+    safe_traceparent,
+)
 
 logger = logging.getLogger("codestra.runtime")
 
 CORRELATION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 MAX_RATE_IDENTITIES = 4096
 CANONICAL_API_PREFIXES = ("/platform/v1/", "/v2/automation/")
+OPENAPI_PUBLIC_PATHS = frozenset(
+    {
+        "/health",
+        "/healthz",
+        "/health/live",
+        "/health/ready",
+        "/ready",
+        "/readyz",
+        "/readiness",
+        "/dependencies",
+        "/version",
+        "/capabilities",
+    }
+)
 
 
-def _canonical_guard_body(code: str, message: str, correlation_id: str) -> dict[str, object]:
+def _canonical_guard_body(
+    code: str, message: str, correlation_id: str
+) -> dict[str, object]:
     """Guard-level refusal body in the canonical V3 error envelope."""
     return {
         "error": {
@@ -60,6 +80,7 @@ def _canonical_guard_body(code: str, message: str, correlation_id: str) -> dict[
             "details": {},
         }
     }
+
 
 # Routes whose handler verifies an HMAC signature or a service JWT itself.
 SIGNED_WEBHOOK_PATHS = frozenset(
@@ -101,6 +122,7 @@ RATE_LIMITED_SIGNED_WRITES = frozenset(
     }
 )
 SELF_AUTHENTICATED_PATHS = frozenset({"/v1/registry/search"})
+SOCIAL_API_PATH = re.compile(r"^/api/v1/social(?:/.*)?$")
 SOCIAL_WEBHOOK_PATH = re.compile(r"^/api/v1/social/webhooks/(?:postly|hootsuite)$")
 AI_CONSOLE_SELF_AUTHENTICATED_PATHS = (
     ("POST", re.compile(r"^/api/v1/ai/conversations$")),
@@ -110,14 +132,37 @@ AI_CONSOLE_SELF_AUTHENTICATED_PATHS = (
     ("POST", re.compile(r"^/api/v1/ai/commands$")),
     ("GET", re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}$")),
     ("GET", re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}/result$")),
-    ("POST", re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}/(?:cancel|approve|reject)$")),
+    (
+        "POST",
+        re.compile(r"^/api/v1/ai/commands/[0-9a-fA-F-]{36}/(?:cancel|approve|reject)$"),
+    ),
     ("GET", re.compile(r"^/api/v1/ai/(?:capabilities|usage)$")),
     ("POST", re.compile(r"^/api/v1/ai/tts/stream$")),
 )
-N8N_TRANSITION_PATH = re.compile(r"^/api/v1/n8n/executions/[0-9a-fA-F-]{36}/transitions$")
+N8N_TRANSITION_PATH = re.compile(
+    r"^/api/v1/n8n/executions/[0-9a-fA-F-]{36}/transitions$"
+)
 RECORDING_EXPORTER_PATH = re.compile(
     r"^/api/v1/recordings(?:/reservations|/REC-[0-9a-f]{32}/(?:complete|failure))$"
 )
+OPENAPI_PATH_PARAMETER = re.compile(r"\{([^}:]+)(?::[^}]+)?\}")
+OPENAPI_SAMPLE_UUID = "00000000-0000-4000-8000-000000000000"
+
+
+def _openapi_runtime_path(path: str) -> str:
+    """Materialize a route template into a representative concrete path."""
+
+    def replacement(match: re.Match[str]) -> str:
+        name = match.group(1).lower()
+        if "recording" in name:
+            return "REC-" + ("0" * 32)
+        if name == "provider":
+            return "postly"
+        if any(token in name for token in ("id", "uuid")):
+            return OPENAPI_SAMPLE_UUID
+        return "sample"
+
+    return OPENAPI_PATH_PARAMETER.sub(replacement, path)
 
 
 def _is_ai_console_jwt_route(method: str, path: str) -> bool:
@@ -127,7 +172,9 @@ def _is_ai_console_jwt_route(method: str, path: str) -> bool:
     )
 
 
-def _compiled_routes(routers: Iterable[APIRouter]) -> list[tuple[frozenset[str], re.Pattern[str]]]:
+def _compiled_routes(
+    routers: Iterable[APIRouter],
+) -> list[tuple[frozenset[str], re.Pattern[str]]]:
     compiled: list[tuple[frozenset[str], re.Pattern[str]]] = []
 
     def walk(routes, prefix: str = "") -> None:
@@ -140,7 +187,9 @@ def _compiled_routes(routers: Iterable[APIRouter]) -> list[tuple[frozenset[str],
             if isinstance(route, APIRoute):
                 pattern = route.path_regex
                 if prefix:
-                    pattern = re.compile("^" + re.escape(prefix) + pattern.pattern.lstrip("^"))
+                    pattern = re.compile(
+                        "^" + re.escape(prefix) + pattern.pattern.lstrip("^")
+                    )
                 compiled.append((frozenset(route.methods or ()), pattern))
 
     for router in routers:
@@ -172,7 +221,8 @@ class RequestGuard:
     # -- policy ---------------------------------------------------------
     def is_signed_write(self, method: str, path: str) -> bool:
         return method == "POST" and (
-            path in RATE_LIMITED_SIGNED_WRITES or N8N_TRANSITION_PATH.fullmatch(path) is not None
+            path in RATE_LIMITED_SIGNED_WRITES
+            or N8N_TRANSITION_PATH.fullmatch(path) is not None
         )
 
     def control_plane_route(self, method: str, path: str) -> bool:
@@ -195,11 +245,42 @@ class RequestGuard:
             return True
         if RECORDING_EXPORTER_PATH.fullmatch(path):
             return True
+        if SOCIAL_API_PATH.fullmatch(path):
+            return True
         if _is_ai_console_jwt_route(method, path):
             return True
         if route_policy.handler_authenticated(method, path):
             return True
         return self.control_plane_route(method, path)
+
+    def openapi_auth_mode(self, method: str, path: str) -> str:
+        """Return the source-owned authentication class for an API operation."""
+        upper = method.upper()
+        runtime_path = _openapi_runtime_path(path)
+        if runtime_path in OPENAPI_PUBLIC_PATHS:
+            return "public"
+        if runtime_path in SIGNED_WEBHOOK_PATHS or (
+            upper == "POST"
+            and (
+                N8N_TRANSITION_PATH.fullmatch(runtime_path)
+                or SOCIAL_WEBHOOK_PATH.fullmatch(runtime_path)
+            )
+        ):
+            return "signed-ingress"
+        if (
+            runtime_path in SELF_AUTHENTICATED_PATHS
+            or RECORDING_EXPORTER_PATH.fullmatch(runtime_path)
+            or SOCIAL_API_PATH.fullmatch(runtime_path)
+            or _is_ai_console_jwt_route(upper, runtime_path)
+            or route_policy.handler_authenticated(upper, runtime_path)
+            or self.control_plane_route(upper, runtime_path)
+            or runtime_path.startswith(CANONICAL_API_PREFIXES)
+            or runtime_path.startswith("/internal/v1/")
+        ):
+            return "handler-bearer"
+        if runtime_path.startswith(("/api/", "/v1/")):
+            return "shared-secret-bearer"
+        return "route-dependency"
 
     def guarded(self, request: Request) -> bool:
         path = request.url.path
@@ -207,7 +288,9 @@ class RequestGuard:
             return False
         if self.handler_authenticated(request.method, path):
             return False
-        return not (is_monitoring_route(request) or is_observability_sync_route(request))
+        return not (
+            is_monitoring_route(request) or is_observability_sync_route(request)
+        )
 
     def rate_limited(self, request: Request) -> bool:
         identity = request.client.host if request.client else "unknown"
@@ -236,7 +319,9 @@ class RequestGuard:
         # the canonical error envelope (read_limited_body); every other route
         # is bounded here.
         control_plane = self.control_plane_route(request.method, path)
-        correlation_id = safe_correlation_id(request.headers.get("X-Correlation-ID")) or str(uuid4())
+        correlation_id = safe_correlation_id(
+            request.headers.get("X-Correlation-ID")
+        ) or str(uuid4())
         canonical_api = path.startswith(CANONICAL_API_PREFIXES)
         content_length = 0
         if not control_plane:
@@ -247,11 +332,17 @@ class RequestGuard:
             if content_length < 0:
                 if canonical_api:
                     return JSONResponse(
-                        _canonical_guard_body("INVALID_CONTENT_LENGTH", "Content-Length is invalid", correlation_id),
+                        _canonical_guard_body(
+                            "INVALID_CONTENT_LENGTH",
+                            "Content-Length is invalid",
+                            correlation_id,
+                        ),
                         status_code=400,
                         headers={"X-Correlation-ID": correlation_id},
                     )
-                return JSONResponse({"detail": "invalid content length"}, status_code=400)
+                return JSONResponse(
+                    {"detail": "invalid content length"}, status_code=400
+                )
 
         request.state.correlation_id = correlation_id
         client_correlation = request.headers.get("x-correlation-id", "").strip()
@@ -265,7 +356,9 @@ class RequestGuard:
         request.state.traceparent = safe_traceparent(request.headers.get("traceparent"))
 
         if request.method == "POST" and path.startswith("/api/v1/sales/"):
-            content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            content_type = (
+                request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            )
             if content_type != "application/json":
                 return JSONResponse(
                     {
@@ -276,7 +369,10 @@ class RequestGuard:
                     },
                     status_code=415,
                 )
-        if path.startswith("/api/v1/sales/") and content_length > settings.sales_lead_request_max_bytes:
+        if (
+            path.startswith("/api/v1/sales/")
+            and content_length > settings.sales_lead_request_max_bytes
+        ):
             return JSONResponse(
                 {
                     "code": "REQUEST_TOO_LARGE",
@@ -289,7 +385,11 @@ class RequestGuard:
         if content_length > settings.request_max_bytes:
             if canonical_api:
                 return JSONResponse(
-                    _canonical_guard_body("REQUEST_TOO_LARGE", "request exceeds the configured body limit", correlation_id),
+                    _canonical_guard_body(
+                        "REQUEST_TOO_LARGE",
+                        "request exceeds the configured body limit",
+                        correlation_id,
+                    ),
                     status_code=413,
                     headers={"X-Correlation-ID": correlation_id},
                 )
@@ -304,7 +404,9 @@ class RequestGuard:
 
         if self.guarded(request):
             try:
-                verify_bearer(request.headers.get("Authorization", ""), settings.middleware_secret)
+                verify_bearer(
+                    request.headers.get("Authorization", ""), settings.middleware_secret
+                )
             except BearerAuthError:
                 if not settings.middleware_secret:
                     return JSONResponse(
@@ -334,7 +436,9 @@ class RequestGuard:
                 template = getattr(route, "path", None)
                 self.telemetry.finish_request(
                     started=started,
-                    operation=template if isinstance(template, str) and template.startswith("/") else "unmatched",
+                    operation=template
+                    if isinstance(template, str) and template.startswith("/")
+                    else "unmatched",
                     method=request.method,
                     status_code=status_code,
                     correlation_id=correlation_id,

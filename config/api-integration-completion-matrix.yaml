@@ -1,0 +1,2674 @@
+schema_version: '2.0'
+profile: integration
+listener_port: 8095
+inventory_base_sha: 8e3534e0271371e0fee057331a9a24f391356e5e
+classification_complete: true
+unknown_endpoints: 0
+operations:
+- domain: ai
+  method: POST
+  path: /api/v1/ai/recommendations/{id}/{decision}
+  canonical_operation_id: ai_decision_api_v1_ai_recommendations__id___decision__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: POST
+  path: /api/v1/automation/actions/{action}
+  canonical_operation_id: authorized_action_api_v1_automation_actions__action__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: POST
+  path: /api/v1/automation/audit/result
+  canonical_operation_id: record_audit_result_api_v1_automation_audit_result_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: GET
+  path: /api/v1/automation/callbacks/{state}
+  canonical_operation_id: callbacks_api_v1_automation_callbacks__state__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: GET
+  path: /api/v1/automation/context/{resource}/{identifier}
+  canonical_operation_id: context_api_v1_automation_context__resource___identifier__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: POST
+  path: /api/v1/automation/events
+  canonical_operation_id: receive_event_api_v1_automation_events_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: automation
+  method: POST
+  path: /api/v1/automation/events/dead-letter
+  canonical_operation_id: dead_letter_api_v1_automation_events_dead_letter_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: GET
+  path: /api/v1/automation/events/{event_id}
+  canonical_operation_id: event_status_api_v1_automation_events__event_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: POST
+  path: /api/v1/automation/executions/{transition}
+  canonical_operation_id: execution_transition_api_v1_automation_executions__transition__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: POST
+  path: /api/v1/automation/idempotency/check
+  canonical_operation_id: reserve_idempotency_api_v1_automation_idempotency_check_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: automation
+  method: POST
+  path: /api/v1/automation/policy-check
+  canonical_operation_id: policy_check_api_v1_automation_policy_check_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: automation
+  method: GET
+  path: /api/v1/automation/queues/status
+  canonical_operation_id: queue_status_api_v1_automation_queues_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: GET
+  path: /api/v1/booking/appointments/{appointment_id}
+  canonical_operation_id: appointment_api_v1_booking_appointments__appointment_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: POST
+  path: /api/v1/booking/appointments/{appointment_id}/cancel
+  canonical_operation_id: cancel_api_v1_booking_appointments__appointment_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: POST
+  path: /api/v1/booking/appointments/{appointment_id}/reschedule
+  canonical_operation_id: reschedule_api_v1_booking_appointments__appointment_id__reschedule_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: POST
+  path: /api/v1/booking/contact
+  canonical_operation_id: contact_api_v1_booking_contact_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: POST
+  path: /api/v1/booking/providers/interest
+  canonical_operation_id: provider_interest_api_v1_booking_providers_interest_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: POST
+  path: /api/v1/booking/requests
+  canonical_operation_id: request_service_api_v1_booking_requests_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: booking
+  method: GET
+  path: /api/v1/booking/services
+  canonical_operation_id: services_api_v1_booking_services_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: callbacks
+  method: GET
+  path: /api/v1/callbacks
+  canonical_operation_id: queue_api_v1_callbacks_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: callbacks
+  method: POST
+  path: /api/v1/callbacks
+  canonical_operation_id: callback_api_v1_callbacks_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: callbacks
+  method: GET
+  path: /api/v1/callbacks/dashboard/campaigns
+  canonical_operation_id: campaign_dashboard_api_v1_callbacks_dashboard_campaigns_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: callbacks
+  method: GET
+  path: /api/v1/callbacks/dashboard/supervisor
+  canonical_operation_id: supervisor_dashboard_api_v1_callbacks_dashboard_supervisor_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: callbacks
+  method: GET
+  path: /api/v1/callbacks/due
+  canonical_operation_id: due_callbacks_api_v1_callbacks_due_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: callbacks
+  method: GET
+  path: /api/v1/callbacks/{callback_id}
+  canonical_operation_id: get_api_v1_callbacks__callback_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: callbacks
+  method: PATCH
+  path: /api/v1/callbacks/{id}
+  canonical_operation_id: callback_patch_api_v1_callbacks__id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: campaign-designs
+  method: POST
+  path: /api/v1/campaign-designs/approvals
+  canonical_operation_id: approve_api_v1_campaign_designs_approvals_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: campaign-designs
+  method: POST
+  path: /api/v1/campaign-designs/preview
+  canonical_operation_id: preview_api_v1_campaign_designs_preview_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: commands
+  method: POST
+  path: /api/v1/commands
+  canonical_operation_id: create_command_api_v1_commands_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: commands
+  method: GET
+  path: /api/v1/commands/{command_public_id}
+  canonical_operation_id: get_command_api_v1_commands__command_public_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: commands
+  method: GET
+  path: /api/v1/commands/{command_public_id}/history
+  canonical_operation_id: get_command_history_api_v1_commands__command_public_id__history_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: commands
+  method: GET
+  path: /api/v1/commands/{command_public_id}/result
+  canonical_operation_id: get_command_result_api_v1_commands__command_public_id__result_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: compliance
+  method: POST
+  path: /api/v1/compliance/events
+  canonical_operation_id: compliance_api_v1_compliance_events_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks
+  canonical_operation_id: create_api_v1_control_callbacks_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: PATCH
+  path: /api/v1/control/callbacks/{callback_id}
+  canonical_operation_id: patch_callback_api_v1_control_callbacks__callback_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/call-now
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__call_now_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/cancel
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/complete
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__complete_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/reassign
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__reassign_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/reschedule
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__reschedule_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/snooze
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__snooze_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: control
+  method: POST
+  path: /api/v1/control/callbacks/{callback_id}/start
+  canonical_operation_id: handler_api_v1_control_callbacks__callback_id__start_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: crm-vicidial
+  method: GET
+  path: /api/v1/crm-vicidial/reconciliation/metrics
+  canonical_operation_id: metrics_api_v1_crm_vicidial_reconciliation_metrics_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: crm-vicidial
+  method: POST
+  path: /api/v1/crm-vicidial/reconciliation/start
+  canonical_operation_id: start_run_api_v1_crm_vicidial_reconciliation_start_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: crm-vicidial
+  method: POST
+  path: /api/v1/crm-vicidial/reconciliation/{run_id}/finish
+  canonical_operation_id: finish_run_api_v1_crm_vicidial_reconciliation__run_id__finish_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: events
+  method: POST
+  path: /api/v1/events/klyrow
+  canonical_operation_id: receive_klyrow_event_api_v1_events_klyrow_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: events
+  method: POST
+  path: /api/v1/events/telnexa
+  canonical_operation_id: receive_telnexa_event_api_v1_events_telnexa_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: events
+  method: POST
+  path: /api/v1/events/telnexa/verify
+  canonical_operation_id: verify_synthetic_telnexa_callback_api_v1_events_telnexa_verify_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/n8n/dead-letter
+  canonical_operation_id: n8n_dead_letter_api_v1_integrations_n8n_dead_letter_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/n8n/dispatch
+  canonical_operation_id: n8n_dispatch_api_v1_integrations_n8n_dispatch_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/n8n/errors
+  canonical_operation_id: n8n_error_api_v1_integrations_n8n_errors_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/n8n/progress
+  canonical_operation_id: n8n_progress_api_v1_integrations_n8n_progress_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/n8n/reconciliation
+  canonical_operation_id: n8n_reconciliation_api_v1_integrations_n8n_reconciliation_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/n8n/results
+  canonical_operation_id: n8n_result_api_v1_integrations_n8n_results_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/n8n/results/{event_id}
+  canonical_operation_id: n8n_result_status_api_v1_integrations_n8n_results__event_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/campaigns/{campaign_id}
+  canonical_operation_id: odoo_campaign_read_api_v1_integrations_odoo_campaigns__campaign_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/campaigns/{campaign_id}/desired-state
+  canonical_operation_id: odoo_campaign_desired_state_api_v1_integrations_odoo_campaigns__campaign_id__desired_state_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: integrations
+  method: POST
+  path: /api/v1/integrations/odoo/commands
+  canonical_operation_id: odoo_command_api_v1_integrations_odoo_commands_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/commands/{command_id}
+  canonical_operation_id: odoo_command_status_api_v1_integrations_odoo_commands__command_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/health
+  canonical_operation_id: odoo_health_api_v1_integrations_odoo_health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/readiness
+  canonical_operation_id: odoo_readiness_api_v1_integrations_odoo_readiness_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/status
+  canonical_operation_id: odoo_integration_status_api_v1_integrations_odoo_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/sync-errors
+  canonical_operation_id: odoo_sync_errors_api_v1_integrations_odoo_sync_errors_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/odoo/sync-status
+  canonical_operation_id: odoo_sync_status_api_v1_integrations_odoo_sync_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: integrations
+  method: GET
+  path: /api/v1/integrations/runtime
+  canonical_operation_id: runtime_integration_status_api_v1_integrations_runtime_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: lead-automation
+  method: GET
+  path: /api/v1/lead-automation/events/{automation_event_id}
+  canonical_operation_id: status_api_v1_lead_automation_events__automation_event_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: lead-automation
+  method: POST
+  path: /api/v1/lead-automation/results
+  canonical_operation_id: receive_result_api_v1_lead_automation_results_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: n8n-runtime
+  method: POST
+  path: /api/v1/n8n-runtime/dispatch
+  canonical_operation_id: dispatch_api_v1_n8n_runtime_dispatch_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n-runtime
+  method: GET
+  path: /api/v1/n8n-runtime/executions/{execution_id}
+  canonical_operation_id: execution_status_api_v1_n8n_runtime_executions__execution_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n-runtime
+  method: POST
+  path: /api/v1/n8n-runtime/results
+  canonical_operation_id: result_callback_api_v1_n8n_runtime_results_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: n8n-runtime
+  method: POST
+  path: /api/v1/n8n-runtime/social-authorize
+  canonical_operation_id: authorize_social_ingress_api_v1_n8n_runtime_social_authorize_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: n8n
+  method: POST
+  path: /api/v1/n8n/acknowledgements
+  canonical_operation_id: acknowledge_execution_api_v1_n8n_acknowledgements_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: n8n
+  method: GET
+  path: /api/v1/n8n/acknowledgements/{acknowledgement_id}
+  canonical_operation_id: read_acknowledgement_api_v1_n8n_acknowledgements__acknowledgement_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: GET
+  path: /api/v1/n8n/deliveries/{delivery_id}
+  canonical_operation_id: delivery_status_api_v1_n8n_deliveries__delivery_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /api/v1/n8n/executions
+  canonical_operation_id: register_execution_api_v1_n8n_executions_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: n8n
+  method: GET
+  path: /api/v1/n8n/executions/{registration_id}
+  canonical_operation_id: read_execution_api_v1_n8n_executions__registration_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /api/v1/n8n/executions/{registration_id}/transitions
+  canonical_operation_id: transition_execution_api_v1_n8n_executions__registration_id__transitions_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: odoo
+  method: POST
+  path: /api/v1/odoo/events
+  canonical_operation_id: ingress_odoo_event
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: operations
+  method: GET
+  path: /api/v1/operations/dead-letters
+  canonical_operation_id: dead_letters_api_v1_operations_dead_letters_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: operations
+  method: POST
+  path: /api/v1/operations/dead-letters/{item_id}/replay
+  canonical_operation_id: replay_item_api_v1_operations_dead_letters__item_id__replay_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: operations
+  method: POST
+  path: /api/v1/operations/maintenance/recover
+  canonical_operation_id: recover_api_v1_operations_maintenance_recover_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: operations
+  method: POST
+  path: /api/v1/operations/reconciliation
+  canonical_operation_id: reconcile_api_v1_operations_reconciliation_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: operations
+  method: GET
+  path: /api/v1/operations/reliability
+  canonical_operation_id: reliability_api_v1_operations_reliability_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: orchestration
+  method: POST
+  path: /api/v1/orchestration/lead-sync
+  canonical_operation_id: create_lead_sync_intent_api_v1_orchestration_lead_sync_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: orchestration
+  method: POST
+  path: /api/v1/orchestration/provisioning
+  canonical_operation_id: create_provisioning_intent_api_v1_orchestration_provisioning_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: quarantine
+  method: GET
+  path: /api/v1/quarantine
+  canonical_operation_id: list_records_api_v1_quarantine_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: quarantine
+  method: GET
+  path: /api/v1/quarantine/{record_id}
+  canonical_operation_id: detail_api_v1_quarantine__record_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: quarantine
+  method: POST
+  path: /api/v1/quarantine/{record_id}/corrections
+  canonical_operation_id: create_correction_api_v1_quarantine__record_id__corrections_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: quarantine
+  method: POST
+  path: /api/v1/quarantine/{record_id}/reprocess
+  canonical_operation_id: reprocess_api_v1_quarantine__record_id__reprocess_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: quarantine
+  method: POST
+  path: /api/v1/quarantine/{record_id}/review
+  canonical_operation_id: review_api_v1_quarantine__record_id__review_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: reconciliation
+  method: POST
+  path: /api/v1/reconciliation/run
+  canonical_operation_id: reconciliation_api_v1_reconciliation_run_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: reconciliation
+  method: GET
+  path: /api/v1/reconciliation/status
+  canonical_operation_id: reconciliation_status_api_v1_reconciliation_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: reports
+  method: GET
+  path: /api/v1/reports/{report_name}
+  canonical_operation_id: report_api_v1_reports__report_name__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: results
+  method: POST
+  path: /api/v1/results/callbacks/{callback_id}
+  canonical_operation_id: callback_result_api_v1_results_callbacks__callback_id__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: sales
+  method: POST
+  path: /api/v1/sales/lead-candidates/resolve
+  canonical_operation_id: resolve_candidate_api_v1_sales_lead_candidates_resolve_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: sales
+  method: POST
+  path: /api/v1/sales/lead-candidates/validate
+  canonical_operation_id: validate_candidate_api_v1_sales_lead_candidates_validate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: sales
+  method: POST
+  path: /api/v1/sales/scraper-results
+  canonical_operation_id: scraper_results_api_v1_sales_scraper_results_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: sales
+  method: POST
+  path: /api/v1/sales/verification-jobs
+  canonical_operation_id: create_verification_job_api_v1_sales_verification_jobs_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: sales
+  method: GET
+  path: /api/v1/sales/verification-jobs/{job_id}
+  canonical_operation_id: get_verification_job_api_v1_sales_verification_jobs__job_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: sales
+  method: POST
+  path: /api/v1/sales/verification-jobs/{job_id}/cancel
+  canonical_operation_id: cancel_verification_job_api_v1_sales_verification_jobs__job_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: sales
+  method: GET
+  path: /api/v1/sales/verification-jobs/{job_id}/results
+  canonical_operation_id: get_verification_results_api_v1_sales_verification_jobs__job_id__results_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/accounts
+  canonical_operation_id: accounts_api_v1_social_accounts_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/accounts/{account_id}
+  canonical_operation_id: account_api_v1_social_accounts__account_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/analytics
+  canonical_operation_id: analytics_api_v1_social_analytics_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/campaigns
+  canonical_operation_id: create_campaign_api_v1_social_campaigns_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/campaigns/{campaign_id}
+  canonical_operation_id: get_campaign_api_v1_social_campaigns__campaign_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/media
+  canonical_operation_id: register_media_api_v1_social_media_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/media/{asset_id}
+  canonical_operation_id: get_media_api_v1_social_media__asset_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/posts
+  canonical_operation_id: create_post_api_v1_social_posts_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: DELETE
+  path: /api/v1/social/posts/{post_id}
+  canonical_operation_id: delete_api_v1_social_posts__post_id__delete
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/posts/{post_id}
+  canonical_operation_id: get_post_api_v1_social_posts__post_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: PATCH
+  path: /api/v1/social/posts/{post_id}
+  canonical_operation_id: update_post_api_v1_social_posts__post_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/posts/{post_id}/cancel
+  canonical_operation_id: cancel_api_v1_social_posts__post_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/posts/{post_id}/publish
+  canonical_operation_id: publish_api_v1_social_posts__post_id__publish_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/posts/{post_id}/schedule
+  canonical_operation_id: schedule_api_v1_social_posts__post_id__schedule_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/providers
+  canonical_operation_id: providers_api_v1_social_providers_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: GET
+  path: /api/v1/social/providers/{provider}
+  canonical_operation_id: provider_api_v1_social_providers__provider__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: social
+  method: POST
+  path: /api/v1/social/webhooks/{provider}
+  canonical_operation_id: webhook_api_v1_social_webhooks__provider__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/commands
+  canonical_operation_id: create_command_api_v1_telephony_commands_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/commands/{command_public_id}
+  canonical_operation_id: get_command_api_v1_telephony_commands__command_public_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/commands/{command_public_id}/cancel
+  canonical_operation_id: cancel_command_api_v1_telephony_commands__command_public_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/commands/{command_public_id}/history
+  canonical_operation_id: get_command_history_api_v1_telephony_commands__command_public_id__history_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/commands/{command_public_id}/repair-intents
+  canonical_operation_id: get_repair_history_api_v1_telephony_commands__command_public_id__repair_intents_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/commands/{command_public_id}/repair-intents
+  canonical_operation_id: create_repair_intent_api_v1_telephony_commands__command_public_id__repair_intents_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/commands/{command_public_id}/replay
+  canonical_operation_id: request_command_replay_api_v1_telephony_commands__command_public_id__replay_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/commands/{command_public_id}/replays
+  canonical_operation_id: get_replay_history_api_v1_telephony_commands__command_public_id__replays_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/commands/{command_public_id}/result
+  canonical_operation_id: get_command_result_api_v1_telephony_commands__command_public_id__result_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/operations
+  canonical_operation_id: register_operation_api_v1_telephony_operations_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/operations/{operation_public_id}
+  canonical_operation_id: get_operation_api_v1_telephony_operations__operation_public_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/operations/{operation_public_id}/transitions
+  canonical_operation_id: transition_operation_api_v1_telephony_operations__operation_public_id__transitions_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/reconciliation/candidates
+  canonical_operation_id: reconciliation_candidates_api_v1_telephony_reconciliation_candidates_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/reconciliation/runs
+  canonical_operation_id: create_reconciliation_run_api_v1_telephony_reconciliation_runs_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/reconciliation/runs/{run_public_id}
+  canonical_operation_id: get_reconciliation_run_api_v1_telephony_reconciliation_runs__run_public_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /api/v1/telephony/results
+  canonical_operation_id: create_terminal_result_api_v1_telephony_results_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /api/v1/telephony/results/{result_public_id}
+  canonical_operation_id: get_terminal_result_api_v1_telephony_results__result_public_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: transfers
+  method: POST
+  path: /api/v1/transfers/requests
+  canonical_operation_id: transfer_api_v1_transfers_requests_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: transfers
+  method: POST
+  path: /api/v1/transfers/{id}/{decision}
+  canonical_operation_id: transfer_decision_api_v1_transfers__id___decision__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: capabilities
+  method: GET
+  path: /capabilities
+  canonical_operation_id: capabilities_capabilities_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: dependencies
+  method: GET
+  path: /dependencies
+  canonical_operation_id: dependencies_dependencies_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: health
+  method: GET
+  path: /health
+  canonical_operation_id: liveness_health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: health
+  method: GET
+  path: /health/dependencies
+  canonical_operation_id: dependencies_health_dependencies_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: health
+  method: GET
+  path: /health/live
+  canonical_operation_id: liveness_health_live_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: health
+  method: GET
+  path: /health/ready
+  canonical_operation_id: readiness_health_ready_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: healthz
+  method: GET
+  path: /healthz
+  canonical_operation_id: liveness_healthz_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: database
+  method: GET
+  path: /internal/v1/database/backups
+  canonical_operation_id: backups_internal_v1_database_backups_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/backups/latest
+  canonical_operation_id: latest_backup_internal_v1_database_backups_latest_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/capacity
+  canonical_operation_id: capacity_internal_v1_database_capacity_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/health
+  canonical_operation_id: health_internal_v1_database_health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/locks
+  canonical_operation_id: locks_internal_v1_database_locks_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/migrations
+  canonical_operation_id: migrations_internal_v1_database_migrations_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: POST
+  path: /internal/v1/database/migrations/verify
+  canonical_operation_id: verify_migrations_internal_v1_database_migrations_verify_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/performance
+  canonical_operation_id: performance_internal_v1_database_performance_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/pool
+  canonical_operation_id: pool_internal_v1_database_pool_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/readiness
+  canonical_operation_id: readiness_internal_v1_database_readiness_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/restores/latest
+  canonical_operation_id: latest_restore_internal_v1_database_restores_latest_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/schema
+  canonical_operation_id: schema_internal_v1_database_schema_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/security/certificates
+  canonical_operation_id: certificates_internal_v1_database_security_certificates_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/security/rls
+  canonical_operation_id: rls_internal_v1_database_security_rls_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/security/roles
+  canonical_operation_id: roles_internal_v1_database_security_roles_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/security/tls
+  canonical_operation_id: tls_internal_v1_database_security_tls_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: database
+  method: GET
+  path: /internal/v1/database/status
+  canonical_operation_id: status_internal_v1_database_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: production
+  method: GET
+  path: /internal/v1/production/decision
+  canonical_operation_id: decision_readback_internal_v1_production_decision_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: production
+  method: POST
+  path: /internal/v1/production/decision/evaluate
+  canonical_operation_id: evaluate_decision_internal_v1_production_decision_evaluate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: production
+  method: GET
+  path: /internal/v1/production/decision/policy
+  canonical_operation_id: decision_policy_internal_v1_production_decision_policy_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: provider-canaries
+  method: POST
+  path: /internal/v1/provider-canaries/kill-switch/engage
+  canonical_operation_id: engage_kill_switch_internal_v1_provider_canaries_kill_switch_engage_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: provider-canaries
+  method: POST
+  path: /internal/v1/provider-canaries/policy-check
+  canonical_operation_id: policy_check_internal_v1_provider_canaries_policy_check_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: provider-canaries
+  method: GET
+  path: /internal/v1/provider-canaries/status
+  canonical_operation_id: status_internal_v1_provider_canaries_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: provider-canaries
+  method: POST
+  path: /internal/v1/provider-canaries/synthetic-runs
+  canonical_operation_id: create_synthetic_run_internal_v1_provider_canaries_synthetic_runs_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: provider-canaries
+  method: GET
+  path: /internal/v1/provider-canaries/synthetic-runs/{run_id}
+  canonical_operation_id: get_synthetic_run_internal_v1_provider_canaries_synthetic_runs__run_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/backups/latest
+  canonical_operation_id: latest_backup_internal_v1_release_backups_latest_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/candidate
+  canonical_operation_id: release_candidate_internal_v1_release_candidate_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/certification
+  canonical_operation_id: certification_status_internal_v1_release_certification_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: POST
+  path: /internal/v1/release/certification/evaluate
+  canonical_operation_id: evaluate_bundle_internal_v1_release_certification_evaluate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/lock
+  canonical_operation_id: release_lock_internal_v1_release_lock_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/restore-rehearsals/latest
+  canonical_operation_id: latest_restore_rehearsal_internal_v1_release_restore_rehearsals_latest_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/rollback/readiness
+  canonical_operation_id: rollback_readiness_internal_v1_release_rollback_readiness_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: release
+  method: GET
+  path: /internal/v1/release/seal
+  canonical_operation_id: release_seal_internal_v1_release_seal_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/activity
+  canonical_operation_id: list_activity_platform_v1_activity_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/activity/{activity_id}
+  canonical_operation_id: get_activity_platform_v1_activity__activity_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/adopt-extension
+  canonical_operation_id: adopt_agent_extension_platform_v1_agent_provisioning_adopt_extension_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/requests
+  canonical_operation_id: create_provisioning_request_platform_v1_agent_provisioning_requests_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/agent-provisioning/requests/{request_id}
+  canonical_operation_id: get_provisioning_request_platform_v1_agent_provisioning_requests__request_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/agent-provisioning/requests/{request_id}/history
+  canonical_operation_id: provisioning_history_platform_v1_agent_provisioning_requests__request_id__history_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/requests/{request_id}/reactivate
+  canonical_operation_id: reactivate_provisioning_request_platform_v1_agent_provisioning_requests__request_id__reactivate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/requests/{request_id}/reconcile
+  canonical_operation_id: reconcile_provisioning_request_platform_v1_agent_provisioning_requests__request_id__reconcile_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/requests/{request_id}/revoke
+  canonical_operation_id: revoke_provisioning_request_platform_v1_agent_provisioning_requests__request_id__revoke_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/requests/{request_id}/suspend
+  canonical_operation_id: suspend_provisioning_request_platform_v1_agent_provisioning_requests__request_id__suspend_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/reserve-extension
+  canonical_operation_id: reserve_agent_extension_platform_v1_agent_provisioning_reserve_extension_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/webrtc/tickets
+  canonical_operation_id: issue_webrtc_ticket_platform_v1_agent_provisioning_webrtc_tickets_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/{request_id}/disable
+  canonical_operation_id: disable_agent_platform_v1_agent_provisioning__request_id__disable_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/agent-provisioning/{request_id}/readback
+  canonical_operation_id: provisioning_readback_platform_v1_agent_provisioning__request_id__readback_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/{request_id}/release-extension
+  canonical_operation_id: release_agent_extension_platform_v1_agent_provisioning__request_id__release_extension_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/{request_id}/repair-intents
+  canonical_operation_id: create_repair_intent_platform_v1_agent_provisioning__request_id__repair_intents_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/{request_id}/sync
+  canonical_operation_id: sync_agent_platform_v1_agent_provisioning__request_id__sync_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/agent-provisioning/{request_id}/webrtc/revoke
+  canonical_operation_id: revoke_webrtc_session_platform_v1_agent_provisioning__request_id__webrtc_revoke_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/agents/presence
+  canonical_operation_id: list_agents_presence_platform_v1_agents_presence_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/agents/{user_id}/presence
+  canonical_operation_id: get_agent_presence_platform_v1_agents__user_id__presence_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/calls
+  canonical_operation_id: list_calls_platform_v1_calls_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/calls/{call_id}
+  canonical_operation_id: get_call_platform_v1_calls__call_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/campaigns
+  canonical_operation_id: list_campaigns_platform_v1_campaigns_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/campaigns/{campaign_id}
+  canonical_operation_id: get_campaign_platform_v1_campaigns__campaign_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/campaigns/{campaign_id}/channels
+  canonical_operation_id: get_campaign_channels_platform_v1_campaigns__campaign_id__channels_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/campaigns/{campaign_id}/health
+  canonical_operation_id: get_campaign_health_platform_v1_campaigns__campaign_id__health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/campaigns/{campaign_id}/members
+  canonical_operation_id: list_campaign_members_platform_v1_campaigns__campaign_id__members_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/commands
+  canonical_operation_id: submit_command_platform_v1_commands_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/commands/{operation_id}
+  canonical_operation_id: get_operation_platform_v1_commands__operation_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/commands/{operation_id}/cancel
+  canonical_operation_id: cancel_operation_platform_v1_commands__operation_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/commands/{operation_id}/history
+  canonical_operation_id: get_timeline_platform_v1_commands__operation_id__history_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/commands/{operation_id}/replay
+  canonical_operation_id: replay_operation_platform_v1_commands__operation_id__replay_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/commands/{operation_id}/result
+  canonical_operation_id: get_command_result_platform_v1_commands__operation_id__result_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/commands/{operation_id}/retry
+  canonical_operation_id: retry_command_platform_v1_commands__operation_id__retry_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors
+  canonical_operation_id: connectors_catalog_platform_v1_connectors_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors/{connector_id}
+  canonical_operation_id: connector_catalog_item_platform_v1_connectors__connector_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors/{connector_id}/capabilities
+  canonical_operation_id: connector_capabilities_platform_v1_connectors__connector_id__capabilities_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/connectors/{connector_id}/health
+  canonical_operation_id: connector_health_platform_v1_connectors__connector_id__health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/connectors/{connector_id}/readback
+  canonical_operation_id: connector_operator_readback_platform_v1_connectors__connector_id__readback_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/connectors/{connector_id}/reconcile
+  canonical_operation_id: connector_operator_reconcile_platform_v1_connectors__connector_id__reconcile_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/contacts
+  canonical_operation_id: list_contacts_platform_v1_contacts_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/contacts
+  canonical_operation_id: create_contact_platform_v1_contacts_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/contacts/{contact_id}
+  canonical_operation_id: get_contact_platform_v1_contacts__contact_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: PATCH
+  path: /platform/v1/contacts/{contact_id}
+  canonical_operation_id: update_contact_platform_v1_contacts__contact_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/contacts/{contact_id}/notes
+  canonical_operation_id: list_notes_platform_v1_contacts__contact_id__notes_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/contacts/{contact_id}/notes
+  canonical_operation_id: create_note_platform_v1_contacts__contact_id__notes_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: PATCH
+  path: /platform/v1/contacts/{contact_id}/notes/{note_id}
+  canonical_operation_id: update_note_platform_v1_contacts__contact_id__notes__note_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/contacts/{contact_id}/tasks
+  canonical_operation_id: list_tasks_platform_v1_contacts__contact_id__tasks_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/contacts/{contact_id}/tasks
+  canonical_operation_id: create_task_platform_v1_contacts__contact_id__tasks_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/dead-letters
+  canonical_operation_id: list_dead_letters_platform_v1_dead_letters_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/dead-letters/{operation_id}
+  canonical_operation_id: get_dead_letter_platform_v1_dead_letters__operation_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/email/identities
+  canonical_operation_id: list_email_identities_platform_v1_email_identities_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/email/production/activate
+  canonical_operation_id: activate_platform_v1_email_production_activate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/email/production/audit
+  canonical_operation_id: audit_platform_v1_email_production_audit_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/email/production/authorize
+  canonical_operation_id: authorize_platform_v1_email_production_authorize_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/email/production/kill-switch
+  canonical_operation_id: kill_switch_platform_v1_email_production_kill_switch_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/email/production/quotas
+  canonical_operation_id: quotas_platform_v1_email_production_quotas_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/email/production/readiness
+  canonical_operation_id: readiness_platform_v1_email_production_readiness_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/email/production/revoke
+  canonical_operation_id: revoke_platform_v1_email_production_revoke_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/email/production/status
+  canonical_operation_id: status_platform_v1_email_production_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/hosts
+  canonical_operation_id: hosts_platform_v1_hosts_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/hosts/{host_id}
+  canonical_operation_id: host_platform_v1_hosts__host_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/integrations/github/events
+  canonical_operation_id: github_event_platform_v1_integrations_github_events_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/kernel/describe
+  canonical_operation_id: describe_kernel_platform_v1_kernel_describe_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/me/presence
+  canonical_operation_id: get_my_presence_platform_v1_me_presence_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/operations/{operation_id}
+  canonical_operation_id: get_operation_platform_v1_operations__operation_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/operations/{operation_id}/cancel
+  canonical_operation_id: cancel_operation_platform_v1_operations__operation_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/operations/{operation_id}/recovery-history
+  canonical_operation_id: recovery_history_platform_v1_operations__operation_id__recovery_history_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/operations/{operation_id}/replay
+  canonical_operation_id: replay_operation_platform_v1_operations__operation_id__replay_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/operations/{operation_id}/timeline
+  canonical_operation_id: get_timeline_platform_v1_operations__operation_id__timeline_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/opportunities
+  canonical_operation_id: list_opportunities_platform_v1_opportunities_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/opportunities
+  canonical_operation_id: create_opportunity_platform_v1_opportunities_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/opportunities/{opportunity_id}
+  canonical_operation_id: get_opportunity_platform_v1_opportunities__opportunity_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: PATCH
+  path: /platform/v1/opportunities/{opportunity_id}
+  canonical_operation_id: update_opportunity_platform_v1_opportunities__opportunity_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/provisioning/requests
+  canonical_operation_id: create_provisioning_platform_v1_provisioning_requests_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/provisioning/requests/{request_id}
+  canonical_operation_id: get_provisioning_platform_v1_provisioning_requests__request_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/provisioning/requests/{request_id}/apply
+  canonical_operation_id: apply_provisioning_platform_v1_provisioning_requests__request_id__apply_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/provisioning/requests/{request_id}/approve
+  canonical_operation_id: approve_provisioning_platform_v1_provisioning_requests__request_id__approve_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/provisioning/requests/{request_id}/rollback
+  canonical_operation_id: rollback_provisioning_platform_v1_provisioning_requests__request_id__rollback_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/provisioning/requests/{request_id}/validate
+  canonical_operation_id: validate_provisioning_platform_v1_provisioning_requests__request_id__validate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/queues
+  canonical_operation_id: list_queues_platform_v1_queues_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/queues/{queue_id}
+  canonical_operation_id: get_queue_platform_v1_queues__queue_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/queues/{queue_id}/calls
+  canonical_operation_id: list_queue_calls_platform_v1_queues__queue_id__calls_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/queues/{queue_id}/members
+  canonical_operation_id: list_queue_members_platform_v1_queues__queue_id__members_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/queues/{queue_id}/metrics
+  canonical_operation_id: get_queue_metrics_platform_v1_queues__queue_id__metrics_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/rehearsals/no-effect
+  canonical_operation_id: run_no_effect_rehearsal_platform_v1_rehearsals_no_effect_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/rehearsals/{rehearsal_id}
+  canonical_operation_id: get_no_effect_rehearsal_platform_v1_rehearsals__rehearsal_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/replays/{replay_id}/cancel
+  canonical_operation_id: cancel_replay_platform_v1_replays__replay_id__cancel_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/repositories
+  canonical_operation_id: repositories_platform_v1_repositories_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/runtime/observations
+  canonical_operation_id: observe_platform_v1_runtime_observations_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services
+  canonical_operation_id: list_services_platform_v1_services_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services
+  canonical_operation_id: create_service_platform_v1_services_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services/{service_id}
+  canonical_operation_id: get_service_platform_v1_services__service_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: PATCH
+  path: /platform/v1/services/{service_id}
+  canonical_operation_id: patch_service_platform_v1_services__service_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/activate
+  canonical_operation_id: activate_service_platform_v1_services__service_id__activate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/contract-refresh
+  canonical_operation_id: contract_refresh_platform_v1_services__service_id__contract_refresh_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services/{service_id}/coverage
+  canonical_operation_id: coverage_platform_v1_services__service_id__coverage_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/decommission
+  canonical_operation_id: decommission_service_platform_v1_services__service_id__decommission_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services/{service_id}/dependencies
+  canonical_operation_id: dependencies_platform_v1_services__service_id__dependencies_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services/{service_id}/deployments
+  canonical_operation_id: deployments_platform_v1_services__service_id__deployments_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services/{service_id}/endpoints
+  canonical_operation_id: endpoints_platform_v1_services__service_id__endpoints_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/environments
+  canonical_operation_id: add_environment_platform_v1_services__service_id__environments_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/services/{service_id}/monitoring-state
+  canonical_operation_id: monitoring_state_platform_v1_services__service_id__monitoring_state_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/monitoring-state/certification
+  canonical_operation_id: certify_service_platform_v1_services__service_id__monitoring_state_certification_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/monitoring-state/observations
+  canonical_operation_id: observe_service_platform_v1_services__service_id__monitoring_state_observations_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/services/{service_id}/telemetry-profile
+  canonical_operation_id: profile_platform_v1_services__service_id__telemetry_profile_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/session/context
+  canonical_operation_id: get_session_context_platform_v1_session_context_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/session/context/select
+  canonical_operation_id: select_session_context_platform_v1_session_context_select_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/sms/identities
+  canonical_operation_id: list_sms_identities_platform_v1_sms_identities_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/sync/reconciliations
+  canonical_operation_id: reconcile_platform_v1_sync_reconciliations_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/sync/reconciliations/{reconciliation_id}
+  canonical_operation_id: reconciliation_result_platform_v1_sync_reconciliations__reconciliation_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/sync/status
+  canonical_operation_id: sync_status_platform_v1_sync_status_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: PATCH
+  path: /platform/v1/tasks/{task_id}
+  canonical_operation_id: update_task_platform_v1_tasks__task_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/tasks/{task_id}/complete
+  canonical_operation_id: complete_task_platform_v1_tasks__task_id__complete_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/telemetry/heartbeats
+  canonical_operation_id: heartbeat_platform_v1_telemetry_heartbeats_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/telephony/assignments
+  canonical_operation_id: list_telephony_assignments_platform_v1_telephony_assignments_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tenants
+  canonical_operation_id: list_tenants_platform_v1_tenants_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tenants/authorized
+  canonical_operation_id: list_authorized_tenants_platform_v1_tenants_authorized_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tenants/{tenant_id}
+  canonical_operation_id: get_tenant_platform_v1_tenants__tenant_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tenants/{tenant_id}/campaigns
+  canonical_operation_id: list_tenant_campaigns_platform_v1_tenants__tenant_id__campaigns_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tenants/{tenant_id}/health
+  canonical_operation_id: get_tenant_health_platform_v1_tenants__tenant_id__health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tickets
+  canonical_operation_id: list_tickets_platform_v1_tickets_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: POST
+  path: /platform/v1/tickets
+  canonical_operation_id: create_ticket_platform_v1_tickets_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/tickets/{ticket_id}
+  canonical_operation_id: get_ticket_platform_v1_tickets__ticket_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: PATCH
+  path: /platform/v1/tickets/{ticket_id}
+  canonical_operation_id: update_ticket_platform_v1_tickets__ticket_id__patch
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/users/{employee_id}
+  canonical_operation_id: get_user_platform_v1_users__employee_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/users/{employee_id}/campaigns
+  canonical_operation_id: get_user_campaigns_platform_v1_users__employee_id__campaigns_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: platform
+  method: GET
+  path: /platform/v1/users/{employee_id}/entitlements
+  canonical_operation_id: get_user_entitlements_platform_v1_users__employee_id__entitlements_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: readiness
+  method: GET
+  path: /readiness
+  canonical_operation_id: readiness_readiness_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: ready
+  method: GET
+  path: /ready
+  canonical_operation_id: readiness_ready_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: readyz
+  method: GET
+  path: /readyz
+  canonical_operation_id: readiness_readyz_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: mappings
+  method: GET
+  path: /v1/mappings/campaigns
+  canonical_operation_id: list_campaign_mappings_v1_mappings_campaigns_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: mappings
+  method: GET
+  path: /v1/mappings/campaigns/{canonical_campaign_code}
+  canonical_operation_id: get_campaign_mapping_v1_mappings_campaigns__canonical_campaign_code__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: GET
+  path: /v1/n8n/calls/{event_id}/media
+  canonical_operation_id: media_v1_n8n_calls__event_id__media_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /v1/n8n/calls/{event_id}/transcription-request
+  canonical_operation_id: transcription_v1_n8n_calls__event_id__transcription_request_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /v1/n8n/follow-up-proposals
+  canonical_operation_id: follow_up_v1_n8n_follow_up_proposals_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /v1/n8n/internal-alerts
+  canonical_operation_id: internal_alert_v1_n8n_internal_alerts_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: GET
+  path: /v1/n8n/jobs/{job_id}
+  canonical_operation_id: job_v1_n8n_jobs__job_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /v1/n8n/jobs/{job_id}/replay
+  canonical_operation_id: replay_v1_n8n_jobs__job_id__replay_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /v1/n8n/qa-reviews
+  canonical_operation_id: qa_review_v1_n8n_qa_reviews_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: GET
+  path: /v1/n8n/reconciliation
+  canonical_operation_id: reconciliation_v1_n8n_reconciliation_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: POST
+  path: /v1/n8n/runs/{run_id}/callback
+  canonical_operation_id: callback_v1_n8n_runs__run_id__callback_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: GET
+  path: /v1/n8n/test/delay/{milliseconds}
+  canonical_operation_id: test_delay_v1_n8n_test_delay__milliseconds__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: n8n
+  method: GET
+  path: /v1/n8n/test/fault/{status_code}
+  canonical_operation_id: test_fault_v1_n8n_test_fault__status_code__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/agents
+  canonical_operation_id: agents_v1_observability_agents_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/backups
+  canonical_operation_id: list_monitoring_backup_v1_observability_backups_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/campaigns/{campaign_id}
+  canonical_operation_id: campaign_v1_observability_campaigns__campaign_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/certificates
+  canonical_operation_id: list_monitoring_certificate_v1_observability_certificates_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/dashboards
+  canonical_operation_id: list_monitoring_dashboard_v1_observability_dashboards_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/events/stream
+  canonical_operation_id: stream_v1_observability_events_stream_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/incidents
+  canonical_operation_id: submit_incident_v1_observability_incidents_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/integrations
+  canonical_operation_id: integrations_v1_observability_integrations_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/integrations/{integration_id}
+  canonical_operation_id: integration_v1_observability_integrations__integration_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/kpis
+  canonical_operation_id: list_kpis_v1_observability_kpis_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/kpis
+  canonical_operation_id: submit_kpi_v1_observability_kpis_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/kpis/{event_id}
+  canonical_operation_id: get_kpi_v1_observability_kpis__event_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/logs/query
+  canonical_operation_id: query_logs_v1_observability_logs_query_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/metrics/query
+  canonical_operation_id: query_metrics_v1_observability_metrics_query_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/metrics/query-range
+  canonical_operation_id: query_metrics_range_v1_observability_metrics_query_range_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/odoo-sync
+  canonical_operation_id: odoo_sync_status_v1_observability_odoo_sync_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/overview
+  canonical_operation_id: overview_v1_observability_overview_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/probe-runs
+  canonical_operation_id: probe_v1_observability_probe_runs_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/probe-runs/{probe_run_id}
+  canonical_operation_id: probe_result_v1_observability_probe_runs__probe_run_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/secrets/health
+  canonical_operation_id: secrets_health_v1_observability_secrets_health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/services/{service_id}/health
+  canonical_operation_id: health_v1_observability_services__service_id__health_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/slo
+  canonical_operation_id: list_monitoring_slo_v1_observability_slo_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/topology
+  canonical_operation_id: topology_v1_observability_topology_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: POST
+  path: /v1/observability/traces/search
+  canonical_operation_id: query_traces_search_v1_observability_traces_search_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: observability
+  method: GET
+  path: /v1/observability/traces/{trace_id}
+  canonical_operation_id: trace_v1_observability_traces__trace_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telemetry
+  method: POST
+  path: /v1/telemetry/browser-events
+  canonical_operation_id: browser_event_v1_telemetry_browser_events_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/extensions/audit
+  canonical_operation_id: audit_v1_telephony_extensions_audit_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /v1/telephony/extensions/availability
+  canonical_operation_id: availability_v1_telephony_extensions_availability_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /v1/telephony/extensions/pools
+  canonical_operation_id: pools_v1_telephony_extensions_pools_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/extensions/reserve
+  canonical_operation_id: reserve_v1_telephony_extensions_reserve_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/provisioning
+  canonical_operation_id: provision_v1_telephony_provisioning_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: GET
+  path: /v1/telephony/provisioning/{request_id}
+  canonical_operation_id: status_v1_telephony_provisioning__request_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/provisioning/{request_id}/activate
+  canonical_operation_id: activate_v1_telephony_provisioning__request_id__activate_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/provisioning/{request_id}/deprovision
+  canonical_operation_id: deprovision_v1_telephony_provisioning__request_id__deprovision_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/provisioning/{request_id}/rollback
+  canonical_operation_id: rollback_v1_telephony_provisioning__request_id__rollback_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/provisioning/{request_id}/suspend
+  canonical_operation_id: suspend_v1_telephony_provisioning__request_id__suspend_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: telephony
+  method: POST
+  path: /v1/telephony/reconcile
+  canonical_operation_id: reconcile_v1_telephony_reconcile_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: shared-secret-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/approvals
+  canonical_operation_id: request_automation_approval_v2_automation_approvals_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: GET
+  path: /v2/automation/approvals/{approval_id}
+  canonical_operation_id: read_automation_approval_v2_automation_approvals__approval_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: GET
+  path: /v2/automation/capabilities/{capability}
+  canonical_operation_id: read_automation_capability_v2_automation_capabilities__capability__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/commands
+  canonical_operation_id: submit_automation_command_v2_automation_commands_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: GET
+  path: /v2/automation/commands/{command_id}
+  canonical_operation_id: read_automation_command_v2_automation_commands__command_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/dead-letters/{dead_letter_id}/replay
+  canonical_operation_id: replay_automation_dead_letter_v2_automation_dead_letters__dead_letter_id__replay_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/jobs/claim
+  canonical_operation_id: claim_automation_job_v2_automation_jobs_claim_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/jobs/reconcile
+  canonical_operation_id: reconcile_automation_jobs_v2_automation_jobs_reconcile_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: GET
+  path: /v2/automation/jobs/{job_id}
+  canonical_operation_id: read_automation_job_v2_automation_jobs__job_id__get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/jobs/{job_id}/complete
+  canonical_operation_id: complete_automation_job_v2_automation_jobs__job_id__complete_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/jobs/{job_id}/fail
+  canonical_operation_id: fail_automation_job_v2_automation_jobs__job_id__fail_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/jobs/{job_id}/heartbeat
+  canonical_operation_id: heartbeat_automation_job_v2_automation_jobs__job_id__heartbeat_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: v2
+  method: POST
+  path: /v2/automation/jobs/{job_id}/steps
+  canonical_operation_id: record_automation_step_v2_automation_jobs__job_id__steps_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: handler-bearer
+- domain: version
+  method: GET
+  path: /version
+  canonical_operation_id: version_version_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: public
+- domain: webhooks
+  method: POST
+  path: /webhooks/sms/inbound/
+  canonical_operation_id: telnexa_inbound_sms_webhooks_sms_inbound__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: webhooks
+  method: POST
+  path: /webhooks/vicidial/call-result/
+  canonical_operation_id: vicidial_call_result_webhooks_vicidial_call_result__post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: signed-ingress
+- domain: webphone-api
+  method: GET
+  path: /webphone-api/v1/config
+  canonical_operation_id: session_config_webphone_api_v1_config_get
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: webphone-api
+  method: POST
+  path: /webphone-api/v1/provision
+  canonical_operation_id: provision_webphone_api_v1_provision_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: webphone-api
+  method: POST
+  path: /webphone-api/v1/provision/{session_id}/refresh
+  canonical_operation_id: refresh_webphone_api_v1_provision__session_id__refresh_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: webphone-api
+  method: POST
+  path: /webphone-api/v1/provision/{session_id}/revoke
+  canonical_operation_id: revoke_webphone_api_v1_provision__session_id__revoke_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: webphone-api
+  method: POST
+  path: /webphone-api/v1/renew
+  canonical_operation_id: renew_session_webphone_api_v1_renew_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: webphone-api
+  method: POST
+  path: /webphone-api/v1/revoke
+  canonical_operation_id: revoke_session_webphone_api_v1_revoke_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency
+- domain: webphone-api
+  method: POST
+  path: /webphone-api/v1/session
+  canonical_operation_id: create_session_webphone_api_v1_session_post
+  implementation_file: deployed AppProfile.INTEGRATION runtime
+  runtime_state: IMPLEMENTED
+  auth_mode: route-dependency

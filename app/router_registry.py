@@ -192,6 +192,7 @@ INTEGRATION_ROUTERS: tuple[APIRouter, ...] = (
     sales_router,
     booking_router,
     platform_router,
+    social_router,
     # PAS-57 synthetic provider-canary controller; explicit auth, edge-denied
     # under /internal/*, disabled by default.
     internal_provider_canaries_router,
@@ -226,7 +227,6 @@ MONOLITH_ROUTERS: tuple[APIRouter, ...] = (
     registry_router,
     recordings_router,
     recording_identity_router,
-    social_router,
 )
 
 # Deprecated routers that exist only on the in-process monolith. The canonical
@@ -331,7 +331,11 @@ def route_operations(app: FastAPI) -> list[tuple[str, str]]:
             methods = getattr(route, "methods", None)
             if not methods:
                 # Starlette Mount / WebSocketRoute
-                methods = ("WEBSOCKET",) if not hasattr(route, "app") or isinstance(route, APIRoute) else ("MOUNT",)
+                methods = (
+                    ("WEBSOCKET",)
+                    if not hasattr(route, "app") or isinstance(route, APIRoute)
+                    else ("MOUNT",)
+                )
             for method in sorted(methods):
                 operations.append((method, prefix + path))
 
@@ -369,4 +373,6 @@ def assert_no_legacy_monolith_routes(app: FastAPI) -> None:
     }
     leaked = sorted(forbidden & set(route_operations(app)))
     if leaked:
-        raise RuntimeError(f"deployed composition leaked legacy monolith-only routes: {leaked}")
+        raise RuntimeError(
+            f"deployed composition leaked legacy monolith-only routes: {leaked}"
+        )
