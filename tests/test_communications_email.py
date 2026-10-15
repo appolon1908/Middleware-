@@ -162,7 +162,7 @@ def _sign(event: dict[str, Any], path: str = "/api/v1/klyrow/events") -> dict[st
         "X-Codestra-Tenant-Id": event["tenant_id"],
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": "sha256=" + signature,
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
 
 

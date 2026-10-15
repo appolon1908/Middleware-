@@ -21,13 +21,13 @@ EXPECTED_FAMILY_COUNT = 16
 EXPECTED_WORKLOAD_COUNT = 31
 EXPECTED_REGISTRY_MIRRORS = 4
 EXPECTED_LOCAL_BACKUPS = 11
-CURRENT_SCHEMA_HEAD = "0067_service_catalog_monitoring_state"
+CURRENT_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
 OBSERVED_SIGNED_SCHEMA_HEAD = "0057_platform_service_catalog"
 PENDING_CANDIDATE_STATUS = "PENDING_EXACT_PROTECTED_MERGE_BUILD"
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 # Every observed signed release was published to the pre-transfer package;
-# forward releases publish to ghcr.io/ingtrader21-spec/codestra-middleware
+# forward releases publish to ghcr.io/appolon1908/codestra-middleware
 # (config/middleware-forward-release-authority.v1.json artifactAuthority).
 OBSERVED_SIGNED_IMAGE = "ghcr.io/appolon1908-hue/codestra-middleware"
 

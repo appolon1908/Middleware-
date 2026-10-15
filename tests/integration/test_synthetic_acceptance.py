@@ -159,7 +159,7 @@ def signed_request(
         "X-Codestra-Tenant-Id": tenant_id,
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": f"sha256={signature}",
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
 
 
@@ -265,6 +265,10 @@ async def test_disposable_api_ledger_redis_jetstream_temporal_journey() -> None:
                 worker = OutboxWorker(
                     PostgresOutboxStore(pool),
                     {NATS_JETSTREAM_DESTINATION: publisher.publish},
+                    effect_gate=lambda record: (
+                        record.destination == NATS_JETSTREAM_DESTINATION
+                        and settings.outbox_dispatch_enabled
+                    ),
                     lease_seconds=10,
                     handler_timeout_seconds=5,
                 )

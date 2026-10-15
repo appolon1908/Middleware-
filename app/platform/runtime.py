@@ -21,19 +21,25 @@ Adapter set per environment (fail closed):
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 import asyncpg
 import httpx
 
-from app.commands import CommandPolicy, CommandPolicyRegistry, CommandService, MemoryCommandStore
+from app.commands import (
+    CommandPolicy,
+    CommandPolicyRegistry,
+    CommandService,
+    MemoryCommandStore,
+)
 from app.core.config import Settings
 from app.platform.adapter import AdapterContext
 from app.platform.bus import AdapterDispatch, BusSettings
 from app.platform.kernel import CommandKernel, DenialAuditSink, MemoryDenialAuditSink
 from app.platform.metrics import KernelMetrics
 from app.platform.reconciler import Reconciler, ReconciliationSource
+from app.platform.rehearsal import RehearsalLedger
 from app.platform.registry import AdapterRegistry, AdapterRegistryError
 from app.platform.safety import SafetyGate
 
@@ -46,10 +52,17 @@ TEST_SYN_PREFIX = "test.syn."
 
 
 def synthetic_policy() -> CommandPolicy:
-    return CommandPolicy(prefix=TEST_SYN_PREFIX, target=TEST_SYN_TARGET, capability=TEST_SYN_CAPABILITY, readback_required=True)
+    return CommandPolicy(
+        prefix=TEST_SYN_PREFIX,
+        target=TEST_SYN_TARGET,
+        capability=TEST_SYN_CAPABILITY,
+        readback_required=True,
+    )
 
 
-def command_policies(settings: Settings, base: CommandPolicyRegistry | None = None) -> CommandPolicyRegistry:
+def command_policies(
+    settings: Settings, base: CommandPolicyRegistry | None = None
+) -> CommandPolicyRegistry:
     """The one capability registry of the process: the file-backed registry,
     the N8N executor family (capability off, no connector manifest), plus the
     synthetic TEST_SYN family outside production."""
@@ -73,6 +86,8 @@ class PlatformRuntime:
     reconciler: Reconciler | None
     denials: DenialAuditSink
     registry_error: str | None = None
+    # Process-local read-back of the no-effect rehearsals run by this process.
+    rehearsals: RehearsalLedger = field(default_factory=RehearsalLedger)
 
     async def registry_ready(self) -> bool:
         return self.registry_error is None and self.registry.validated
@@ -94,10 +109,14 @@ class PlatformRuntime:
             http=self.dispatch.http,
         )
         report = await self.registry.readiness(context)
-        return all(report[adapter_id].ready for adapter_id in enabled if adapter_id in report)
+        return all(
+            report[adapter_id].ready for adapter_id in enabled if adapter_id in report
+        )
 
 
-def default_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> tuple[object, ...]:
+def default_adapters(
+    settings: Settings, *, http: httpx.AsyncClient | None
+) -> tuple[object, ...]:
     from app.platform.adapters.fixtures import development_fixtures, test_syn_adapter
 
     if settings.app_env in {"development", "test"}:
@@ -106,7 +125,10 @@ def default_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> t
         from app.platform.adapters.n8n import n8n_adapter
         from app.platform.adapters.providers import provider_adapters
 
-        adapters: list[object] = [test_syn_adapter(), *provider_adapters(settings, http=http)]
+        adapters: list[object] = [
+            test_syn_adapter(),
+            *provider_adapters(settings, http=http),
+        ]
         # The N8N executor wraps the reservation transport, which is written
         # against the ORM session factory of app.db.session.
         from app.db.session import SessionFactory
@@ -137,7 +159,9 @@ def build_platform_runtime(
     registry = AdapterRegistry(commands.policies)
     registry_error: str | None = None
     try:
-        registry.register_all(default_adapters(settings, http=http) if adapters is None else adapters)
+        registry.register_all(
+            default_adapters(settings, http=http) if adapters is None else adapters
+        )
         registry.validate()
     except AdapterRegistryError as exc:
         # Readiness reports it; the kernel refuses commands for unowned prefixes.
@@ -180,7 +204,15 @@ def build_platform_runtime(
 
             reconciliation_source = MemoryReconciliationSource(commands.store)
     reconciler = (
-        Reconciler(settings=settings, commands=commands, registry=registry, source=reconciliation_source, metrics=metrics, http=http)
+        Reconciler(
+            settings=settings,
+            commands=commands,
+            registry=registry,
+            source=reconciliation_source,
+            metrics=metrics,
+            http=http,
+            max_dispatch_attempts=dispatch.bus.max_attempts,
+        )
         if reconciliation_source is not None
         else None
     )
