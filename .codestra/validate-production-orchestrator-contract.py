@@ -655,8 +655,8 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
         ".github/workflows/codestra-hierarchy-governance.yml": (
-            "af299523d858eef83a99b818b3246237"
-            "a4eaac3b5a293068d56b7873b4ce6733"
+            "e725eb5cafdfebef1bc8dde281228563"
+            "1b5e971ceb65f12e065ed866b6a801d4"
         ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
@@ -690,7 +690,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
+        ".github/workflows/required-ci.yml": "24e3826e097cf10c8333f71ea93f0af342a35b4b7dc8d7a8eb7da8413d4b3b74",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -9378,8 +9378,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # fixed runner-local egress containment wrapper. The job body is
         # exact-hash pinned; neither action grants production runtime authority.
         ".github/workflows/required-ci.yml:test": (
-            "82afd5c0eb2a45cbd15c45312f37036b"
-            "ab123b68d2790497c6cb53be64eb8bc6"
+            "dceec9adfa34db1d1268d156f95cd224"
+            "ef01e7b5e0f95599b96a2025529c4e9a"
         ),
         # Final-status publication is limited to the exact tested commit and
         # the repository's statuses:write permission; the job body is pinned.

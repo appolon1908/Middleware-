@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - main
+      - fix/source-hygiene-post430-20261005
       - development
       - testing
       - staging
