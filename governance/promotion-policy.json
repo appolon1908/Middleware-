@@ -87,6 +87,11 @@
       "head": "sync/agent06-mw07-provisioning-20261007-api",
       "base": "section/mw-07-provisioning",
       "expires": "2026-10-15"
+    },
+    {
+      "head": "convergence/middleware-saas-certified-20261005",
+      "base": "fix/source-hygiene-post430-20261005",
+      "expires": "2026-10-15"
     }
   ],
   "protected": [

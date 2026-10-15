@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Literal, Mapping
 
 from fastapi import FastAPI, Query, Request
+from app.factory import create_service_app
 from fastapi.exceptions import RequestValidationError as FastApiValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
@@ -199,8 +200,8 @@ def create_app(
             if runtime is None:
                 await active.close()
 
-    app = FastAPI(
-        title="Codestra Middleware Observability Alert API",
+    app = create_service_app(
+        "Codestra Middleware Observability Alert API",
         version=active_settings.app_version,
         lifespan=lifespan,
         docs_url=None,

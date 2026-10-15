@@ -5,13 +5,15 @@ routes cannot appear on the public Middleware listener by importing a router.
 Deployment must bind this app only to the approved private address.
 """
 
-from fastapi import FastAPI
+from app.factory import create_service_app
 from fastapi.responses import JSONResponse
 
 from app.api.v1.controller import controller, router
 from app.core.config import settings
+from app.core.request_guard import RequestGuard, install_request_guard
 
-app = FastAPI(title="Codestra Private Controller", version="1.0.0")
+app = create_service_app("Codestra Private Controller", version="1.0.0")
+install_request_guard(app, RequestGuard(settings))
 app.include_router(router)
 
 

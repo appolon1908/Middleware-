@@ -17,6 +17,7 @@ BOUND_FILES = (
     "config/capabilities.v2.json",
     "config/control-plane-callers.v1.json",
     "config/adapter-registry.v2.json",
+    "config/repository-authorities.v1.json",
     "connectors/generated/command-registry.v1.json",
     "contracts/observability/alert-api.v1.openapi.yaml",
     "deploy/observability-alerts/compose.core-production.yaml",
@@ -67,7 +68,7 @@ class ObservabilityAlertContractValidationTests(unittest.TestCase):
             validator.validate(self.contract_root)
 
     def test_current_contract_passes(self) -> None:
-        self.assertEqual(validator.validate(ROOT), (21, 23))
+        self.assertEqual(validator.validate(ROOT), (21, 35))
 
     def test_duplicate_json_key_fails_closed(self) -> None:
         path = self.contract_root / "config/observability-alert-policy.v1.json"
@@ -214,6 +215,28 @@ class ObservabilityAlertContractValidationTests(unittest.TestCase):
             ),
         )
         self.assert_rejected("caller_prefix_target_mismatch:klyrow:crm")
+
+    def test_narrow_caller_prefix_cannot_expand_into_unowned_family(self) -> None:
+        self.mutate_json(
+            "config/control-plane-callers.v1.json",
+            lambda registry: registry["callers"]["postgresql-backup-operator"].update(
+                allowed_command_prefixes=["postgresql-other."]
+            ),
+        )
+        self.assert_rejected(
+            "caller_prefix_target_mismatch:postgresql-backup-operator:postgresql-other"
+        )
+
+    def test_narrow_caller_prefix_must_target_its_owning_adapter(self) -> None:
+        self.mutate_json(
+            "config/control-plane-callers.v1.json",
+            lambda registry: registry["callers"]["postgresql-backup-operator"].update(
+                allowed_targets=["face-liveness"]
+            ),
+        )
+        self.assert_rejected(
+            "caller_prefix_target_mismatch:postgresql-backup-operator:postgresql.backup"
+        )
 
     def test_privileged_container_fails_closed(self) -> None:
         path = (

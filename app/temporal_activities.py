@@ -32,6 +32,7 @@ from .telnexa_provider_adapter import (
     TelnexaProviderAdapterError,
     TelnexaSmsAdapter,
 )
+from .platform.safety import SafetyContext, SafetyGate, SafetySubject
 from .provider_canary import provider_evidence_digest
 from .calling_contract import (
     HANGUP, ORIGINATE, TARGET, CallLifecycleEvidence, validate_call_evidence,
@@ -116,6 +117,8 @@ class CommandLedgerWorkflowActivities:
         klyrow_email: KlyrowEmailAdapter | None = None,
         postly_social: PostlySocialAdapter | None = None,
         vicidial_internal: VicidialInternalCallAdapter | None = None,
+        *,
+        safety: SafetyGate | None = None,
     ) -> None:
         self.store = store
         self.odoo = odoo
@@ -124,6 +127,32 @@ class CommandLedgerWorkflowActivities:
         self.klyrow_email = klyrow_email
         self.postly_social = postly_social
         self.vicidial_internal = vicidial_internal
+        self.safety = safety
+
+    def _assert_safe_to_execute(self, request: CommandExecutionRequest) -> None:
+        """Re-evaluate the canonical effect gate immediately before provider code."""
+        if self.safety is None:
+            return
+        payload = request.payload if isinstance(request.payload, Mapping) else {}
+        campaign_id = payload.get("campaign_id")
+        decision = self.safety.evaluate(
+            SafetySubject(
+                tenant_id=request.tenant_id,
+                command_type=request.command_type,
+                target=request.target,
+                capability=request.capability,
+                campaign_id=campaign_id if isinstance(campaign_id, str) and campaign_id else None,
+                correlation_id=request.correlation_id,
+            ),
+            SafetyContext(adapter_registered=True, adapter_ready=None),
+            consume_budget=False,
+        )
+        if not decision.allow:
+            raise ApplicationError(
+                f"safety denied at execution: {decision.reason_code}",
+                non_retryable=True,
+                type="SafetyDenied",
+            )
 
     @activity.defn(name="record_command_transition")
     async def record_command_transition(
@@ -197,6 +226,7 @@ class CommandLedgerWorkflowActivities:
         if request.target == TARGET:
             request = await self._load_durable_execution_request(request)
         adapter = self._adapter(request)
+        self._assert_safe_to_execute(request)
         if request.target == TARGET:
             claimed = await self._claim_call_dispatch(request)
             if not claimed:

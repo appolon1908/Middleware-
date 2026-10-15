@@ -1,0 +1,67 @@
+{
+  "$schema": "https://contracts.codestra.co/connectors/connector-manifest.v1.schema.json",
+  "manifest_version": "1.0",
+  "connector_id": "kdenlive-render",
+  "display_name": "Kdenlive MLT Standalone Render SaaS",
+  "version": "1.0.0",
+  "cell": "core-communications",
+  "repository": "appolon1908/Kdenlive",
+  "enabled_by_default": false,
+  "direct_n8n_access": false,
+  "runtime_binding": {
+    "status": "UNVERIFIED_TEMPLATE_ONLY",
+    "base_url": "https://kdenlive-saas.internal.invalid",
+    "health_path": "/readyz",
+    "operation_path_template": "/v1/jobs/{operation_id}"
+  },
+  "authentication": {
+    "type": "oauth2-client-credentials",
+    "audience": "codestra-middleware-api",
+    "scopes": [
+      "connector.kdenlive-render.command",
+      "connector.kdenlive-render.read"
+    ],
+    "secret_references": [
+      "CONNECTOR_KDENLIVE_RENDER_CLIENT_SECRET"
+    ]
+  },
+  "commands": [
+    {
+      "prefix": "media.kdenlive.",
+      "required_capability": "MEDIA_RENDER",
+      "timeout_seconds": 30,
+      "readback_required": true,
+      "retry_policy": {
+        "maximum_attempts": 3,
+        "initial_backoff_seconds": 1,
+        "maximum_backoff_seconds": 10,
+        "jitter_ratio": 0.2,
+        "unknown_outcome_requires_readback": true
+      }
+    }
+  ],
+  "events": [],
+  "webhooks": [],
+  "forbidden_command_prefixes": [],
+  "forbidden_payload_keys": [
+    "access_token",
+    "client_secret",
+    "password",
+    "private_key",
+    "provider_token",
+    "refresh_token"
+  ],
+  "workflow_families": [
+    "media.kdenlive"
+  ],
+  "metadata": {
+    "source_only": true,
+    "runtime_activation_authorized": false,
+    "owner": "kdenlive",
+    "engine": "mlt-melt",
+    "runtime_auth_mode": "bootstrap-bearer",
+    "native_public_exposure": false,
+    "large_media_via_object_storage": true,
+    "idempotency_readback": true
+  }
+}

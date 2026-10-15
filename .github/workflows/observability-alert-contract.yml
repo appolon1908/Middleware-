@@ -8,6 +8,7 @@ on:
       - config/capabilities.v2.json
       - config/control-plane-callers.v1.json
       - config/adapter-registry.v2.json
+      - config/repository-authorities.v1.json
       - connectors/generated/command-registry.v1.json
       - contracts/observability/alert-api.v1.openapi.yaml
       - deploy/observability-alerts/**
@@ -28,6 +29,7 @@ on:
       - config/capabilities.v2.json
       - config/control-plane-callers.v1.json
       - config/adapter-registry.v2.json
+      - config/repository-authorities.v1.json
       - connectors/generated/command-registry.v1.json
       - contracts/observability/alert-api.v1.openapi.yaml
       - deploy/observability-alerts/**

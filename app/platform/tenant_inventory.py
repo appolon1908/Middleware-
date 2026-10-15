@@ -82,6 +82,7 @@ def _family(table: str) -> str:
         ("telnexa_", "communications"),
         ("klyrow_", "communications"),
         ("breero_", "breero"),
+        ("mcr_", "mcr"),
         ("integration_", "legacy"),
         ("event_model_", "legacy"),
         ("idempotency_", "legacy"),
