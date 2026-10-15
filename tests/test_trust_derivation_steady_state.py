@@ -30,18 +30,16 @@ def _authority():
     fingerprint = validator["release_validator_security_fingerprint"](
         RELEASE.read_text(encoding="utf-8")
     )
-    release_sha = hashlib.sha256(RELEASE.read_bytes()).hexdigest()
-    return launcher, validator_sha, fingerprint, release_sha
+    return launcher, validator_sha, fingerprint
 
 
 def test_current_steady_state_is_exact_one_way_self_edge() -> None:
     derivation = _under_test()
-    launcher, validator_sha, fingerprint, release_sha = _authority()
+    launcher, validator_sha, fingerprint = _authority()
     derivation.validate_steady_state_launcher(
         launcher,
         validator_sha256=validator_sha,
         fingerprint=fingerprint,
-        release_sha256=release_sha,
     )
     assert set(launcher["APPROVED_VALIDATOR_TRANSITIONS"]) == {validator_sha}
     assert set(launcher["APPROVED_VALIDATOR_TRANSITIONS"][validator_sha]) == {validator_sha}
@@ -50,7 +48,7 @@ def test_current_steady_state_is_exact_one_way_self_edge() -> None:
 @pytest.mark.parametrize("tamper", ["validator", "fingerprint", "release", "rollback"])
 def test_nonapproved_steady_state_fails_closed(tamper: str) -> None:
     derivation = _under_test()
-    launcher, validator_sha, fingerprint, release_sha = _authority()
+    launcher, validator_sha, fingerprint = _authority()
     # runpy also exposes imported module objects; copy only the policy data.
     launcher = dict(launcher)
     launcher["APPROVED_VALIDATOR_TRANSITIONS"] = {
@@ -62,7 +60,11 @@ def test_nonapproved_steady_state_fails_closed(tamper: str) -> None:
     elif tamper == "fingerprint":
         fingerprint = "0" * 64
     elif tamper == "release":
-        release_sha = "0" * 64
+        source = RELEASE.read_text(encoding="utf-8")
+        assert source.count("if not condition:") == 1
+        changed = source.replace("if not condition:", "if False:", 1)
+        validator = runpy.run_path(str(VALIDATOR), run_name="release_tamper_probe")
+        fingerprint = validator["release_validator_security_fingerprint"](changed)
     else:
         launcher["APPROVED_VALIDATOR_TRANSITIONS"][validator_sha]["1" * 64] = (
             "security-fingerprint", fingerprint
@@ -72,5 +74,29 @@ def test_nonapproved_steady_state_fails_closed(tamper: str) -> None:
             launcher,
             validator_sha256=validator_sha,
             fingerprint=fingerprint,
-            release_sha256=release_sha,
         )
+
+
+def test_closure_only_change_retains_approved_release_fingerprint() -> None:
+    derivation = _under_test()
+    launcher, validator_sha, fingerprint = _authority()
+    launcher_bytes = LAUNCHER.read_bytes()
+    release = RELEASE.read_text(encoding="utf-8")
+    namespace = runpy.run_path(str(RELEASE), run_name="release_binding_probe")
+    closure = namespace["EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256"][
+        "appolon1908/Middleware-"
+    ]
+    changed, count = derivation.replace_digest(release, closure, "1" * 64)
+    assert count == 1
+    assert hashlib.sha256(changed.encode()).hexdigest() != hashlib.sha256(
+        release.encode()
+    ).hexdigest()
+    validator = runpy.run_path(str(VALIDATOR), run_name="approved_fingerprint_probe")
+    observed = validator["release_validator_security_fingerprint"](changed)
+    assert observed == fingerprint
+    derivation.validate_steady_state_launcher(
+        launcher,
+        validator_sha256=validator_sha,
+        fingerprint=observed,
+    )
+    assert LAUNCHER.read_bytes() == launcher_bytes

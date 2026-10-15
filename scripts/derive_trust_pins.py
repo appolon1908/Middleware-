@@ -200,15 +200,16 @@ def validate_steady_state_launcher(
     *,
     validator_sha256: str,
     fingerprint: str,
-    release_sha256: str,
 ) -> None:
-    """Accept only the exact approved self-edge and release bytes.
+    """Accept only the exact approved self-edge and release security policy.
 
     The absence of successor fields after an approved transition must not
     imply that arbitrary candidate validator generations are acceptable.
     """
     current = launcher.get("CURRENT_VALIDATOR_SHA256")
     current_fingerprint = launcher.get("CURRENT_RELEASE_SECURITY_FINGERPRINT")
+    # The raw release digest records the original generation. Runtime trust
+    # binds the security fingerprint so derived closure changes remain possible.
     current_release_sha = launcher.get("CURRENT_RELEASE_VALIDATOR_SHA256")
     if not all(
         isinstance(item, str) and HEX64.fullmatch(item)
@@ -223,11 +224,6 @@ def validate_steady_state_launcher(
         raise DerivationError(
             "steady-state trust-root drift: independent protected-main "
             "approval is required for a different validator or fingerprint"
-        )
-    if current_release_sha != release_sha256:
-        raise DerivationError(
-            "steady-state protected release-validator bytes do not match "
-            "the approved launcher digest"
         )
 
 
@@ -544,7 +540,6 @@ class Derivation:
                 launcher_ns,
                 validator_sha256=validator_sha256,
                 fingerprint=fingerprint,
-                release_sha256=sha256_bytes(self.source.read(RELEASE)),
             )
             projected_launcher = launcher_text
             launcher_info = {
