@@ -118,7 +118,7 @@ jobs:
       IMAGE_REPOSITORY: ghcr.io/appolon1908/codestra-middleware
       COSIGN_YES: "true"
       SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-      EXPECTED_SCHEMA_HEAD: 0071_defer_unbound_tenant_rls
+      EXPECTED_SCHEMA_HEAD: 0074_mcr_odoo_handoff
 
     steps:
       - name: Check out the exact CI-accepted source
@@ -290,7 +290,7 @@ jobs:
           PY
           cosign sign --yes \
             --annotations "codestra.source_sha=$RELEASE_SOURCE_SHA" \
-            --annotations "codestra.schema_head=0071_defer_unbound_tenant_rls" \
+            --annotations "codestra.schema_head=0074_mcr_odoo_handoff" \
             "$RELEASE_IMAGE_REFERENCE"
           cosign attest --yes \
             --predicate "$RELEASE_SBOM_PATH" \

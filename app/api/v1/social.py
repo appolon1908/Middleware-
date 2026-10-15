@@ -4,16 +4,21 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import unquote, urlsplit
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from app.api_inputs import optional_header
 from app.core.header_authority import CORRELATION_ID, REQUEST_ID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.social_auth import SocialPrincipal, require_social_permission, require_social_principal
+from app.core.social_auth import (
+    SocialPrincipal,
+    require_social_permission,
+    require_social_principal,
+)
 from app.db.session import bind_transaction_tenant, get_session, resolve_tenant_id
 from app.social.adapters import HootsuiteProviderAdapter, PostlyProviderAdapter
 from app.social.domain import Capability, JobType
@@ -64,6 +69,40 @@ class RegisterMediaAsset(StrictModel):
     checksum_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("storage_reference")
+    @classmethod
+    def validate_storage_reference(cls, value: str) -> str:
+        """Accept only normalized references owned by Codestra Video.
+
+        Registration stores an opaque durable reference; Middleware never
+        dereferences arbitrary URLs supplied by a caller.
+        """
+        if value != value.strip() or any(ord(character) < 32 for character in value):
+            raise ValueError(
+                "storage_reference must be a normalized codestra-video URI"
+            )
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "codestra-video"
+            or not parsed.netloc
+            or not parsed.path.strip("/")
+        ):
+            raise ValueError("storage_reference must use the codestra-video URI scheme")
+        if (
+            "@" in parsed.netloc
+            or ":" in parsed.netloc
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "storage_reference cannot contain credentials, ports, query, or fragment"
+            )
+        decoded_path = unquote(parsed.path)
+        segments = [segment for segment in decoded_path.split("/") if segment]
+        if "\\" in decoded_path or any(segment in {".", ".."} for segment in segments):
+            raise ValueError("storage_reference path traversal is forbidden")
+        return value
+
 
 class CreateCampaign(StrictModel):
     tenant_id: UUID
@@ -92,7 +131,8 @@ def _require(permission: str, principal: SocialPrincipal) -> None:
 
 def _ids(request: Request) -> tuple[str, str]:
     return (
-        optional_header(request, CORRELATION_ID, minimum=1, maximum=180) or str(uuid4()),
+        optional_header(request, CORRELATION_ID, minimum=1, maximum=180)
+        or str(uuid4()),
         optional_header(request, REQUEST_ID, minimum=1, maximum=180) or str(uuid4()),
     )
 
@@ -376,6 +416,8 @@ async def register_media(
             storage_reference=body.storage_reference,
             checksum_sha256=body.checksum_sha256.lower(),
             metadata=body.metadata,
+            actor_subject=principal.subject,
+            actor_authorized_party=principal.authorized_party,
             idempotency_key=idempotency_key,
             correlation_id=correlation_id,
             request_id=request_id,
@@ -407,7 +449,9 @@ async def get_media(
         )
     await bind_transaction_tenant(session, principal.tenant_ids)
     try:
-        return _media_asset(await SqlSocialRepository(session).get_media_asset(asset_id))
+        return _media_asset(
+            await SqlSocialRepository(session).get_media_asset(asset_id)
+        )
     except SocialError as exc:
         raise _error(exc) from exc
 

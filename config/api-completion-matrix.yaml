@@ -700,6 +700,18 @@ operations:
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
+  method: GET
+  path: /platform/v1/adapters
+  canonical_operation_id: list_adapters_platform_v1_adapters_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/adapters/{adapter_id}
+  canonical_operation_id: get_adapter_platform_v1_adapters__adapter_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
   method: POST
   path: /platform/v1/agent-provisioning/adopt-extension
   canonical_operation_id: adopt_agent_extension_platform_v1_agent_provisioning_adopt_extension_post
@@ -820,6 +832,24 @@ operations:
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
+  method: POST
+  path: /platform/v1/campaign-engine/execute
+  canonical_operation_id: campaign_engine_execute
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/campaign-engine/plan
+  canonical_operation_id: campaign_engine_plan
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/campaign-engine/status
+  canonical_operation_id: campaign_engine_status
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
   method: GET
   path: /platform/v1/campaigns
   canonical_operation_id: list_campaigns_platform_v1_campaigns_get
@@ -835,6 +865,12 @@ operations:
   method: GET
   path: /platform/v1/campaigns/{campaign_id}/channels
   canonical_operation_id: get_campaign_channels_platform_v1_campaigns__campaign_id__channels_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/campaigns/{campaign_id}/eligible-leads
+  canonical_operation_id: campaign_eligible_leads_read
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
@@ -994,6 +1030,18 @@ operations:
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
+  method: POST
+  path: /platform/v1/dead-letters/{operation_id}/replay
+  canonical_operation_id: replay_dead_letter_platform_v1_dead_letters__operation_id__replay_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/delivery-events
+  canonical_operation_id: delivery_event_ingest
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
   method: GET
   path: /platform/v1/email/identities
   canonical_operation_id: list_email_identities_platform_v1_email_identities_get
@@ -1069,6 +1117,18 @@ operations:
   method: GET
   path: /platform/v1/kernel/describe
   canonical_operation_id: describe_kernel_platform_v1_kernel_describe_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/leads/{lead_id}/journey
+  canonical_operation_id: lead_journey_read
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/leads/{lead_id}/next-action
+  canonical_operation_id: lead_next_action_read
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
@@ -1162,6 +1222,30 @@ operations:
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
+  method: GET
+  path: /platform/v1/reconciliation
+  canonical_operation_id: list_reconciliation_platform_v1_reconciliation_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: GET
+  path: /platform/v1/reconciliation/{operation_id}
+  canonical_operation_id: get_reconciliation_platform_v1_reconciliation__operation_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/reconciliation/{operation_id}/readback
+  canonical_operation_id: request_reconciliation_readback_platform_v1_reconciliation__operation_id__readback_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/reconciliation/{operation_id}/resolve
+  canonical_operation_id: resolve_reconciliation_platform_v1_reconciliation__operation_id__resolve_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
   method: POST
   path: /platform/v1/rehearsals/no-effect
   canonical_operation_id: run_no_effect_rehearsal_platform_v1_rehearsals_no_effect_post
@@ -1243,6 +1327,12 @@ operations:
   method: GET
   path: /platform/v1/sms/identities
   canonical_operation_id: list_sms_identities_platform_v1_sms_identities_get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: platform
+  method: POST
+  path: /platform/v1/suppressions
+  canonical_operation_id: suppression_record
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: platform
@@ -2179,6 +2269,24 @@ operations:
   method: POST
   path: /v2/automation/dead-letters/{dead_letter_id}/replay
   canonical_operation_id: replay_automation_dead_letter_v2_automation_dead_letters__dead_letter_id__replay_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: v2
+  method: GET
+  path: /v2/automation/executions/{job_id}
+  canonical_operation_id: read_automation_execution_v2_automation_executions__job_id__get
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: v2
+  method: POST
+  path: /v2/automation/executions/{job_id}/cancel
+  canonical_operation_id: cancel_automation_execution_v2_automation_executions__job_id__cancel_post
+  implementation_file: registered FastAPI runtime
+  runtime_state: IMPLEMENTED
+- domain: v2
+  method: GET
+  path: /v2/automation/executions/{job_id}/result
+  canonical_operation_id: read_automation_execution_result_v2_automation_executions__job_id__result_get
   implementation_file: registered FastAPI runtime
   runtime_state: IMPLEMENTED
 - domain: v2

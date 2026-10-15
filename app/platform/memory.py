@@ -71,6 +71,7 @@ class MemoryExecutionBus:
             idempotency_key=intent.idempotency_key,
             payload=dict(intent.payload),
             attempt_count=intent.attempt_count,
+            lease_owner=self.worker_id,
         )
         try:
             await self.dispatch(record)

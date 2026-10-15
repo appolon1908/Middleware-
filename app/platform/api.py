@@ -9,7 +9,7 @@ rendered by the registry's error envelope (``error.code`` / ``message`` /
 ``correlation_id`` / ``retryable`` / ``details``).
 
 Scopes: ``platform.command`` (submit, cancel), ``platform.command.read``
-(operation, timeline, describe, rehearsal read-back),
+(operation, timeline, describe, rehearsal and adapter read-back),
 ``platform.command.replay`` + role ``platform-operator`` (replay, run the
 no-effect rehearsal).
 """
@@ -18,16 +18,17 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Literal
+import json
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Path as PathParam, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.api_inputs import optional_header, required_header
 from app.commands import API_OPERATION_STATES, CommandCapabilityDisabled, CommandEnvelope, CommandNotFound, CommandOperation, OperationEvent, redact_metadata
-from app.platform.kernel import ReplayNotAllowed, SCOPE_COMMAND, SCOPE_COMMAND_READ, SCOPE_COMMAND_REPLAY
+from app.platform.kernel import AdapterNotFound, CapabilityUnknown, ReplayNotAllowed, SCOPE_COMMAND, SCOPE_COMMAND_READ, SCOPE_COMMAND_REPLAY
 from app.platform.principal import KernelPrincipal, authenticate
 from app.core.policy_engine import PLATFORM_OPERATOR_ROLE
 from app.platform.rehearsal import NoEffectRehearsal, RehearsalRequest
@@ -40,6 +41,7 @@ router = APIRouter(prefix="/platform/v1", tags=["platform-command-kernel"])
 COMMAND_CONTRACT_VERSION = "command-envelope.v1"
 _SAFE_ERROR_CODE = re.compile(r"[^a-z0-9_.:-]+")
 TRACE_HEADERS = ("traceparent", "tracestate")
+ADAPTER_ID_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
 
 class KernelCommandRequest(BaseModel):
@@ -69,6 +71,23 @@ class KernelCommandRequest(BaseModel):
     @classmethod
     def bound_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
         return CommandEnvelope.bound_payload(value)
+
+    @model_validator(mode="after")
+    def service_payload_contract(self) -> "KernelCommandRequest":
+        from app.identity_missions import MISSION_COMMANDS, validate_event_idempotency
+        from app.identity_service_contract import SERVICE_COMMANDS, validate_service_command
+
+        family = self.command_type.split(".", 1)[0]
+        binding = MISSION_COMMANDS.get(self.command_type) or SERVICE_COMMANDS.get(family)
+        if binding is not None or self.target in SERVICE_COMMANDS:
+            validate_service_command(
+                self.command_type,
+                self.target or family,
+                self.capability or (binding[0] if binding else ""),
+                self.payload,
+            )
+        validate_event_idempotency(self.command_type, self.payload, self.idempotency_key)
+        return self
 
     def envelope(self, *, target: str, capability: str) -> CommandEnvelope:
         return CommandEnvelope(
@@ -158,6 +177,36 @@ class ReplayRequest(BaseModel):
     new_idempotency_key: str | None = Field(default=None, min_length=8, max_length=180)
 
 
+class ReconciliationReadbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=500, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.: -]*$")
+
+
+class ReconciliationResolveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    matched: bool
+    reason: str = Field(min_length=1, max_length=500, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.: -]*$")
+    provider_operation_id: str | None = Field(default=None, max_length=256)
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("evidence")
+    @classmethod
+    def evidence_is_bounded(cls, value: dict[str, Any]) -> dict[str, Any]:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        if len(encoded) > 16_384:
+            raise ValueError("reconciliation evidence exceeds 16 KiB")
+        return value
+
+
 class RehearsalRunRequest(BaseModel):
     """Operator request to run the no-effect rehearsal against this process.
 
@@ -198,6 +247,83 @@ class RehearsalReport(BaseModel):
     provider_effects: int | None
     checks: list[RehearsalCheckResult]
     report_sha256: str
+
+
+class CapabilityState(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    known: bool
+    enabled: bool
+    classification: str
+    adapter_ids: list[str]
+
+
+class AdapterRegistrationRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adapter_id: str
+    provider_family: str
+    connector_ids: list[str]
+    capabilities: list[str]
+    registered: bool
+    reason: str
+
+
+class AdapterRow(AdapterRegistrationRow):
+    command_prefixes: list[str]
+    capability_states: dict[str, bool]
+    version: str | None = None
+    supports_readback: bool | None = None
+    supports_cancel: bool | None = None
+    supports_status: bool | None = None
+    safe_reexecution: bool | None = None
+    external_effect: bool | None = None
+
+
+class RegistrationEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    manifest_version: str
+    activation_authorized: bool
+    refused: bool
+    violations: list[str]
+    adapters: list[AdapterRegistrationRow]
+
+
+class AdapterReadinessEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adapter_registry: bool
+    platform_adapters: bool | None
+    probed_adapter_ids: list[str]
+
+
+class AdapterReadback(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    environment: str
+    source_sha: str
+    registration_mode: str
+    registration: RegistrationEvidence | None
+    registry_valid: bool
+    registry_error: str | None
+    adapters: list[AdapterRow]
+    capabilities: dict[str, CapabilityState]
+    unknown_capabilities: list[str]
+    effectful_capabilities_enabled: list[str]
+    provider_effects_enabled: bool
+    readiness: AdapterReadinessEvidence
+
+
+class AdapterDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    environment: str
+    registration_mode: str
+    registry_valid: bool
+    provider_effects_enabled: bool
+    adapter: AdapterRow
+    capabilities: dict[str, CapabilityState]
 
 
 # ----------------------------------------------------------------------
@@ -318,11 +444,17 @@ def _respond(status_code: int, model: BaseModel, *, correlation_id: str, locatio
 
 
 def _trace(request: Request) -> dict[str, str]:
+    """W3C trace headers plus the request/causation identity the guard
+    validated, persisted with the intent so execution lineage is joinable."""
     trace: dict[str, str] = {}
     for name in TRACE_HEADERS:
         value = optional_header(request, name, minimum=1, maximum=512)
         if value is not None:
             trace[name] = value
+    for attribute, key in (("request_id", "request_id"), ("causation_id", "causation_id")):
+        value = getattr(request.state, attribute, None)
+        if isinstance(value, str) and value:
+            trace[key] = value
     return trace
 
 
@@ -345,6 +477,8 @@ async def submit_command(body: KernelCommandRequest, request: Request) -> JSONRe
         raise CommandCapabilityDisabled("command type does not have exactly one owning policy")
     if body.target is not None and body.target != policy.target:
         raise CommandCapabilityDisabled("command target does not own the command type")
+    if body.capability is not None and body.capability not in runtime.commands.policies.capabilities:
+        raise CapabilityUnknown("capability is not listed in the capability registry")
     if body.capability is not None and body.capability != policy.capability:
         raise CommandCapabilityDisabled("command capability does not match the owning policy")
     command = body.envelope(target=policy.target, capability=policy.capability)
@@ -539,6 +673,140 @@ async def cancel_replay(replay_id: UUID, request: Request) -> JSONResponse:
 # ----------------------------------------------------------------------
 # GET /platform/v1/kernel/describe
 # ----------------------------------------------------------------------
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
+@router.get("/adapters", response_model=AdapterReadback)
+async def list_adapters(request: Request) -> JSONResponse:
+    """Registration, capability and readiness evidence; never a provider effect."""
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    _runtime_container, platform = _runtime(request)
+    readback = AdapterReadback.model_validate(await platform.adapter_readback())
+    return JSONResponse(status_code=200, content=readback.model_dump(mode="json"), headers=_NO_STORE)
+
+
+@router.get("/adapters/{adapter_id}", response_model=AdapterDetail)
+async def get_adapter(adapter_id: Annotated[str, PathParam(pattern=ADAPTER_ID_PATTERN, max_length=100)], request: Request) -> JSONResponse:
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    _runtime_container, platform = _runtime(request)
+    readback = AdapterReadback.model_validate(await platform.adapter_readback())
+    row = next((item for item in readback.adapters if item.adapter_id == adapter_id), None)
+    if row is None:
+        raise AdapterNotFound("adapter is neither registered nor listed for this environment")
+    detail = AdapterDetail(
+        environment=readback.environment,
+        registration_mode=readback.registration_mode,
+        registry_valid=readback.registry_valid,
+        provider_effects_enabled=readback.provider_effects_enabled,
+        adapter=row,
+        capabilities={name: readback.capabilities[name] for name in row.capabilities if name in readback.capabilities},
+    )
+    return JSONResponse(status_code=200, content=detail.model_dump(mode="json"), headers=_NO_STORE)
+
+
+@router.post("/dead-letters/{operation_id}/replay", response_model=OperationStatus, status_code=202)
+async def replay_dead_letter(operation_id: UUID, body: ReplayRequest, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_REPLAY)
+    if PLATFORM_OPERATOR_ROLE not in principal.roles:
+        from app.platform.kernel import ReplayNotAllowed
+        raise ReplayNotAllowed("replay requires the platform-operator role")
+    _runtime_container, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    original = await platform.kernel.get(tenant_id, operation_id)
+    if original.state != "dead_lettered":
+        raise CommandNotFound("dead-letter operation was not found")
+    mutation_correlation_id = required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
+    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+    operation = await platform.kernel.replay(
+        tenant_id,
+        operation_id,
+        principal=principal,
+        mode=ReplayMode(body.mode),
+        idempotency_key=idempotency_key,
+        expected_version=body.expected_version,
+        reason=body.reason,
+        new_idempotency_key=body.new_idempotency_key,
+        mutation_correlation_id=mutation_correlation_id,
+    )
+    return _respond(202, _status(operation), correlation_id=operation.correlation_id, location=f"/platform/v1/operations/{operation.command_id}")
+
+
+@router.get("/reconciliation")
+async def list_reconciliation(request: Request, limit: int = 100) -> dict[str, Any]:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    runtime, _platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    if limit < 1 or limit > 100:
+        raise RequestValidationError("limit must be between 1 and 100")
+    operations = await runtime.commands.list_operations(tenant_id, limit=limit, state="reconciliation_required")
+    return {"items": [_status(operation).model_dump(mode="json") for operation in operations]}
+
+
+@router.get("/reconciliation/{operation_id}", response_model=OperationStatus)
+async def get_reconciliation(operation_id: UUID, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_READ)
+    _runtime_container, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    operation = await platform.kernel.get(tenant_id, operation_id)
+    if operation.state != "reconciliation_required":
+        raise CommandNotFound("reconciliation operation was not found")
+    return _respond(200, _status(operation), correlation_id=operation.correlation_id)
+
+
+@router.post("/reconciliation/{operation_id}/readback", response_model=OperationStatus, status_code=202)
+async def request_reconciliation_readback(operation_id: UUID, body: ReconciliationReadbackRequest, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_REPLAY)
+    _runtime_container, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    mutation_correlation_id = required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
+    idempotency_key = required_header(request, "Idempotency-Key", minimum=8, maximum=180)
+    operation = await platform.kernel.replay(
+        tenant_id,
+        operation_id,
+        principal=principal,
+        mode=ReplayMode.REPROCESS,
+        idempotency_key=idempotency_key,
+        expected_version=body.expected_version,
+        reason=body.reason,
+        mutation_correlation_id=mutation_correlation_id,
+    )
+    return _respond(
+        202,
+        _status(operation),
+        correlation_id=operation.correlation_id,
+        location=f"/platform/v1/operations/{operation.command_id}",
+    )
+
+
+@router.post("/reconciliation/{operation_id}/resolve", response_model=OperationStatus)
+async def resolve_reconciliation(operation_id: UUID, body: ReconciliationResolveRequest, request: Request) -> JSONResponse:
+    principal = await authenticate(request, required_scope=SCOPE_COMMAND_REPLAY)
+    if PLATFORM_OPERATOR_ROLE not in principal.roles:
+        from app.platform.kernel import ReplayNotAllowed
+        raise ReplayNotAllowed("reconciliation resolution requires the platform-operator role")
+    runtime, platform = _runtime(request)
+    tenant_id = _tenant_for_read(request, principal)
+    mutation_correlation_id = required_header(request, "X-Correlation-ID", minimum=1, maximum=180)
+    idempotency_key = required_header(
+        request, "Idempotency-Key", minimum=8, maximum=180
+    )
+    if not body.evidence:
+        raise RequestValidationError("reconciliation evidence is required")
+    operation = await runtime.commands.resolve_reconciliation(
+        tenant_id,
+        operation_id,
+        matched=body.matched,
+        actor_id=principal.subject,
+        reason=body.reason,
+        provider_operation_id=body.provider_operation_id,
+        evidence=body.evidence,
+        idempotency_key=idempotency_key,
+        expected_version=body.expected_version,
+        mutation_correlation_id=mutation_correlation_id,
+    )
+    return _respond(200, _status(operation), correlation_id=operation.correlation_id)
+
+
 @router.get("/kernel/describe")
 async def describe_kernel(request: Request) -> JSONResponse:
     await authenticate(request, required_scope=SCOPE_COMMAND_READ)
@@ -548,7 +816,31 @@ async def describe_kernel(request: Request) -> JSONResponse:
         contract_digest=_public_contract_digest(),
         command_contract_version=COMMAND_CONTRACT_VERSION,
     )
+    description["identity_services"] = _identity_service_contracts()
     return JSONResponse(status_code=200, content=description)
+
+
+def _identity_service_contracts() -> dict[str, Any]:
+    from app.identity_missions import SERVICE_READBACKS
+
+    return {
+        "contract_version": "identity-service-readbacks.v1",
+        "authority": "Middleware V3",
+        "caller_supplied_urls": False,
+        "raw_biometrics": False,
+        "readbacks": [
+            {
+                "name": name,
+                "service_id": contract["service_id"],
+                "method": contract["method"],
+                "path": contract["path"],
+                "scope": contract["scope"],
+                "state": contract["state"],
+                "resource_param": contract["resource_param"],
+            }
+            for name, contract in sorted(SERVICE_READBACKS.items())
+        ],
+    }
 
 
 # ----------------------------------------------------------------------
@@ -611,42 +903,63 @@ def _public_contract_digest() -> str | None:
 
 __all__ = ["router", "CommandNotFound"]
 
-# Connector catalog/readiness projections. These routes are read-only and never
-# enable an effect; authentication/tenant policy remains the platform authority.
+# Connector catalog/readiness projections: read-only, never an effect, and
+# authenticated with the kernel read scope like every other route here.
+def _catalog_error(request: Request, exc: Exception) -> JSONResponse:
+    correlation_id = getattr(request.state, "correlation_id", None) or ""
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": {
+                "code": getattr(exc, "code", "connector_unavailable"),
+                "message": "connector is unavailable",
+                "correlation_id": correlation_id,
+                "retryable": False,
+                "details": {},
+            }
+        },
+        headers={"X-Correlation-ID": correlation_id} if correlation_id else None,
+    )
+
+
 @router.get("/connectors")
 async def connectors_catalog(request: Request):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import list_connectors
     runtime, platform = _runtime(request)
     return {"items": await list_connectors(platform)}
 
 @router.get("/connectors/{connector_id}")
 async def connector_catalog_item(request: Request, connector_id: str):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import ConnectorCatalogError, describe_connector
     runtime, platform = _runtime(request)
     try:
         return await describe_connector(platform, connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404, content={"error":{"code":exc.code,"message":"connector is unavailable"}})
+        return _catalog_error(request, exc)
 
 @router.get("/connectors/{connector_id}/capabilities")
 async def connector_capabilities(request: Request, connector_id: str):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import ConnectorCatalogError, describe_connector
     runtime, platform = _runtime(request)
     try:
         row=await describe_connector(platform,connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":"connector is unavailable"}})
+        return _catalog_error(request, exc)
     return {"connector_id":connector_id,"capabilities":row["capabilities"],
             "effect_classification":row["effect_classification"],"enabled":row["enabled"]}
 
 @router.get("/connectors/{connector_id}/health")
 async def connector_health(request: Request, connector_id: str):
+    await authenticate(request, required_scope=SCOPE_COMMAND_READ)
     from app.platform.connector_catalog import ConnectorCatalogError, describe_connector
     runtime, platform = _runtime(request)
     try:
         row=await describe_connector(platform,connector_id)
     except ConnectorCatalogError as exc:
-        return JSONResponse(status_code=404,content={"error":{"code":exc.code,"message":"connector is unavailable"}})
+        return _catalog_error(request, exc)
     return {"connector_id":connector_id,"health":row["health"],"readiness":row["readiness"],
             "enabled":row["enabled"],"environment":row["environment"]}
 
