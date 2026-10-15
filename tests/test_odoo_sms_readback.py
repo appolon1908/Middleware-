@@ -80,12 +80,18 @@ def test_postgres_readback_queries_shared_durable_store(test_settings):
         payload = client.post("/v1/communications/messages", json=_message(), headers=headers()).json()
     connection = AsyncMock()
     connection.fetchval.return_value = payload
+    # asyncpg's transaction() and is_in_transaction() are synchronous calls.
+    connection.transaction = MagicMock()
+    connection.transaction.return_value.__aenter__ = AsyncMock(return_value=None)
+    connection.transaction.return_value.__aexit__ = AsyncMock(return_value=False)
+    connection.is_in_transaction = MagicMock(return_value=True)
     pool = MagicMock()
     pool.acquire.return_value.__aenter__ = AsyncMock(return_value=connection)
     pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
     store = PostgresCommunicationsStore(pool)
     result = asyncio.run(store.message_by_idempotency("tenant-1", "odoo-sms:fixture-1"))
     assert str(result.messageId) == payload["messageId"]
+    connection.execute.assert_awaited_with("SELECT set_config('app.tenant_id',$1,true)", "tenant-1")
     assert connection.fetchval.call_args.args[1:] == ("tenant-1", "POST /v1/communications/messages", "odoo-sms:fixture-1")
     assert store.messages == {}  # no dependence on this process's startup cache
     connection.fetchval.return_value = None

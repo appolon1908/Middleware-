@@ -24,7 +24,7 @@ from app.commands import (
 from app.control_plane_auth import ControlPlaneCaller
 from app.core.config import Settings
 from app.core.policy_engine import CommandPolicyRequest, evaluate_command
-from app.platform.adapter import AdapterConfigurationError, ReadbackStatus
+from app.platform.adapter import AdapterConfigurationError, AdapterResult, ErrorClass, Outcome, ReadbackStatus
 from app.platform.adapters.fixtures import FixtureAdapter, development_fixtures
 from app.platform.adapters.fixtures import test_syn_adapter as synthetic_adapter
 from app.platform.bus import AdapterDispatch, BusSettings
@@ -273,6 +273,27 @@ def test_safety_gate_requires_synthetic_tenant_registered_and_ready_adapter(test
     assert gate.evaluate(_subject(), SafetyContext(adapter_registered=False, adapter_ready=None)).reason_code == "adapter_not_registered"
     assert gate.evaluate(_subject(), SafetyContext(adapter_registered=True, adapter_ready=False)).reason_code == "adapter_not_ready"
     assert gate.evaluate(_subject(capability="UNLISTED_THING"), SafetyContext(adapter_registered=True, adapter_ready=True)).reason_code == "capability_without_safety_gate"
+
+
+def test_external_effect_denies_when_backlog_evidence_is_unavailable(
+    test_settings: Settings,
+) -> None:
+    gate = SafetyGate(test_settings, command_policies(test_settings))
+    decision = gate.evaluate(
+        _subject(
+            command_type="crm.contact.create.v1",
+            target="odoo-19",
+            capability="ODOO_WRITE",
+        ),
+        SafetyContext(
+            adapter_registered=True,
+            adapter_ready=True,
+            tenant_backlog=0,
+            global_backlog=None,
+        ),
+    )
+    assert not decision.allow
+    assert "global_backlog_unavailable" in decision.reason_codes
 
 
 def test_safety_gate_bounds_backlog_and_tenant_rate(test_settings: Settings) -> None:
@@ -598,6 +619,39 @@ async def test_reconciler_completes_matched_and_requeues_not_found(harness: Harn
 
 
 @pytest.mark.asyncio
+async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_readback(harness: Harness) -> None:
+    """The read-back runs unlocked: a verdict is recorded only against the
+    resource_version that was read, otherwise the claim is released."""
+    command = envelope(payload={"fixture": "unknown"})
+    await harness.submit(command)
+    await harness.bus.run_once()
+    key = (TENANT, command.command_id)
+    original = harness.test_syn.reconcile
+
+    async def racing_reconcile(operation, context):
+        digest, current = harness.commands.store._commands[key]
+        harness.commands.store._commands[key] = (
+            digest, current.model_copy(update={"resource_version": current.resource_version + 1}),
+        )
+        return await original(operation, context)
+
+    harness.test_syn.reconcile = racing_reconcile
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None
+    assert decision.action == "release" and decision.drift_class == "operation_changed_during_readback"
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "reconciliation_required" and operation.readback_evidence is None
+    assert await harness.reconciler.source.backlog() == 1
+
+    harness.test_syn.reconcile = original
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None and decision.action == "complete"
+    assert harness.test_syn.provider_effects == 1
+
+
+@pytest.mark.asyncio
 async def test_reconciler_dead_letters_after_bounded_mismatches(harness: Harness) -> None:
     command = envelope(payload={"fixture": "unknown"})
     await harness.submit(command)
@@ -713,7 +767,7 @@ async def test_tenant_isolation(harness: Harness) -> None:
 
 
 def test_describe_exposes_registries_and_no_secrets(harness: Harness) -> None:
-    description = harness.kernel.describe(runtime_schema_version=11, contract_digest="abc", command_contract_version="command-envelope.v1")
+    description = harness.kernel.describe(runtime_schema_version=12, contract_digest="abc", command_contract_version="command-envelope.v1")
     assert description["canonical_port"] == 8095
     assert description["provider_effects_enabled"] is False
     assert all(value is False for value in description["effect_defaults"].values())
@@ -729,3 +783,80 @@ def test_test_syn_policy_is_never_registered_in_production(test_settings: Settin
     registry = command_policies(production, CommandPolicyRegistry((CommandPolicy("crm.", "odoo-19", "ODOO_WRITE", True),), {"ODOO_WRITE": False}))
     assert registry.resolve("test.syn.execute.v1") is None
     assert "TEST_SYN_EXECUTE" not in registry.capabilities
+
+
+@pytest.mark.asyncio
+async def test_bus_fails_closed_when_target_connector_is_not_served(harness: Harness) -> None:
+    command = envelope()
+    submitted = await harness.submit(command)
+    adapter = harness.test_syn
+    adapter.connector_ids = ("different-connector",)
+
+    await harness.bus.drain()
+
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "dead_lettered"
+    assert adapter.provider_effects == 0
+
+
+@pytest.mark.asyncio
+async def test_bus_uses_provider_status_before_readback_for_async_completion(harness: Harness) -> None:
+    command = envelope(payload={"probe": True, "fixture": "success"})
+    submitted = await harness.submit(command)
+
+    await harness.bus.drain()
+
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "completed"
+    assert current.provider_operation_id is not None
+    assert str(command.command_id) in harness.test_syn.readbacks
+
+
+@pytest.mark.asyncio
+async def test_reconciler_dead_letters_when_connector_mapping_disappears(harness: Harness) -> None:
+    command = envelope(payload={"probe": True, "fixture": "unknown"})
+    submitted = await harness.submit(command)
+    await harness.bus.drain()
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "reconciliation_required"
+
+    harness.test_syn.connector_ids = ("different-connector",)
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+
+    assert decision is not None
+    assert decision.action == "dead_letter"
+    current = await harness.commands.get(TENANT, submitted.operation.command_id)
+    assert current.state == "dead_lettered"
+    assert harness.test_syn.provider_effects == 1
+
+
+@pytest.mark.asyncio
+async def test_bus_backs_off_without_an_attempt_when_readiness_raises(harness: Harness) -> None:
+    command = envelope()
+    await harness.submit(command)
+
+    async def broken_readiness(context):
+        raise ConnectionError("readiness probe unreachable")
+
+    harness.test_syn.readiness = broken_readiness
+    await harness.bus.run_once()
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state in {"persisted", "queued"}
+    assert harness.test_syn.executed == []
+    assert harness.test_syn.provider_effects == 0
+
+
+@pytest.mark.asyncio
+async def test_bus_fails_a_provider_rejected_status_without_readback(harness: Harness) -> None:
+    command = envelope()
+    await harness.submit(command)
+
+    async def rejected_status(operation, context):
+        return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code="provider_rejected")
+
+    harness.test_syn.status = rejected_status
+    await harness.bus.run_once()
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "failed"
+    assert str(command.command_id) not in harness.test_syn.readbacks

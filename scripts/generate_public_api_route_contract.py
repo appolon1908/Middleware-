@@ -57,6 +57,8 @@ KERNEL_ROUTE_SCOPES = {
     ("POST", "/platform/v1/operations/{operation_id}/cancel"): "platform.command",
     ("POST", "/platform/v1/operations/{operation_id}/replay"): "platform.command.replay",
     ("GET", "/platform/v1/kernel/describe"): "platform.command.read",
+    ("POST", "/platform/v1/rehearsals/no-effect"): "platform.command.replay",
+    ("GET", "/platform/v1/rehearsals/{rehearsal_id}"): "platform.command.read",
 }
 # The registered workload callers (config/control-plane-callers.v1.json) that
 # hold the platform.command* scopes; Kong verifies issuer/audience/scope, the
@@ -71,6 +73,10 @@ def _platform_scope(path: str, method: str) -> tuple[str, str]:
     if path.startswith("/platform/v1/email/production/"):
         return "production-operator", (
             "email.production.read" if method == "GET" else "email.production.write"
+        )
+    if path.startswith("/platform/v1/leads"):
+        return "platform-operator", (
+            "platform.leads.read" if method == "GET" else "platform.leads.write"
         )
     if path == "/platform/v1/tenants":
         return "platform-operator", "platform.tenants.read"

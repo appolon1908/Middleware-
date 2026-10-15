@@ -78,6 +78,10 @@ def token(settings: Settings, **overrides: Any) -> str:
         "tenant_ids": [TENANT],
         "realm_access": {"roles": []},
     }
+    for claim in ("iat", "exp"):
+        offset = overrides.pop(f"_{claim}_offset", None)
+        if offset is not None:
+            claims[claim] = now + offset
     key = overrides.pop("_key", PRIVATE)
     algorithm = overrides.pop("_alg", "RS256")
     claims.update(overrides)
@@ -132,8 +136,8 @@ def test_real_verifier_accepts_a_valid_token(stack) -> None:
         ("wrong_azp", {"azp": "kong-gateway"}, 403),
         ("unregistered_azp", {"azp": "not-a-caller"}, 401),
         ("missing_scope", {"scope": "platform.command.read"}, 403),
-        ("expired_token", {"exp": int(time.time()) - 10, "iat": int(time.time()) - 130}, 401),
-        ("lifetime_over_policy", {"iat": int(time.time()) - 10, "exp": int(time.time()) + 1000}, 403),
+        ("expired_token", {"_exp_offset": -10, "_iat_offset": -130}, 401),
+        ("lifetime_over_policy", {"_iat_offset": -10, "_exp_offset": 1000}, 403),
         ("alg_none", {"_alg": "none"}, 401),
         ("hs256_confusion", {"_alg": "HS256"}, 401),
         ("foreign_key", {"_key": OTHER_PRIVATE}, 401),

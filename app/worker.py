@@ -11,6 +11,7 @@ from .storage import DEFAULT_MAX_OUTBOX_ATTEMPTS, OutboxRecord, PostgresOutboxSt
 
 
 Handler = Callable[[OutboxRecord], Awaitable[None]]
+EffectGate = Callable[[OutboxRecord], Awaitable[bool] | bool]
 log = logging.getLogger(__name__)
 
 
@@ -49,6 +50,7 @@ class OutboxWorker:
         lease_seconds: float = 60.0,
         handler_timeout_seconds: float = 45.0,
         max_attempts: int = DEFAULT_MAX_OUTBOX_ATTEMPTS,
+        effect_gate: EffectGate | None = None,
     ) -> None:
         if poll_seconds <= 0:
             raise ValueError("poll_seconds must be positive")
@@ -64,11 +66,13 @@ class OutboxWorker:
         self.lease_seconds = lease_seconds
         self.handler_timeout_seconds = handler_timeout_seconds
         self.max_attempts = max_attempts
+        self.effect_gate = effect_gate
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
     async def _heartbeat_active_dispatch(
         self,
         record_id: int,
+        fencing_token: int,
         stop: asyncio.Event,
     ) -> None:
         interval = max(0.01, min(5.0, self.lease_seconds / 3.0))
@@ -83,6 +87,7 @@ class OutboxWorker:
                     record_id,
                     worker_id=self.worker_id,
                     lease_seconds=self.lease_seconds,
+                    fencing_token=fencing_token,
                 )
             except Exception:
                 # Keep retrying while provider code is alive. The row remains
@@ -109,6 +114,23 @@ class OutboxWorker:
                 worker_id=self.worker_id,
                 error=f"no handler registered for destination {record.destination}",
                 max_attempts=self.max_attempts,
+                fencing_token=record.fencing_token,
+            )
+            return True
+
+        # External effects fail closed unless the runtime supplies its
+        # authoritative gate; a denial is recorded before any provider code.
+        allowed = False
+        if self.effect_gate is not None:
+            decision = self.effect_gate(record)
+            allowed = await decision if isinstance(decision, Awaitable) else decision
+        if not allowed:
+            await self.store.fail(
+                record.id,
+                worker_id=self.worker_id,
+                error="effect gate denied dispatch",
+                max_attempts=self.max_attempts,
+                fencing_token=record.fencing_token,
             )
             return True
 
@@ -122,11 +144,14 @@ class OutboxWorker:
                 "must be explicitly confirmed before automatic release"
             ),
             lease_seconds=self.lease_seconds,
+            fencing_token=record.fencing_token,
         )
 
         heartbeat_stop = asyncio.Event()
         heartbeat_task = asyncio.create_task(
-            self._heartbeat_active_dispatch(record.id, heartbeat_stop)
+            self._heartbeat_active_dispatch(
+                record.id, record.fencing_token, heartbeat_stop
+            )
         )
         handler_task = asyncio.ensure_future(handler(record))
         timed_out = False
@@ -164,6 +189,7 @@ class OutboxWorker:
                             reason=f"handler certified known-safe retry: {exc}",
                             max_attempts=self.max_attempts,
                             worker_id=self.worker_id,
+                            fencing_token=record.fencing_token,
                         )
                 except Exception:
                     if timed_out:
@@ -192,6 +218,7 @@ class OutboxWorker:
                             reason="handler returned successfully and confirmed delivery outcome",
                             max_attempts=self.max_attempts,
                             worker_id=self.worker_id,
+                            fencing_token=record.fencing_token,
                         )
             except asyncio.CancelledError:
                 # A worker shutdown must not orphan live provider code while the

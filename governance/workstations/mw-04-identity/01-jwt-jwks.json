@@ -1,0 +1,23 @@
+{
+  "workstation": "middleware::mw-04-identity::01-jwt-jwks",
+  "product": "middleware",
+  "section": "mw-04-identity",
+  "subsection": "01-jwt-jwks",
+  "branch": "subsection/mw-04-identity--01-jwt-jwks",
+  "parent_branch": "section/mw-04-identity",
+  "order": 1,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-04-identity/subsections/01-jwt-jwks/repo",
+  "depends_on": [
+    "middleware::mw-01-foundation::03-lifecycle"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
