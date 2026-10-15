@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "appolon1908/Middleware-"
 VALIDATOR = ROOT / ".codestra" / "validate-production-orchestrator-contract.py"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
-CANONICAL_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
+CANONICAL_SCHEMA_HEAD = "0074_mcr_odoo_handoff"
 PUBLISHER_IDENTITY = "https://github.com/appolon1908/Middleware-/.github/workflows/release.yml@refs/heads/main"
 
 

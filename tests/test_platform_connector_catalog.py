@@ -41,4 +41,8 @@ def test_connector_routes_do_not_expose_exception_details():
  from pathlib import Path
  source=(Path(__file__).resolve().parents[1]/"app/platform/api.py").read_text()
  assert "str(exc)" not in source
- assert source.count('"message":"connector is unavailable"') == 3
+ # Every catalog 404 renders through the one canonical-envelope helper.
+ assert source.count("return _catalog_error(request, exc)") == 3
+ assert source.count('"message": "connector is unavailable"') == 1
+ # Catalog reads authenticate like every other kernel route.
+ assert source.count("await authenticate(request, required_scope=SCOPE_COMMAND_READ)") >= 9

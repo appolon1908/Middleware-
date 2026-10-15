@@ -22,7 +22,7 @@ The only forward image repository is:
 ghcr.io/appolon1908/codestra-middleware
 ```
 
-The pre-transfer package `ghcr.io/appolon1908-hue/codestra-middleware` holds the
+The pre-transfer package `ghcr.io/appolon1908/codestra-middleware` holds the
 historical signed digests and is never a forward publication target (see
 `docs/RELEASE-SUPPLY-CHAIN.md`, "Repository identity versus registry namespace").
 

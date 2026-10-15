@@ -18,6 +18,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from fastapi import FastAPI, Header, HTTPException, Request
+from app.factory import create_service_app
 from pydantic import BaseModel, ConfigDict
 
 AUTH_PATH = "/internal/api/v1/ai/auth/verify"
@@ -306,8 +307,8 @@ def _claim_nonce(config: VerifierConfig, service_id: str, nonce: str) -> None:
 
 def create_app(config: VerifierConfig | None = None) -> FastAPI:
     verifier = config or VerifierConfig.from_environment()
-    app = FastAPI(
-        title="Codestra Qwen Authentication Verifier",
+    app = create_service_app(
+        "Codestra Qwen Authentication Verifier",
         version="1.0.0",
         docs_url=None,
         redoc_url=None,

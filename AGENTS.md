@@ -75,3 +75,10 @@ branch="$(git branch --show-current)"; local_head="$(git rev-parse HEAD)"; upstr
 If that comparison fails, STOP. Fetch and reconcile on the owning workstation; never force-push or publish through a different write path.
 
 The mission handoff must record host, worktree, branch, local HEAD, upstream SHA, remote SHA, dirty state, tests/validators run, and the exact next command.
+
+## Continuation protocol
+
+Cross-repository continuation rules live in the canonical Codestra protocol:
+https://github.com/appolon1908/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
+
+Read `.codestra-mission/*` when present, the active Linear issue and its linked Notion architecture before changing code, and end with the protocol's structured checkpoint. Where the protocol and this file differ, this file's single-lane, publication and production-safety rules govern this repository.

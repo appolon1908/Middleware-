@@ -148,9 +148,25 @@ class Reconciler:
         if operation.state in {"failed", "dead_lettered", "cancelled"}:
             await self.source.resolve(claim, reconciler_id=self.reconciler_id, action="dead_letter", reason=f"operation is terminal ({operation.state})")
             return ReconciliationDecision(claim.command_id, None, None, "dead_letter", operation.state)
+        if operation.state in {"persisted", "queued"}:
+            # The ledger holds no in-flight attempt (a known-safe failure was
+            # re-queued, or the effect never started): the quarantined row goes
+            # back to the claimable pool instead of parking forever.
+            await self.source.resolve(claim, reconciler_id=self.reconciler_id, action="retry", reason=f"ledger shows no in-flight attempt ({operation.state}); intent returned to the queue")
+            return ReconciliationDecision(claim.command_id, None, None, "retry", operation.state)
+        if operation.state in {"dispatching", "accepted", "readback_pending"}:
+            # This row was claimed only because its worker lease expired: the
+            # worker died while the provider may or may not have acted. Park
+            # the operation for reconciliation (fenced to its open attempt) and
+            # read the provider state back below; never resend blindly.
+            attempt = await self.commands.latest_attempt(claim.tenant_id, claim.command_id)
+            self.metrics.lease_expirations.inc()
+            operation = await self.commands.transition(
+                claim.tenant_id, claim.command_id, new_state="reconciliation_required", actor_id=self.reconciler_id,
+                reason=f"worker lease expired while {operation.state}; provider state must be read back",
+                expected_attempt=attempt,
+            )
         if operation.state != "reconciliation_required":
-            # A worker still owns it (dispatching/accepted/readback_pending with a
-            # live lease) or it was re-queued; leave it for the bus.
             await self.source.release(claim, reconciler_id=self.reconciler_id, reason=f"operation is {operation.state}; not awaiting reconciliation")
             return ReconciliationDecision(claim.command_id, None, None, "release", operation.state)
 
@@ -235,8 +251,10 @@ class Reconciler:
             ):
                 return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "release", operation.state, "operation_changed_during_readback")
             reason = "provider state missing and adapter does not permit safe automatic re-execution"
-            await self.commands.transition(
-                claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=actor, reason=reason,
+            await self.commands.dead_letter(
+                claim.tenant_id, claim.command_id, actor_id=actor, reason=reason,
+                reason_code="provider_missing_manual_repair", error_class="not_found",
+                terminal_reason=reason, retry_exhausted=False,
             )
             await self.source.resolve(claim, reconciler_id=actor, action="dead_letter", reason=reason)
             self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="missing_unsafe").inc()
@@ -261,9 +279,8 @@ class Reconciler:
                 reason = f"provider read-back unsupported ({readback.safe_error_code or 'no read surface'}); operator verification required"
             else:
                 reason = f"reconciliation budget exhausted after {readback.status.value.lower()}"
-            await self.commands.transition(claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=actor, reason=reason)
-            await self.commands.record_dead_letter(
-                claim.tenant_id, claim.command_id, actor_id=actor,
+            await self.commands.dead_letter(
+                claim.tenant_id, claim.command_id, actor_id=actor, reason=reason,
                 reason_code="reconciliation_exhausted" if readback.status is not ReadbackStatus.UNSUPPORTED else "readback_unsupported",
                 error_class=readback.status.value.lower(), terminal_reason=reason,
                 retry_exhausted=readback.status is not ReadbackStatus.UNSUPPORTED,

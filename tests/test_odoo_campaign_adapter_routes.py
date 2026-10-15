@@ -546,3 +546,27 @@ def test_n8n_authenticator_pins_deployment_environment_and_accepts_listed_client
     integrations._authenticate_n8n("Bearer x", "n8n.results.submit")
     assert captured["authorized_parties"] == frozenset({"single-client"})
     assert captured["required_environment"] == "production"
+
+
+def test_split_runtime_rejects_malformed_legacy_n8n_result_with_422(integration_client):
+    response = integration_client.post(
+        "/api/v1/integrations/n8n/results",
+        json={},
+        headers={"Authorization": "Bearer synthetic", "Idempotency-Key": "malformed-result-1"},
+    )
+    assert response.status_code == 422, response.text
+    assert {item["loc"][-1] for item in response.json()["detail"]} == {
+        "command_id",
+        "status",
+        "correlation_id",
+        "trace_id",
+    }
+
+
+def test_split_runtime_rejects_malformed_standard_n8n_result_with_422(integration_client):
+    response = integration_client.post(
+        "/api/v1/integrations/n8n/results",
+        json={"event_id": "not-a-valid-result"},
+        headers={"Authorization": "Bearer synthetic", "Idempotency-Key": "malformed-result-2"},
+    )
+    assert response.status_code == 422, response.text

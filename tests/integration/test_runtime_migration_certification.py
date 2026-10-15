@@ -11,6 +11,10 @@ from uuid import uuid4
 import pytest
 
 from scripts import migrate_runtime as runner
+
+# Match the complete, contiguous packaged SQL history, not the previous
+# release's frozen count. migrate_runtime.migration_sets validates continuity.
+EXPECTED_CORE_MIGRATIONS = len(dict(runner.migration_sets())["core"])
 from scripts.production_migration_authority import validate_authority
 from scripts.runtime_sql_schema import campaign_tables, monitoring_tables
 
@@ -61,7 +65,7 @@ def test_real_fresh_and_predecessor_migrations(predecessor, monkeypatch):
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 15
+                    == EXPECTED_CORE_MIGRATIONS
                 )
                 assert (
                     await conn.fetchval(
@@ -196,7 +200,7 @@ def test_actual_sql_structure_cannot_be_certified_from_intact_receipts(
                     await conn.fetchval(
                         "SELECT count(*) FROM public.middleware_schema_migrations"
                     )
-                    == 15
+                    == EXPECTED_CORE_MIGRATIONS
                 )
                 assert (
                     await conn.fetch(
@@ -353,13 +357,13 @@ def test_real_progressive_rls_keeps_workers_visible_and_safe_tables_isolated(mon
 
             conn = await asyncpg.connect(url)
             try:
-                assert head == "0071_defer_unbound_tenant_rls"
+                assert head == "0074_mcr_odoo_handoff"
                 assert await conn.fetchval(
                     "SELECT version_num FROM public.alembic_version"
                 ) == head
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_schema_migrations"
-                ) == 15
+                ) == EXPECTED_CORE_MIGRATIONS
                 assert await conn.fetchval(
                     "SELECT count(*) FROM public.middleware_automation_schema_migrations"
                 ) == 3
