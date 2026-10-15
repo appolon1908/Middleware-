@@ -13,7 +13,10 @@ from .provider_canary import (
     validate_provider_canary_evidence,
 )
 from .calling_contract import (
-    HANGUP, ORIGINATE, TARGET, validate_call_evidence,
+    HANGUP,
+    ORIGINATE,
+    TARGET,
+    validate_call_evidence,
     validate_terminal_call_evidence,
 )
 
@@ -342,7 +345,9 @@ class CommandExecutionWorkflow:
                 recovered = await _activity("recover_call_execution", request)
                 if recovered.status == "cancelled":
                     return WorkflowOutcome(
-                        request.command_id, "command_execution", "cancelled",
+                        request.command_id,
+                        "command_execution",
+                        "cancelled",
                         "committed no-send cancellation recovered after activity failure",
                     )
             await _command_transition(
@@ -361,8 +366,11 @@ class CommandExecutionWorkflow:
                 detail="adapter execution did not produce a confirmed outcome",
             )
 
-        if (request.target == TARGET and request.command_type == ORIGINATE
-                and executed.status == "cancelled"):
+        if (
+            request.target == TARGET
+            and request.command_type == ORIGINATE
+            and executed.status == "cancelled"
+        ):
             return WorkflowOutcome(
                 operation_id=request.command_id,
                 workflow_type="command_execution",
@@ -370,8 +378,11 @@ class CommandExecutionWorkflow:
                 detail=executed.detail,
             )
 
-        if (request.target == TARGET and request.command_type in {ORIGINATE, HANGUP}
-                and executed.status == "dispatch_unknown"):
+        if (
+            request.target == TARGET
+            and request.command_type in {ORIGINATE, HANGUP}
+            and executed.status == "dispatch_unknown"
+        ):
             await _command_transition(
                 CommandTransitionRequest(
                     request.command_id,
@@ -429,14 +440,22 @@ class CommandExecutionWorkflow:
                 detail="provider read-back failed",
             )
         calling_observation = None
-        if (request.target == TARGET and request.command_type in {ORIGINATE, HANGUP}
-                and readback.status != "matched"):
+        if (
+            request.target == TARGET
+            and request.command_type in {ORIGINATE, HANGUP}
+            and readback.status != "matched"
+        ):
             try:
-                original = (request.command_id if request.command_type == ORIGINATE
-                            else str(request.payload["origin_operation_id"]))
+                original = (
+                    request.command_id
+                    if request.command_type == ORIGINATE
+                    else str(request.payload["origin_operation_id"])
+                )
                 calling_observation = validate_call_evidence(
-                    readback.readback_evidence, operation_id=original,
-                    correlation_id=request.correlation_id, tenant_id=request.tenant_id,
+                    readback.readback_evidence,
+                    operation_id=original,
+                    correlation_id=request.correlation_id,
+                    tenant_id=request.tenant_id,
                     actor=request.payload["actor"],
                     authorization_reference=request.payload["authorization_reference"],
                     provider_operation_id=executed.provider_operation_id,
@@ -467,7 +486,8 @@ class CommandExecutionWorkflow:
         if request.target == TARGET and request.command_type in {ORIGINATE, HANGUP}:
             try:
                 original_operation_id = (
-                    request.command_id if request.command_type == ORIGINATE
+                    request.command_id
+                    if request.command_type == ORIGINATE
                     else str(request.payload["origin_operation_id"])
                 )
                 readback_evidence = validate_terminal_call_evidence(
@@ -480,20 +500,29 @@ class CommandExecutionWorkflow:
                     provider_operation_id=executed.provider_operation_id,
                 )
             except (KeyError, TypeError, ValueError) as exc:
-                await _command_transition(CommandTransitionRequest(
-                    request.command_id, request.tenant_id, "reconciliation_required",
-                    actor, f"terminal calling evidence was missing or invalid: {exc}",
-                    executed.provider_operation_id,
-                ))
+                await _command_transition(
+                    CommandTransitionRequest(
+                        request.command_id,
+                        request.tenant_id,
+                        "reconciliation_required",
+                        actor,
+                        f"terminal calling evidence was missing or invalid: {exc}",
+                        executed.provider_operation_id,
+                    )
+                )
                 return WorkflowOutcome(
-                    request.command_id, "command_execution", "reconciliation_required",
+                    request.command_id,
+                    "command_execution",
+                    "reconciliation_required",
                     "terminal calling evidence did not satisfy the bounded contract",
                 )
             if request.command_type == HANGUP:
                 await _activity(
                     "complete_originating_call",
                     OriginalCallCompletionRequest(
-                        request.command_id, request.tenant_id, readback_evidence,
+                        request.command_id,
+                        request.tenant_id,
+                        readback_evidence,
                     ),
                 )
         elif request.target in TARGET_CHANNELS and isinstance(canary, dict):
@@ -532,7 +561,11 @@ class CommandExecutionWorkflow:
             # Only the locked provider-canary contract is safe to persist here.
             # Other adapter results may contain provider payload fields that have
             # not passed the redaction and shape checks above.
-            readback_evidence = None
+            readback_evidence = {
+                "schema_version": "1.0",
+                "status": "matched",
+                "provider_operation_id": executed.provider_operation_id,
+            }
 
         await _command_transition(
             CommandTransitionRequest(

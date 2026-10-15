@@ -3,7 +3,7 @@
 
 The protected production validators pin the exact bytes of workflows, scripts,
 configuration and of each other.  This tool is the single, repository-owned
-derivation of those pins for ``ingtrader21-spec/Middleware-``:
+derivation of those pins for ``appolon1908/Middleware-``:
 
   --check              report every stale active pin (exit 1 if any)
   --apply-candidate    rewrite the candidate trust files atomically
@@ -55,7 +55,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-REPOSITORY = "ingtrader21-spec/Middleware-"
+REPOSITORY = "appolon1908/Middleware-"
 VALIDATOR = ".codestra/validate-production-orchestrator-contract.py"
 RELEASE = ".codestra/validate-release-intent.py"
 LAUNCHER = ".codestra/run-trusted-production-orchestrator.py"
@@ -396,6 +396,8 @@ class Derivation:
             else:
                 plumbing("read-tree", git(self.root, "write-tree").strip())
             for rel, data in proposed.items():
+                if rel == LAUNCHER:
+                    continue  # project only bytes atomic_apply may write
                 listed = plumbing("ls-files", "-s", "--", rel)
                 mode = listed.split()[0] if listed else "100644"
                 blob = plumbing("hash-object", "-w", "--stdin", data=data)

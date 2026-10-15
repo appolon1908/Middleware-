@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-06-adapters::04-messaging",
+  "product": "middleware",
+  "section": "mw-06-adapters",
+  "subsection": "04-messaging",
+  "branch": "subsection/mw-06-adapters--04-messaging",
+  "parent_branch": "section/mw-06-adapters",
+  "order": 4,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-06-adapters/subsections/04-messaging/repo",
+  "depends_on": [
+    "middleware::mw-03-connectors::05-control-api",
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::05-openapi-postman",
+    "middleware::mw-06-adapters::03-n8n"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

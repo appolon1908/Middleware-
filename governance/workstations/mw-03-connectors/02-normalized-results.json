@@ -1,0 +1,24 @@
+{
+  "workstation": "middleware::mw-03-connectors::02-normalized-results",
+  "product": "middleware",
+  "section": "mw-03-connectors",
+  "subsection": "02-normalized-results",
+  "branch": "subsection/mw-03-connectors--02-normalized-results",
+  "parent_branch": "section/mw-03-connectors",
+  "order": 2,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-03-connectors/subsections/02-normalized-results/repo",
+  "depends_on": [
+    "middleware::mw-02-command-kernel::07-recovery",
+    "middleware::mw-03-connectors::01-registry"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}

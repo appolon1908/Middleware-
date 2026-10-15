@@ -1,0 +1,26 @@
+{
+  "workstation": "middleware::mw-05-api::05-openapi-postman",
+  "product": "middleware",
+  "section": "mw-05-api",
+  "subsection": "05-openapi-postman",
+  "branch": "subsection/mw-05-api--05-openapi-postman",
+  "parent_branch": "section/mw-05-api",
+  "order": 5,
+  "worktree": "/srv/codestra/workstations/Middleware-/sections/mw-05-api/subsections/05-openapi-postman/repo",
+  "depends_on": [
+    "middleware::mw-02-command-kernel::07-recovery",
+    "middleware::mw-03-connectors::05-control-api",
+    "middleware::mw-04-identity::04-replay-defense",
+    "middleware::mw-05-api::04-automation-api"
+  ],
+  "status": "NOT_STARTED",
+  "required_gates": [
+    "lint",
+    "unit",
+    "integration",
+    "contract",
+    "security",
+    "clean_tree",
+    "remote_sha_match"
+  ]
+}
