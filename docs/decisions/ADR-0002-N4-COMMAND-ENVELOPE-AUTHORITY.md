@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-04
-- **Authority:** `appolon1908-hue/Middleware-`
+- **Authority:** `appolon1908/Middleware-`
 - **Applies to:** Middleware, N8N, Keycloak, Kong, Caddy, Klyrow and Odoo integration contracts
 
 ## Decision

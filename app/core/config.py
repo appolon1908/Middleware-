@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_PROFILES_PATH = ROOT / "config" / "runtime-profiles.v1.json"
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-CANONICAL_SCHEMA_HEAD = "0067_service_catalog_monitoring_state"
+CANONICAL_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
 PRODUCTION_ISSUER = "https://auth.codestra.co/realms/codestra"
 STAGING_ISSUER = "https://auth-staging.codestra.co/realms/codestra"
 CANONICAL_AUDIENCE = "middleware-api"
@@ -53,6 +53,7 @@ SUPPORTED_EXTERNAL_EFFECTS = frozenset(
         "CRAWLER_ODOO_DELIVERY_ENABLED",
         "SCRAPPER_ODOO_DELIVERY_ENABLED",
         "SMS_DELIVERY_ENABLED",
+        "WHATSAPP_DELIVERY_ENABLED",
         "EMAIL_DELIVERY_ENABLED",
         "SOCIAL_DELIVERY_ENABLED",
     }
@@ -64,6 +65,7 @@ EXTERNAL_DELIVERY_EFFECTS = frozenset(
         "CRAWLER_ODOO_DELIVERY_ENABLED",
         "SCRAPPER_ODOO_DELIVERY_ENABLED",
         "SMS_DELIVERY_ENABLED",
+        "WHATSAPP_DELIVERY_ENABLED",
         "EMAIL_DELIVERY_ENABLED",
     }
 )
@@ -95,6 +97,7 @@ EXTERNAL_EFFECT_FIELDS: dict[str, str] = {
     "CRAWLER_EXTERNAL_CONTACT_ENABLED": "crawler_external_contact_enabled",
     "SCRAPPER_EXTERNAL_CONTACT_ENABLED": "scrapper_external_contact_enabled",
     "SMS_DELIVERY_ENABLED": "effect_sms_delivery_enabled",
+    "WHATSAPP_DELIVERY_ENABLED": "effect_whatsapp_delivery_enabled",
     "EMAIL_DELIVERY_ENABLED": "effect_email_delivery_enabled",
     "SOCIAL_DELIVERY_ENABLED": "effect_social_delivery_enabled",
     "CRAWLER_EXECUTION_ENABLED": "crawler_execution_enabled",
@@ -160,6 +163,21 @@ def _runtime_profiles() -> dict[str, dict[str, object]]:
             )
         profiles[profile_id] = raw
     return profiles
+
+
+def runtime_database_sslmode(profile_id: str | None) -> str | None:
+    """Return the database sslmode declared by a registered runtime profile."""
+
+    if not profile_id:
+        return None
+    profile = _runtime_profiles().get(profile_id)
+    if profile is None:
+        raise ConfigurationError("RUNTIME_PROFILE_ID must select a registered runtime profile")
+    database = profile.get("database")
+    if not isinstance(database, dict):
+        raise ConfigurationError("runtime profile database contract is invalid")
+    value = database.get("sslmode")
+    return str(value) if value else None
 
 
 # ``Settings.from_env(mapping)`` reads exactly the given mapping instead of
@@ -232,6 +250,29 @@ VICIDIAL_PRIVATE_HOSTS = frozenset(
 VICIDIAL_PRIVATE_PORT = 8443
 VICIDIAL_ENDPOINT_ADAPTER_PORT = 8444
 VICIDIAL_SECRET_ROOT = Path("/run/secrets/vicidial-mtls")
+
+
+
+def _is_synthetic_ci_jwks_url(value: str) -> bool:
+    """The disposable CI JWKS fixture: plaintext only on loopback.
+
+    CI assigns the fixture a free loopback port per job, so the port is not
+    fixed; the scheme, host and path are.
+    """
+    try:
+        parts = urlsplit(value)
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "http"
+        and parts.hostname == "127.0.0.1"
+        and parts.netloc == f"127.0.0.1:{port}"
+        and port is not None
+        and parts.path == "/certs.json"
+        and not parts.query
+        and not parts.fragment
+    )
 
 
 class Settings(BaseSettings):
@@ -312,6 +353,10 @@ class Settings(BaseSettings):
     effect_sms_delivery_enabled: bool = Field(
         default=False, validation_alias=AliasChoices("SMS_DELIVERY_ENABLED", "effect_sms_delivery_enabled")
     )
+    effect_whatsapp_delivery_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("WHATSAPP_DELIVERY_ENABLED", "effect_whatsapp_delivery_enabled"),
+    )
     effect_email_delivery_enabled: bool = Field(
         default=False, validation_alias=AliasChoices("EMAIL_DELIVERY_ENABLED", "effect_email_delivery_enabled")
     )
@@ -338,6 +383,19 @@ class Settings(BaseSettings):
     )
     umbrella_n8n_external_provider_writes: bool = Field(
         default=False, validation_alias=AliasChoices("N8N_EXTERNAL_PROVIDER_WRITES", "umbrella_n8n_external_provider_writes")
+    )
+    # Codestra Evolution WhatsApp provider adapter (internal, behind Middleware V3).
+    evolution_whatsapp_base_url: str = Field(
+        default="", validation_alias=AliasChoices("EVOLUTION_WHATSAPP_BASE_URL", "evolution_whatsapp_base_url")
+    )
+    evolution_whatsapp_service_token: str = Field(
+        default="", validation_alias=AliasChoices("EVOLUTION_WHATSAPP_SERVICE_TOKEN", "evolution_whatsapp_service_token")
+    )
+    evolution_whatsapp_provider: str = Field(
+        default="evolution", validation_alias=AliasChoices("EVOLUTION_WHATSAPP_PROVIDER", "evolution_whatsapp_provider")
+    )
+    evolution_whatsapp_instance_id: str = Field(
+        default="", validation_alias=AliasChoices("EVOLUTION_WHATSAPP_INSTANCE_ID", "evolution_whatsapp_instance_id")
     )
     # Odoo 19 CRM lead delivery (Appolon lineage). Distinct from the registry
     # backed ``odoo_base_url`` used by the outbox sync worker.
@@ -378,6 +436,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://localhost/codestra_middleware"
     database_url_file: str = ""
     database_certification_evidence_dir: str = ""
+    # Read-only release certification evidence (release_candidate.json,
+    # backup.json, restore_rehearsal.json, rollback.json, seal.json).
+    release_certification_evidence_dir: str = ""
+    release_certification_max_backup_age_hours: int = Field(default=24, ge=1, le=720)
+    production_decision_evidence_dir: str = ""
     redis_url: str = "redis://localhost:6379/2"
     redis_url_file: str = ""
     registry_snapshot_signing_key_file: str = ""
@@ -631,6 +694,15 @@ class Settings(BaseSettings):
     telnexa_event_hmac_secret_file: str = ""
     telnexa_event_signature_ttl_seconds: int = 300
     telnexa_event_request_max_bytes: int = 1_048_576
+    telnexa_event_trusted_proxy_cidrs: str = ""
+    telnexa_event_client_ca_file: str = ""
+    telnexa_event_client_uri_san: str = (
+        "spiffe://codestra.internal/provider/telnexa/callback"
+    )
+    telnexa_event_client_cert_sha256: str = ""
+    telnexa_event_synthetic_verify_enabled: bool = False
+    telnexa_event_reconcile_max_attempts: int = 12
+    telnexa_event_reconcile_batch_size: int = 100
     klyrow_event_ingress_enabled: bool = False
     klyrow_event_api_key: str = ""
     klyrow_event_api_key_file: str = ""
@@ -745,6 +817,18 @@ class Settings(BaseSettings):
     environment: str = "preproduction"
     publisher_hmac_keys_file: str = ""
     publisher_canary_enabled: bool = False
+    # PAS-57 bounded provider-canary controller: disabled by default and
+    # synthetic/no-effect only (there is no live provider execution path).
+    provider_canary_controller_enabled: bool = False
+    provider_canary_kill_switch_engaged: bool = False
+    provider_canary_allowed_tenant_ids: str = ""
+    provider_canary_allowed_targets: str = ""
+    provider_canary_max_attempts: int = 1
+    provider_canary_max_rate_per_minute: int = 1
+    provider_canary_max_destinations: int = 1
+    provider_canary_max_duration_seconds: int = 900
+    provider_canary_max_spend_minor_units: int = 0
+    provider_canary_kill_switch_readback_max_age_seconds: int = 900
     breero_ingress_enabled: bool = False
     breero_odoo_delivery_enabled: bool = False
     breero_hmac_identities_file: str = ""
@@ -1061,7 +1145,7 @@ class Settings(BaseSettings):
         return (
             self.app_env in {"development", "test"}
             and self.issuer == SYNTHETIC_CI_ISSUER
-            and self.jwks_uri == SYNTHETIC_CI_JWKS_URL
+            and _is_synthetic_ci_jwks_url(self.jwks_uri)
         )
 
     @property
@@ -1212,6 +1296,11 @@ class Settings(BaseSettings):
                 raise ConfigurationError(
                     "TELNEXA_EVENT_HMAC_SECRET or TELNEXA_EVENT_HMAC_SECRET_FILE is required"
                 )
+        if self.telnexa_event_ingress_enabled or self.telnexa_event_synthetic_verify_enabled:
+            try:
+                self.validate_telnexa_callback_trust()
+            except ValueError as exc:
+                raise ConfigurationError(str(exc)) from exc
         if self.klyrow_event_ingress_enabled:
             if not (self.klyrow_event_api_key or self.klyrow_event_api_key_file):
                 raise ConfigurationError(
@@ -1461,8 +1550,12 @@ class Settings(BaseSettings):
             )
         if profile.get("environment") != self.app_env:
             raise ConfigurationError("runtime profile does not match APP_ENV")
-        self._validate_database_profile(profile["database"])
-        self._validate_redis_profile(profile["redis"])
+        self._validate_database_profile(
+            profile["database"], profile.get("database_alternates", [])
+        )
+        self._validate_redis_profile(
+            profile["redis"], profile.get("redis_alternates", [])
+        )
         nats_profile = profile["nats"]
         assert isinstance(nats_profile, dict)
         if self.nats_stream != nats_profile["stream"]:
@@ -1534,51 +1627,113 @@ class Settings(BaseSettings):
                 "PRODUCTION_ACTIVATION_ID is forbidden by the runtime profile"
             )
 
-    def _validate_database_profile(self, raw_profile: object) -> None:
+    def _validate_database_profile(
+        self, raw_profile: object, raw_alternates: object = ()
+    ) -> None:
         assert isinstance(raw_profile, dict)
+        if not isinstance(raw_alternates, (list, tuple)):
+            raise ConfigurationError("database alternate profiles are invalid")
+        candidates = [raw_profile, *raw_alternates]
         try:
             parsed = urlparse(self.database_url or "")
             port = parsed.port
             query = parse_qs(parsed.query, strict_parsing=True) if parsed.query else {}
         except ValueError as exc:
             raise ConfigurationError("DATABASE_URL is malformed") from exc
-        if (
-            parsed.scheme != raw_profile["scheme"]
-            or parsed.hostname != raw_profile["host"]
-            or port != raw_profile["port"]
-            or unquote(parsed.path.lstrip("/")) != raw_profile["name"]
-            or unquote(parsed.username or "") != raw_profile["username"]
-            or not parsed.password
-            or query
-            != ({"sslmode": [raw_profile["sslmode"]]} if raw_profile.get("sslmode") else {})
-            or parsed.params
-            or parsed.fragment
-        ):
+
+        def matches(candidate: object) -> bool:
+            if not isinstance(candidate, dict):
+                return False
+            expected_query = {
+                key: [str(candidate[key])]
+                for key in ("sslmode", "sslrootcert", "sslcert", "sslkey")
+                if candidate.get(key)
+            }
+            usernames = candidate.get("usernames")
+            if usernames is None:
+                allowed_usernames = {str(candidate["username"])}
+            elif isinstance(usernames, list) and usernames:
+                allowed_usernames = {str(value) for value in usernames}
+            else:
+                return False
+            return (
+                parsed.scheme == candidate["scheme"]
+                and parsed.hostname == candidate["host"]
+                and port == candidate["port"]
+                and unquote(parsed.path.lstrip("/")) == candidate["name"]
+                and unquote(parsed.username or "") in allowed_usernames
+                and bool(parsed.password)
+                and query == expected_query
+                and not parsed.params
+                and not parsed.fragment
+            )
+
+        if not any(matches(candidate) for candidate in candidates):
             raise ConfigurationError(
                 "DATABASE_URL does not match the locked runtime profile"
             )
 
-    def _validate_redis_profile(self, raw_profile: object) -> None:
+    def _validate_redis_profile(
+        self, raw_profile: object, raw_alternates: object = ()
+    ) -> None:
         assert isinstance(raw_profile, dict)
+        if not isinstance(raw_alternates, (list, tuple)):
+            raise ConfigurationError("Redis alternate profiles are invalid")
+        candidates = [raw_profile, *raw_alternates]
         try:
             parsed = urlparse(self.redis_url or "")
             port = parsed.port
             database = int(unquote(parsed.path.lstrip("/")))
         except ValueError as exc:
             raise ConfigurationError("REDIS_URL is malformed") from exc
-        if (
-            parsed.scheme != raw_profile["scheme"]
-            or parsed.hostname != raw_profile["host"]
-            or port != raw_profile["port"]
-            or unquote(parsed.username or "") != raw_profile["username"]
-            or not parsed.password
-            or database != raw_profile["database"]
-            or parsed.query
-            or parsed.params
-            or parsed.fragment
-        ):
+
+        def matches(candidate: object) -> bool:
+            if not isinstance(candidate, dict):
+                return False
+            return (
+                parsed.scheme == candidate["scheme"]
+                and parsed.hostname == candidate["host"]
+                and port == candidate["port"]
+                and unquote(parsed.username or "") == candidate["username"]
+                and bool(parsed.password)
+                and database == candidate["database"]
+                and not parsed.query
+                and not parsed.params
+                and not parsed.fragment
+            )
+
+        if not any(matches(candidate) for candidate in candidates):
             raise ConfigurationError(
                 "REDIS_URL does not match the locked runtime profile"
+            )
+
+    def validate_telnexa_callback_trust(self) -> None:
+        """Telnexa callbacks require the private mTLS identity contract."""
+
+        from app.telnexa_callback_identity import (
+            parse_pinned_fingerprints,
+            parse_trusted_proxy_networks,
+            validate_client_uri_san,
+        )
+
+        if not self.telnexa_event_trusted_proxy_cidrs.strip():
+            raise ValueError(
+                "TELNEXA_EVENT_TRUSTED_PROXY_CIDRS is required for Telnexa callbacks"
+            )
+        parse_trusted_proxy_networks(self.telnexa_event_trusted_proxy_cidrs)
+        if not Path(self.telnexa_event_client_ca_file).is_absolute():
+            raise ValueError(
+                "TELNEXA_EVENT_CLIENT_CA_FILE must be an absolute mounted path"
+            )
+        validate_client_uri_san(self.telnexa_event_client_uri_san)
+        parse_pinned_fingerprints(self.telnexa_event_client_cert_sha256)
+        if not (self.telnexa_event_api_key or self.telnexa_event_api_key_file):
+            raise ValueError(
+                "TELNEXA_EVENT_API_KEY or TELNEXA_EVENT_API_KEY_FILE is required"
+            )
+        if not (self.telnexa_event_hmac_secret or self.telnexa_event_hmac_secret_file):
+            raise ValueError(
+                "TELNEXA_EVENT_HMAC_SECRET or TELNEXA_EVENT_HMAC_SECRET_FILE is required"
             )
 
     def validate_safety(self) -> None:
@@ -1601,6 +1756,8 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Telnexa event HMAC secret is required when ingress is enabled"
                 )
+        if self.telnexa_event_ingress_enabled or self.telnexa_event_synthetic_verify_enabled:
+            self.validate_telnexa_callback_trust()
         if self.klyrow_event_ingress_enabled:
             if not (
                 self.klyrow_event_api_key.strip()
@@ -1748,6 +1905,7 @@ class Settings(BaseSettings):
                 raise ValueError("production Postly secrets and endpoint are required")
             self.postiz_api_key
             self.postly_webhook_verification_secret
+        self._validate_provider_canary_controller()
         if (
             self.social_automatic_provider_failover_enabled
             or self.social_automatic_dual_publish_enabled
@@ -1773,6 +1931,64 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "broad-event activation requires bounded explicit scope"
                 )
+
+    def _validate_provider_canary_controller(self) -> None:
+        caps = {
+            "PROVIDER_CANARY_MAX_ATTEMPTS": (self.provider_canary_max_attempts, 1, 10),
+            "PROVIDER_CANARY_MAX_RATE_PER_MINUTE": (
+                self.provider_canary_max_rate_per_minute,
+                1,
+                10,
+            ),
+            "PROVIDER_CANARY_MAX_DESTINATIONS": (
+                self.provider_canary_max_destinations,
+                1,
+                5,
+            ),
+            "PROVIDER_CANARY_MAX_DURATION_SECONDS": (
+                self.provider_canary_max_duration_seconds,
+                60,
+                3600,
+            ),
+            "PROVIDER_CANARY_MAX_SPEND_MINOR_UNITS": (
+                self.provider_canary_max_spend_minor_units,
+                0,
+                0,
+            ),
+            "PROVIDER_CANARY_KILL_SWITCH_READBACK_MAX_AGE_SECONDS": (
+                self.provider_canary_kill_switch_readback_max_age_seconds,
+                60,
+                3600,
+            ),
+        }
+        for name, (value, low, high) in caps.items():
+            if not low <= value <= high:
+                raise ValueError(f"{name} must be between {low} and {high}")
+        if not self.provider_canary_controller_enabled:
+            return
+        if self.app_env == "production":
+            raise ValueError(
+                "the synthetic provider-canary controller is forbidden in production"
+            )
+        from app.provider_canary import TARGET_CHANNELS
+
+        tenants = {
+            item.strip()
+            for item in self.provider_canary_allowed_tenant_ids.split(",")
+            if item.strip()
+        }
+        targets = {
+            item.strip()
+            for item in self.provider_canary_allowed_targets.split(",")
+            if item.strip()
+        }
+        if not tenants or not targets:
+            raise ValueError(
+                "the provider-canary controller requires explicit tenant and "
+                "target allowlists"
+            )
+        if not targets <= TARGET_CHANNELS.keys():
+            raise ValueError("PROVIDER_CANARY_ALLOWED_TARGETS names an unknown target")
 
     @property
     def broad_event_pipeline_enabled(self) -> bool:
@@ -2117,6 +2333,24 @@ class Settings(BaseSettings):
             )
         return value
 
+    @field_validator("telnexa_event_reconcile_max_attempts")
+    @classmethod
+    def validate_telnexa_reconcile_max_attempts(cls, value: int) -> int:
+        if isinstance(value, bool) or value not in range(1, 101):
+            raise ValueError(
+                "Telnexa reconciliation attempts must be between 1 and 100"
+            )
+        return value
+
+    @field_validator("telnexa_event_reconcile_batch_size")
+    @classmethod
+    def validate_telnexa_reconcile_batch_size(cls, value: int) -> int:
+        if isinstance(value, bool) or value not in range(1, 1001):
+            raise ValueError(
+                "Telnexa reconciliation batch size must be between 1 and 1000"
+            )
+        return value
+
     @field_validator("klyrow_event_signature_ttl_seconds")
     @classmethod
     def validate_klyrow_signature_ttl(cls, value: int) -> int:
@@ -2277,10 +2511,12 @@ class Settings(BaseSettings):
         )
 
 
-settings = Settings()
-settings.load_secret_files()
-if settings.database_url.startswith("postgresql://"):
-    settings.database_url = settings.database_url.replace(
-        "postgresql://", "postgresql+asyncpg://", 1
-    )
-settings.validate_safety()
+def _load_process_settings() -> Settings:
+    """Load process settings without mutating authoritative connection DSNs."""
+    process_settings = Settings()
+    process_settings.load_secret_files()
+    process_settings.validate_safety()
+    return process_settings
+
+
+settings = _load_process_settings()

@@ -166,6 +166,6 @@ def create_app(
     # The Appolon handlers are a superset of the registry's domain handler
     # (same envelope plus the auth-denial metric); installed last so they win.
     appolon_routes.install_error_handlers(app)
-    assert_unique_routes(app)
+    assert_unique_routes(app, deployed=profile is not AppProfile.MONOLITH)
     appolon_routes.install_canonical_openapi(app)
     return app

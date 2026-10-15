@@ -8,7 +8,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from app.core.config import ConfigurationError, Settings
-from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter
+from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter, TelnexaUnknownOutcomeError
 from app.temporal_workflows import CommandExecutionRequest
 
 BASE_URL = "https://telnexa.internal.invalid"
@@ -318,7 +318,7 @@ async def test_timeout_then_missing_readback_does_not_post_again() -> None:
         return httpx.Response(404, json={"detail": "submission_not_found"})
 
     set_handler(handler)
-    with pytest.raises(TelnexaProviderAdapterError, match="outcome unknown"):
+    with pytest.raises(TelnexaUnknownOutcomeError, match="outcome unknown"):
         await TelnexaSmsAdapter(settings_stub(), env=ENV).execute(execution_request())
     assert calls == ["POST", "GET"]
 

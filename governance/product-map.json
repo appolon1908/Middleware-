@@ -1,0 +1,127 @@
+{
+  "product": "middleware",
+  "repository": "appolon1908/Middleware-",
+  "promotion_chain": [
+    "subsection/*",
+    "section/*",
+    "development",
+    "testing",
+    "staging",
+    "production"
+  ],
+  "sections": [
+    {
+      "section": "mw-01-foundation",
+      "branch": "section/mw-01-foundation",
+      "depends_on": [],
+      "subsections": [
+        "01-app-factory",
+        "02-config-errors",
+        "03-lifecycle"
+      ]
+    },
+    {
+      "section": "mw-02-command-kernel",
+      "branch": "section/mw-02-command-kernel",
+      "depends_on": [
+        "mw-01-foundation"
+      ],
+      "subsections": [
+        "01-command-model",
+        "02-ledger",
+        "03-idempotency",
+        "04-retry",
+        "05-dlq",
+        "06-fencing",
+        "07-recovery"
+      ]
+    },
+    {
+      "section": "mw-03-connectors",
+      "branch": "section/mw-03-connectors",
+      "depends_on": [
+        "mw-02-command-kernel"
+      ],
+      "subsections": [
+        "01-registry",
+        "02-normalized-results",
+        "03-readback",
+        "04-reconcile",
+        "05-control-api"
+      ]
+    },
+    {
+      "section": "mw-04-identity",
+      "branch": "section/mw-04-identity",
+      "depends_on": [
+        "mw-01-foundation"
+      ],
+      "subsections": [
+        "01-jwt-jwks",
+        "02-scopes",
+        "03-tenant-binding",
+        "04-replay-defense"
+      ]
+    },
+    {
+      "section": "mw-05-api",
+      "branch": "section/mw-05-api",
+      "depends_on": [
+        "mw-02-command-kernel",
+        "mw-03-connectors",
+        "mw-04-identity"
+      ],
+      "subsections": [
+        "01-command-api",
+        "02-service-api",
+        "03-connector-api",
+        "04-automation-api",
+        "05-openapi-postman"
+      ]
+    },
+    {
+      "section": "mw-06-adapters",
+      "branch": "section/mw-06-adapters",
+      "depends_on": [
+        "mw-03-connectors",
+        "mw-04-identity",
+        "mw-05-api"
+      ],
+      "subsections": [
+        "01-odoo",
+        "02-vicidial",
+        "03-n8n",
+        "04-messaging"
+      ]
+    },
+    {
+      "section": "mw-07-provisioning",
+      "branch": "section/mw-07-provisioning",
+      "depends_on": [
+        "mw-04-identity",
+        "mw-05-api",
+        "mw-06-adapters"
+      ],
+      "subsections": [
+        "01-reserve-adopt",
+        "02-webrtc",
+        "03-sync-disable"
+      ]
+    },
+    {
+      "section": "mw-08-release",
+      "branch": "section/mw-08-release",
+      "depends_on": [
+        "mw-05-api",
+        "mw-06-adapters",
+        "mw-07-provisioning"
+      ],
+      "subsections": [
+        "01-observability",
+        "02-performance-dr",
+        "03-ci-certification",
+        "04-promotion-rollback"
+      ]
+    }
+  ]
+}

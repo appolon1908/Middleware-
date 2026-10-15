@@ -217,6 +217,9 @@ def test_cancel_uses_optimistic_concurrency_and_idempotency(stack: Stack) -> Non
         assert cancelled.json()["cancelled_at"] is not None
         replay = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "operator request"}, headers=auth)
         assert replay.status_code == 200
+        timeline = client.get(f"/platform/v1/operations/{body['command_id']}/timeline", headers={"Authorization": f"Bearer {token()}"}).json()
+        assert timeline["items"][-1]["safe_metadata"]["mutation_correlation_id"] == "cancel-corr"
+        assert cancelled.json()["correlation_id"] != "cancel-corr"  # the operation keeps its own
         stale = client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 1, "reason": "again"}, headers={**auth, "Idempotency-Key": "cancel-key-0002"})
         assert stale.status_code == 409
         assert client.post(f"/platform/v1/operations/{body['command_id']}/cancel", json={"expected_version": 2, "reason": "x"}, headers={**auth, "Authorization": f"Bearer {token(scope='platform.command.read')}"}).status_code == 401
@@ -250,7 +253,7 @@ def test_kernel_describe_is_authenticated_and_secret_free(stack: Stack) -> None:
         assert described.status_code == 200
         body = described.json()
         assert body["canonical_service"] == "middleware-integration-api" and body["canonical_port"] == 8095
-        assert body["runtime_schema_version"] == 11
+        assert body["runtime_schema_version"] == 15
         assert body["alembic_schema_head"] == stack.runtime.settings.schema_head
         assert body["provider_effects_enabled"] is False
         assert body["public_contract_digest"]
@@ -282,3 +285,50 @@ def test_chaos_a_persistence_failure_before_acceptance_is_never_a_202(stack: Sta
         assert response.status_code == 503
         assert response.json()["error"]["retryable"] is True
         assert stack.store._outbox == [] and stack.store._commands == {}
+
+
+def test_command_authority_aliases_expose_result_history_and_cancel(stack: Stack) -> None:
+    with TestClient(stack.app) as client:
+        _, body = submit(client)
+        auth_read = {"Authorization": f"Bearer {token()}"}
+        assert client.get(f"/platform/v1/commands/{body['command_id']}", headers=auth_read).status_code == 200
+        assert client.get(f"/platform/v1/commands/{body['command_id']}/result", headers=auth_read).status_code == 200
+        history = client.get(f"/platform/v1/commands/{body['command_id']}/history", headers=auth_read)
+        assert history.status_code == 200
+        assert history.json()["items"][0]["new_state"] == "RECEIVED"
+        mutation = {
+            "Authorization": f"Bearer {token()}",
+            "X-Correlation-ID": "alias-cancel-corr",
+            "Idempotency-Key": "alias-cancel-key-0001",
+        }
+        cancelled = client.post(
+            f"/platform/v1/commands/{body['command_id']}/cancel",
+            json={"expected_version": 1, "reason": "operator request"},
+            headers=mutation,
+        )
+        assert cancelled.status_code == 200
+        assert cancelled.json()["state"] == "CANCELLED"
+
+
+def test_command_retry_alias_requeues_failed_operation(stack: Stack) -> None:
+    with TestClient(stack.app) as client:
+        body = command_body(payload={"fixture": "reject"})
+        submit(client, body)
+        import asyncio
+        asyncio.run(stack.bus.run_once())
+        before = client.get(
+            f"/platform/v1/commands/{body['command_id']}",
+            headers={"Authorization": f"Bearer {token()}"},
+        ).json()
+        assert before["state"] == "FAILED"
+        retried = client.post(
+            f"/platform/v1/commands/{body['command_id']}/retry",
+            json={"expected_version": before["resource_version"], "reason": "known safe retry"},
+            headers={
+                "Authorization": f"Bearer {token()}",
+                "X-Correlation-ID": "alias-retry-corr",
+                "Idempotency-Key": "alias-retry-key-0001",
+            },
+        )
+        assert retried.status_code == 202
+        assert retried.json()["state"] == "QUEUED"

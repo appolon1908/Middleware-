@@ -75,7 +75,7 @@ X-Codestra-Source
 X-Codestra-Tenant-Id
 X-Codestra-Timestamp
 X-Codestra-Signature: sha256=<lowercase-hex>
-X-Correlation-Id
+X-Correlation-ID
 ```
 
 The signature input is:

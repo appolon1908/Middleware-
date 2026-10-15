@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -235,6 +235,134 @@ class SqlSocialRepository:
             .all()
         )
         return [dict(row) for row in rows]
+
+    async def create_media_asset(
+        self,
+        *,
+        tenant_id: UUID,
+        media_type: str,
+        content_type: str,
+        storage_reference: str,
+        checksum_sha256: str,
+        metadata: dict[str, Any],
+        idempotency_key: str,
+        correlation_id: str,
+        request_id: str,
+    ) -> tuple[dict[str, Any], bool]:
+        """Register a durable social media artifact without provider delivery.
+
+        The asset id is deterministic per tenant + idempotency key. A replay with
+        identical content returns the existing row; a replay with different
+        content fails closed with SOCIAL_IDEMPOTENCY_CONFLICT.
+        """
+        asset_id = uuid5(tenant_id, f"codestra-social-media:{idempotency_key}")
+        key_hash = hashlib.sha256(idempotency_key.encode()).hexdigest()
+        normalized_metadata = dict(metadata)
+        inserted = (
+            (
+                await self.session.execute(
+                    text("""INSERT INTO social_media_assets
+                    (id,tenant_id,media_type,content_type,storage_reference,checksum_sha256,metadata)
+                    VALUES (:id,:tenant,:media_type,:content_type,:storage_reference,:checksum,CAST(:metadata AS jsonb))
+                    ON CONFLICT (id) DO NOTHING
+                    RETURNING id,tenant_id,media_type,content_type,storage_reference,checksum_sha256,metadata,created_at"""),
+                    {
+                        "id": asset_id,
+                        "tenant": tenant_id,
+                        "media_type": media_type,
+                        "content_type": content_type,
+                        "storage_reference": storage_reference,
+                        "checksum": checksum_sha256,
+                        "metadata": json.dumps(normalized_metadata),
+                    },
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if inserted is None:
+            existing = (
+                (
+                    await self.session.execute(
+                        text("""SELECT id,tenant_id,media_type,content_type,storage_reference,
+                        checksum_sha256,metadata,created_at
+                        FROM social_media_assets WHERE id=:id"""),
+                        {"id": asset_id},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if existing is None:
+                await self.session.rollback()
+                raise SocialError(
+                    "SOCIAL_MEDIA_NOT_FOUND",
+                    "Social media asset was not found",
+                    status_code=404,
+                )
+            matches = (
+                str(existing["tenant_id"]) == str(tenant_id)
+                and existing["media_type"] == media_type
+                and existing["content_type"] == content_type
+                and existing["storage_reference"] == storage_reference
+                and existing["checksum_sha256"] == checksum_sha256
+                and dict(existing["metadata"]) == normalized_metadata
+            )
+            if not matches:
+                await self.session.rollback()
+                raise SocialError(
+                    "SOCIAL_IDEMPOTENCY_CONFLICT",
+                    "Idempotency key was used with a different media artifact",
+                    status_code=409,
+                )
+            await self.session.rollback()
+            return dict(existing), False
+
+        await self.session.execute(
+            text("""INSERT INTO social_audit_events
+            (id,tenant_id,actor_type,actor_id,action,correlation_id,request_id,
+             idempotency_key_hash,result,metadata)
+            VALUES (:id,:tenant,'machine','codestra-video-controller','MEDIA_REGISTERED',
+             :correlation,:request,:key_hash,'REGISTERED',CAST(:metadata AS jsonb))"""),
+            {
+                "id": uuid4(),
+                "tenant": tenant_id,
+                "correlation": correlation_id,
+                "request": request_id,
+                "key_hash": key_hash,
+                "metadata": json.dumps(
+                    {
+                        "asset_id": str(asset_id),
+                        "media_type": media_type,
+                        "content_type": content_type,
+                        "checksum_sha256": checksum_sha256,
+                    }
+                ),
+            },
+        )
+        await self.session.commit()
+        return dict(inserted), True
+
+    async def get_media_asset(self, asset_id: UUID) -> dict[str, Any]:
+        row = (
+            (
+                await self.session.execute(
+                    text("""SELECT id,tenant_id,media_type,content_type,storage_reference,
+                    checksum_sha256,metadata,created_at
+                    FROM social_media_assets WHERE id=:id"""),
+                    {"id": asset_id},
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if row is None:
+            raise SocialError(
+                "SOCIAL_MEDIA_NOT_FOUND",
+                "Social media asset was not found",
+                status_code=404,
+            )
+        return dict(row)
 
     async def update_post(
         self,

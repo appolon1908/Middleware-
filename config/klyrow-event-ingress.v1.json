@@ -19,7 +19,7 @@
       "X-Timestamp",
       "X-Signature",
       "Idempotency-Key",
-      "X-Correlation-Id"
+      "X-Correlation-ID"
     ]
   },
   "durability": {
