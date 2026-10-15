@@ -501,8 +501,8 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
         "tests/integration/campaign_extension_concurrency.py": "5699be2ee6b9af5a2aed7d39c68086bc09dc9764e8ed8ffb063ec20fd6aea86a",
         "tests/integration/campaign_identity_concurrency.py": "234d97cf48cf29f0ec26bd4cfd48f61d031f46e1250cee477088abb7a190be76",
         "tests/test_calling_api.py": (
-            "9e09c6fcda80a97ac2988f73a5be9ec6"
-            "caebd3d812220edba3ebfaf3e4b10902"
+            "12ea4166512e55ae2159bc83921b596a"
+            "1f98f35a2fb7d4e3639b71d009b9ee53"
         ),
         "tests/test_calling_contract.py": (
             "b8e1f705cfc175348ba6455879f42f78"
@@ -655,8 +655,8 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
         ".github/workflows/codestra-hierarchy-governance.yml": (
-            "1fd7ab66359de998f5d0ee892d969c15"
-            "ec52954b583d540f7b8f5cb8d864b1dc"
+            "af299523d858eef83a99b818b3246237"
+            "a4eaac3b5a293068d56b7873b4ce6733"
         ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
