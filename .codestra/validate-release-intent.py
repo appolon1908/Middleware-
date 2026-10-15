@@ -221,7 +221,7 @@ KEYCLOAK_PRODUCTION_VALIDATOR_SHA256 = (
     "83d2fce102104543b871530f11115f20"
 )
 MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256 = (
-    "f7f2430542ef97bef675b7d97f9d76b9b150fe6af913bd6c8b112e36087a7087"
+    "3137f350738121d88ef3c173b5ae95f4b8bb98518111aef1e353197b150afce2"
 )
 BACKEND_PRODUCTION_VALIDATOR_SHA256 = (
     "6006bbc7850ce7666de926b6cad2585b"
@@ -381,8 +381,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "fcdd0d5c3832479b10deda8c6a6afca6"
     ),
     "appolon1908/Middleware-": (
-        "d64af5effdcb91c651b9e109f23e0585d2"
-        "fc378dfeb5e61f2763cb1bb9e1072d"
+        "326f963ebbdfee32bb2dbc1d6dbadba668"
+        "66eebac2c53969f773f2a1db4b22de"
     ),
     "appolon1908/codestra": (
         "4e3ea69c3ec2a4bd6e4b50395672f44d"

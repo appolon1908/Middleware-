@@ -28,9 +28,9 @@ jobs:
           python-version: '3.12'
       - name: Enforce promotion path
         env:
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_BASE_REF: ${{ github.base_ref }}
-        run: python3 governance/promotion_guard.py
+          PROMOTION_HEAD_REF: ${{ github.head_ref }}
+          PROMOTION_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: python3 governance/promotion_guard.py --head "$PROMOTION_HEAD_REF" --base "$PROMOTION_BASE_REF"
 
   development-ci-admission:
     name: development-ci-admission
@@ -91,13 +91,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Verify exact SHA in Codestra Development Department control plane
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           /srv/codestra/dev-platform/control-plane/bin/codestra-github-check \
             --product 'Middleware-' \
             --repo-path '/srv/codestra/apps/Middleware-' \
-            --head-ref '${{ github.head_ref }}' \
-            --base-ref '${{ github.base_ref }}' \
-            --head-sha '${{ github.event.pull_request.head.sha }}'
+            --head-ref "$HEAD_REF" \
+            --base-ref "$BASE_REF" \
+            --head-sha "$HEAD_SHA"
 
   promotion-gate:
     name: promotion-gate
@@ -116,7 +120,7 @@ jobs:
           CI_ADMISSION_RESULT: ${{ needs.development-ci-admission.result }}
           CONTROL_PLANE_RESULT: ${{ needs.control-plane-certification.result }}
           HEAD_REF: ${{ github.head_ref }}
-          BASE_REF: ${{ github.base_ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -Eeuo pipefail
