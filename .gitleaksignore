@@ -63,3 +63,9 @@ tests/test_temporal_transport.py:generic-api-key:246
 tests/test_observability_alerts.py:generic-api-key:508
 tests/test_observability_alerts.py:generic-api-key:548
 tests/test_observability_alerts.py:generic-api-key:952
+# Reviewed synthetic fixtures from the PR #397 convergence: a reconciliation
+# idempotency key, a test-only middleware secret and an MCR API idempotency
+# header. None can authenticate to any service.
+tests/integration/test_postgres_redis.py:generic-api-key:1063
+tests/test_certify_test_syn_failure_paths.py:generic-api-key:244
+tests/test_campaign_recycling_api.py:generic-api-key:192

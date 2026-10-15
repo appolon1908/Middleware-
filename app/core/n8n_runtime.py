@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -35,6 +36,14 @@ TERMINAL_STATUSES = {
     ExecutionStatus.TIMED_OUT,
 }
 RETRYABLE_HTTP = {408, 429, 502, 503, 504}
+# Dispatch and callback targets must use an approved port: the private n8n
+# webhook listener in staging, or default HTTPS. Every other port, including
+# the retired pre-canonical listener, is refused in every environment.
+APPROVED_STAGING_HTTP_PORT = 5678
+APPROVED_HTTPS_PORT = 443
+APPROVED_STAGING_HTTP_HOSTS = frozenset(
+    {"webhook", "n8n-webhook-staging", "n8n-runtime-test-double"}
+)
 NON_RETRYABLE_HTTP = {400, 401, 403, 404, 409, 422}
 
 
@@ -194,6 +203,55 @@ def verify_fresh(timestamp: str, ttl_seconds: int = 300) -> None:
         raise ValueError("invalid runtime timestamp") from exc
     if abs(int(time.time()) - parsed) > ttl_seconds:
         raise ValueError("expired runtime timestamp")
+
+
+def dispatch_target_posture(base_url: str, environment: str) -> dict[str, Any]:
+    """Secret-free verdict on the configured n8n dispatch target.
+
+    ``allowed`` is the single decision the dispatcher enforces; the rest is the
+    API-visible evidence (scheme and port only, never credentials or paths).
+    """
+    try:
+        target = urlsplit(base_url)
+        port = target.port or {"https": 443, "http": 80}.get(target.scheme)
+    except ValueError:
+        return {
+            "configured": bool(base_url),
+            "scheme": None,
+            "port": None,
+            "port_approved": False,
+            "allowed": False,
+            "reason": "TARGET_UNPARSEABLE",
+        }
+    port_approved = port == (
+        APPROVED_HTTPS_PORT if target.scheme == "https" else APPROVED_STAGING_HTTP_PORT
+    )
+    private = (target.scheme == "https" and bool(target.hostname)) or (
+        environment == "staging"
+        and target.scheme == "http"
+        and target.hostname in APPROVED_STAGING_HTTP_HOSTS
+    )
+    reason = None
+    if not base_url:
+        reason = "TARGET_NOT_CONFIGURED"
+    elif not port_approved:
+        reason = "TARGET_PORT_NOT_APPROVED"
+    elif (
+        not private
+        or target.username
+        or target.password
+        or target.query
+        or target.fragment
+    ):
+        reason = "TARGET_NOT_PRIVATE_HTTPS"
+    return {
+        "configured": bool(base_url),
+        "scheme": target.scheme or None,
+        "port": port,
+        "port_approved": port_approved,
+        "allowed": reason is None,
+        "reason": reason,
+    }
 
 
 def retry_delay(attempt: int, base: float = 1.0, cap: float = 60.0) -> float:

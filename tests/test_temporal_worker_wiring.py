@@ -35,6 +35,7 @@ def test_temporal_worker_wires_all_reviewed_provider_adapters(monkeypatch: Any) 
             klyrow_email: object,
             postly_social: object,
             vicidial_internal: object,
+            safety: object,
         ) -> None:
             captured.update(
                 {
@@ -45,6 +46,7 @@ def test_temporal_worker_wires_all_reviewed_provider_adapters(monkeypatch: Any) 
                     "email": klyrow_email,
                     "social": postly_social,
                     "vicidial": vicidial_internal,
+                    "safety": safety,
                 }
             )
 
@@ -69,6 +71,18 @@ def test_temporal_worker_wires_all_reviewed_provider_adapters(monkeypatch: Any) 
     monkeypatch.setattr(
         run_temporal, "CommandLedgerWorkflowActivities", CapturingActivities
     )
+    policy_marker = object()
+    safety_marker = object()
+    monkeypatch.setattr(run_temporal, "command_policies", lambda provided: policy_marker)
+    monkeypatch.setattr(
+        run_temporal,
+        "SafetyGate",
+        lambda provided_settings, policies: (
+            safety_marker
+            if provided_settings is settings and policies is policy_marker
+            else (_ for _ in ()).throw(AssertionError("unexpected SafetyGate inputs"))
+        ),
+    )
 
     activities = run_temporal.build_command_activities(settings, command_store)
 
@@ -81,4 +95,5 @@ def test_temporal_worker_wires_all_reviewed_provider_adapters(monkeypatch: Any) 
         "email": markers["email"],
         "social": markers["social"],
         "vicidial": markers["vicidial"],
+        "safety": safety_marker,
     }

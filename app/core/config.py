@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_PROFILES_PATH = ROOT / "config" / "runtime-profiles.v1.json"
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-CANONICAL_SCHEMA_HEAD = "0071_defer_unbound_tenant_rls"
+CANONICAL_SCHEMA_HEAD = "0074_mcr_odoo_handoff"
 PRODUCTION_ISSUER = "https://auth.codestra.co/realms/codestra"
 STAGING_ISSUER = "https://auth-staging.codestra.co/realms/codestra"
 CANONICAL_AUDIENCE = "middleware-api"
@@ -383,6 +383,26 @@ class Settings(BaseSettings):
     )
     umbrella_n8n_external_provider_writes: bool = Field(
         default=False, validation_alias=AliasChoices("N8N_EXTERNAL_PROVIDER_WRITES", "umbrella_n8n_external_provider_writes")
+    )
+    # Standalone media SaaS engines. These are private service origins behind
+    # Middleware; native Blender/Natron/MLT listeners are never public routes.
+    blender_saas_base_url: str = Field(
+        default="", validation_alias=AliasChoices("BLENDER_SAAS_BASE_URL", "blender_saas_base_url")
+    )
+    blender_saas_service_token: str = Field(
+        default="", validation_alias=AliasChoices("BLENDER_SAAS_SERVICE_TOKEN", "blender_saas_service_token")
+    )
+    natron_saas_base_url: str = Field(
+        default="", validation_alias=AliasChoices("NATRON_SAAS_BASE_URL", "natron_saas_base_url")
+    )
+    natron_saas_service_token: str = Field(
+        default="", validation_alias=AliasChoices("NATRON_SAAS_SERVICE_TOKEN", "natron_saas_service_token")
+    )
+    kdenlive_saas_base_url: str = Field(
+        default="", validation_alias=AliasChoices("KDENLIVE_SAAS_BASE_URL", "kdenlive_saas_base_url")
+    )
+    kdenlive_saas_service_token: str = Field(
+        default="", validation_alias=AliasChoices("KDENLIVE_SAAS_SERVICE_TOKEN", "kdenlive_saas_service_token")
     )
     # Codestra Evolution WhatsApp provider adapter (internal, behind Middleware V3).
     evolution_whatsapp_base_url: str = Field(

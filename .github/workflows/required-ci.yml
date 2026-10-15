@@ -229,7 +229,9 @@ jobs:
           python -c 'import asyncio, asyncpg, os; dsn = os.environ["TEST_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://", 1); loop = asyncio.new_event_loop(); conn = loop.run_until_complete(asyncpg.connect(dsn)); tables = loop.run_until_complete(conn.fetchval("SELECT count(*) FROM information_schema.tables WHERE table_schema = '"'"'public'"'"' AND table_name IN ('"'"'recordings'"'"', '"'"'recording_upload_reservations'"'"', '"'"'recording_objects'"'"', '"'"'recording_delivery_attempts'"'"', '"'"'recording_retention_policies'"'"', '"'"'recording_retention_decisions'"'"', '"'"'recording_playback_audit'"'"', '"'"'recording_outbox'"'"')")); assert tables == 0, tables; loop.run_until_complete(conn.close()); loop.close()'
           alembic upgrade head | tee migration-recording-reupgrade.txt
           test "$(python -c 'import asyncio, asyncpg, os; dsn = os.environ["TEST_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://", 1); loop = asyncio.new_event_loop(); conn = loop.run_until_complete(asyncpg.connect(dsn)); print(loop.run_until_complete(conn.fetchval("SELECT version_num FROM alembic_version"))); loop.run_until_complete(conn.close()); loop.close()')" = "${expected_migration_head}"
-          python -m pytest -q tests | tee pytest-full.txt
+          python -m pytest -q tests \
+            --basetemp "${RUNNER_TEMP}/pytest-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            | tee pytest-full.txt
           TEST_DATABASE_URL='postgresql://middleware_ci:ci-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/middleware_rehearsal' \
             python tests/integration/campaign_extension_concurrency.py \
             | tee campaign-extension-concurrency.txt

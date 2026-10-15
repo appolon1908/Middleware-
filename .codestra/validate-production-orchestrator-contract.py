@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548"
+    "39f415ea9425b818501d3e5689ccafc9ca8a8748d16220dd6acb1c3e4873f094"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -480,8 +480,8 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
         ),
         "scripts/integration_ci.sh": "8d9327fd9ad51d6ba7243d051336f623a4f75d60c60e69fd012e65f598b12d4a",
         "scripts/validate_middleware_authority_convergence.py": (
-            "32de4c58a22737dfdea7f42149e3a589"
-            "1756d777b2e890cb568cda4e57799e53"
+            "18837dcc5907d75749e393c516f07e6a"
+            "528adc645f3f1568de4b26bb7bb04ad7"
         ),
         "scripts/validate-order-orchestration.py": (
             "a9d3688d3175661f54d86d113c8e03fa"
@@ -655,8 +655,8 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
         ".github/workflows/codestra-hierarchy-governance.yml": (
-            "af299523d858eef83a99b818b3246237"
-            "a4eaac3b5a293068d56b7873b4ce6733"
+            "246abcf82b6b25bb930f4fa4c8e9355f"
+            "4c7c91a96d8f4fb2f38ad7cd6dc4c1fb"
         ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
@@ -667,8 +667,8 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "9e21c8a67466533112117d6cf671ad4"
         ),
         ".github/workflows/exact-main-production-release.yml": (
-            "baa4961c6e409b269599228c78cfe4c38"
-            "8faff7e5fe9283d315e159f3dcc63ff"
+            "1f119322a01ff4e0d09b94f921defd023"
+            "26043a24eae48380a3256f92008bd4a"
         ),
         ".github/workflows/lead-automation-n8n-source-v1.yml": (
             "6b0cb7126987c14757bd1f48667bf81d"
@@ -690,7 +690,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
+        ".github/workflows/required-ci.yml": "24e3826e097cf10c8333f71ea93f0af342a35b4b7dc8d7a8eb7da8413d4b3b74",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -875,7 +875,7 @@ APPROVED_READ_ONLY_SCRIPT_INVOCATIONS: dict[
             frozenset({()}),
         ),
         "scripts/validate_middleware_authority_convergence.py": (
-            "32de4c58a22737dfdea7f42149e3a5891756d777b2e890cb568cda4e57799e53",
+            "18837dcc5907d75749e393c516f07e6a528adc645f3f1568de4b26bb7bb04ad7",
             frozenset({()}),
         ),
         "scripts/apply_portfolio_main_release_authorities.py": (
@@ -9374,11 +9374,18 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
             "9ae8fa398c6bc85f61a9ff6f68d9b1ef"
             "527e0999f22d2e7dcff8e46c33955b79"
         ),
-        # The only external mutation is the required job posting its own exact
-        # commit status through checks:write.
+        # The required job may post its own exact commit status and applies the
+        # fixed runner-local egress containment wrapper. The job body is
+        # exact-hash pinned; neither action grants production runtime authority.
         ".github/workflows/required-ci.yml:test": (
-            "82afd5c0eb2a45cbd15c45312f37036b"
-            "ab123b68d2790497c6cb53be64eb8bc6"
+            "dceec9adfa34db1d1268d156f95cd224"
+            "ef01e7b5e0f95599b96a2025529c4e9a"
+        ),
+        # Final-status publication is limited to the exact tested commit and
+        # the repository's statuses:write permission; the job body is pinned.
+        ".github/workflows/required-ci.yml:publish-final-status": (
+            "326308325a43745e371f698a76ba2645"
+            "75f00ecc97eeec605a89a4e406b5e0ad"
         ),
         # Single-lane governance mutates only runner-local Git refs/worktree
         # state to materialize the exact PR head before executing the
@@ -9393,7 +9400,7 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # source after Middleware CI succeeded. Only these exact job bytes are
         # authorized; any edit to the job needs a new trust generation.
         ".github/workflows/release.yml:release": (
-            "85f7beea233f0c35112450ef621ba835f9aa9aa6858a12f76bbc2911671dba43"
+            "1c3442bbf7c9b5b15675e147f70906f0f70173febf2c6d0fbd387522fbc20c07"
         ),
     },
 }

@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from app.commands import (
     ADAPTER_COMMAND_DESTINATION,
@@ -55,6 +55,9 @@ logger = logging.getLogger("codestra.platform.kernel")
 SCOPE_COMMAND = "platform.command"
 SCOPE_COMMAND_READ = "platform.command.read"
 SCOPE_COMMAND_REPLAY = "platform.command.replay"
+# REEXECUTE names its new operation deterministically, so a retried replay
+# request is an exact replay of the same new command, never a second one.
+REEXECUTE_NAMESPACE = uuid5(NAMESPACE_URL, "urn:codestra:middleware:platform:reexecute:v1")
 
 
 class PolicyDenied(CommandError):
@@ -78,6 +81,17 @@ class ReplayNotAllowed(CommandError):
     code = "replay_not_allowed"
 
 
+class CapabilityUnknown(CommandCapabilityDisabled):
+    """The capability is not listed in the capability registry."""
+
+    code = "capability_unknown"
+
+
+class AdapterNotFound(CommandError):
+    status_code = 404
+    code = "adapter_not_found"
+
+
 class CommandUnowned(CommandError):
     status_code = 403
     code = "command_unowned"
@@ -86,13 +100,28 @@ class CommandUnowned(CommandError):
 @dataclass(frozen=True)
 class SubmitResult:
     operation: CommandOperation
-    policy: CommandPolicyDecision
-    safety: SafetyDecision
+    # ``None`` for an exact replay: the decisions that admitted the operation
+    # are the persisted ones and are not re-taken.
+    policy: CommandPolicyDecision | None
+    safety: SafetyDecision | None
     destination: str
 
     @property
     def duplicate(self) -> bool:
         return self.operation.duplicate
+
+
+def principal_snapshot(principal: KernelPrincipal, *, required_scope: str) -> dict[str, Any]:
+    """The verified facts a worker needs to re-run the Policy Engine at
+    execution time. Identities and grants only: no token, no secret."""
+    return {
+        "subject": principal.subject,
+        "client_id": principal.client_id,
+        "tenants": list(principal.tenants),
+        "roles": list(principal.roles),
+        "scopes": list(principal.scopes),
+        "required_scope": required_scope,
+    }
 
 
 @dataclass(frozen=True)
@@ -242,31 +271,55 @@ class CommandKernel:
         trace: Mapping[str, str] | None = None,
         required_scope: str | None = None,
     ) -> SubmitResult:
+        from app.identity_missions import authorize_mission
+
+        if not authorize_mission(command.command_type, principal.scopes):
+            await self._deny("policy_deny", command, principal, reason_code="mission_scope_missing", decision_id=str(uuid4()), version="identity-missions.v1")
+            raise PolicyDenied("policy denied: mission_scope_missing")
         started = time.perf_counter()
         family = _family(command.command_type)
         self.metrics.commands_received.labels(command_family=family).inc()
-
-        # 9 — registry resolution: exactly one owning policy, matching target and capability.
-        policy = self.commands.policies.resolve(command.command_type)
-        if policy is None or policy.target != command.target or policy.capability != command.capability:
-            self.metrics.policy_denials.labels(reason="registry_mismatch").inc()
-            raise CommandCapabilityDisabled("command type, target and capability do not name one registered policy")
+        scope_required = (
+            SCOPE_COMMAND_REPLAY
+            if replay_mode is ReplayMode.REEXECUTE
+            else required_scope or SCOPE_COMMAND
+        )
 
         # 10 — adapter ownership. Temporal-executed families need no in-process adapter.
         ownership = self.registry.ownership(command.command_type)
         destination = ADAPTER_COMMAND_DESTINATION if ownership is not None else TEMPORAL_COMMAND_DESTINATION
         adapter_registered = ownership is not None or destination == TEMPORAL_COMMAND_DESTINATION
 
+        # 8 — idempotency comes before the gates: an exact replay (same tenant,
+        # key, client and payload) returns the operation the original
+        # submission produced, whatever the gates would decide today, and
+        # consumes no rate budget. The caller must still hold the same
+        # authority over the tenant and scope it presents.
+        existing = await self.commands.find_existing(command, authenticated_client_id=principal.client_id)
+        if existing is not None:
+            if scope_required not in principal.scopes or not principal.authorized_for(command.tenant_id):
+                self.metrics.policy_denials.labels(reason="replay_authority").inc()
+                raise PolicyDenied("policy denied: replay requires the original tenant and scope authority")
+            self.metrics.idempotency_duplicates.inc()
+            self.metrics.command_duration.labels(stage="accept").observe(time.perf_counter() - started)
+            return SubmitResult(operation=existing, policy=None, safety=None, destination=destination)
+
+        # 9 — registry resolution: a known capability, exactly one owning policy,
+        # matching target and capability.
+        if command.capability not in self.commands.policies.capabilities:
+            self.metrics.policy_denials.labels(reason="capability_unknown").inc()
+            raise CapabilityUnknown("capability is not listed in the capability registry")
+        policy = self.commands.policies.resolve(command.command_type)
+        if policy is None or policy.target != command.target or policy.capability != command.capability:
+            self.metrics.policy_denials.labels(reason="registry_mismatch").inc()
+            raise CommandCapabilityDisabled("command type, target and capability do not name one registered policy")
+
         # 11 — Policy Engine.
         decision = evaluate_command(
             self._policy_request(
                 command,
                 principal,
-                required_scope=(
-                    SCOPE_COMMAND_REPLAY
-                    if replay_mode is ReplayMode.REEXECUTE
-                    else required_scope or SCOPE_COMMAND
-                ),
+                required_scope=scope_required,
                 operator_required=replay_mode is ReplayMode.REEXECUTE,
             )
         )
@@ -307,6 +360,12 @@ class CommandKernel:
         if replay_mode is not None:
             evidence["replay_mode"] = replay_mode.value
             evidence["replay_of"] = str(replay_of) if replay_of is not None else None
+        # Request lineage (request/causation identity) is audited with the
+        # decision so the timeline can be joined to the caller's own records.
+        for lineage_key in ("request_id", "causation_id"):
+            lineage_value = (trace or {}).get(lineage_key)
+            if lineage_value:
+                evidence[lineage_key] = str(lineage_value)
         operation = await self.commands.submit(
             command,
             authenticated_subject=principal.subject,
@@ -314,6 +373,7 @@ class CommandKernel:
             destination=destination,
             decision_evidence=evidence,
             trace=trace,
+            principal_snapshot=principal_snapshot(principal, required_scope=scope_required),
         )
         if operation.duplicate:
             self.metrics.idempotency_duplicates.inc()
@@ -386,6 +446,7 @@ class CommandKernel:
             reason=reason,
             mutation_correlation_id=mutation_correlation_id,
         )
+        self.metrics.replays.labels(mode="RETRY").inc()
         return operation
 
     # ------------------------------------------------------------------
@@ -447,10 +508,10 @@ class CommandKernel:
         envelope = await self.commands.load_envelope(tenant_id, operation_id)
         replayed = envelope.model_copy(
             update={
-                "command_id": uuid4(),
+                "command_id": uuid5(REEXECUTE_NAMESPACE, f"{tenant_id}\x1f{operation_id}\x1f{new_idempotency_key}"),
                 "idempotency_key": new_idempotency_key,
                 "requested_by": principal.subject,
-                "correlation_id": envelope.correlation_id,
+                "correlation_id": mutation_correlation_id or envelope.correlation_id,
             }
         )
         result = await self.submit(replayed, principal, replay_mode=ReplayMode.REEXECUTE, replay_of=operation_id)
@@ -527,6 +588,8 @@ def _family(command_type: str) -> str:
 
 
 __all__ = [
+    "AdapterNotFound",
+    "CapabilityUnknown",
     "CommandKernel",
     "CommandUnowned",
     "DenialAudit",
@@ -537,6 +600,7 @@ __all__ = [
     "ReplayNotAllowed",
     "SafetyDenied",
     "SubmitResult",
+    "principal_snapshot",
     "SCOPE_COMMAND",
     "SCOPE_COMMAND_READ",
     "SCOPE_COMMAND_REPLAY",

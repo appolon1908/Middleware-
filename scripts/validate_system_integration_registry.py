@@ -145,12 +145,19 @@ PROVIDER_CELLS = {
 # are still mutable attributes, but an authority cannot invent or reassign the
 # numeric identity of a component.
 EXPECTED_REPOSITORY_IDENTITIES = {
+    "face-id": (1384373026, "appolon1908/FACE-ID"),
+    "face-liveness": (1386426580, "appolon1908/Codestra-Face-Liveness"),
+    "camera-gateway": (1386427236, "appolon1908/Codestra-Camera-Gateway"),
+    "postgresql": (1386427368, "appolon1908/Codestra-PostgreSQL"),
     "middleware": (1347559071, "appolon1908/Middleware-"),
     "caddy": (1350228103, "appolon1908/Caddy"),
+    "blender": (1401048621, "appolon1908/Blender"),
     "codestra-connect": (1386450856, "appolon1908/Codestra-Connect"),
     "kong": (1347790742, "appolon1908/Kong"),
     "keycloak": (1347523366, "appolon1908/Keycloak"),
+    "kdenlive": (1401049019, "appolon1908/Kdenlive"),
     "n8n": (1347560645, "appolon1908/N8N"),
+    "natron": (1401049709, "appolon1908/Natron"),
     "odoo": (1347522940, "appolon1908/Odoo"),
     "telnexa-sms": (1334764612, "appolon1908/telnexa"),
     "evolution-whatsapp": (1384467115, "appolon1908/Evolution-API"),
@@ -186,6 +193,38 @@ EXPECTED_REPOSITORY_IDENTITIES = {
     "djone": (1382566617, "appolon1908/DJONE"),
 }
 EXPECTED_SYSTEM_SECURITY_PROFILES = {
+    "face-id": (
+        "face-identity-service",
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+        "face-id",
+    ),
+    "face-liveness": (
+        "face-liveness-service",
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+        "face-liveness",
+    ),
+    "camera-gateway": (
+        "camera-capture-service",
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+        "camera-gateway",
+    ),
+    "postgresql": (
+        "database-control-service",
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+        "postgresql",
+    ),
     "middleware": (
         "cross-system-control-plane",
         "active",
@@ -201,6 +240,30 @@ EXPECTED_SYSTEM_SECURITY_PROFILES = {
         "edge-compatibility",
         "compatibility",
         None,
+    ),
+    "blender": (
+        "standalone-3d-render-saas",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "blender-render",
+    ),
+    "kdenlive": (
+        "standalone-video-edit-render-saas",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "kdenlive-render",
+    ),
+    "natron": (
+        "standalone-vfx-compositor-saas",
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+        "natron-compositor",
     ),
     "codestra-connect": (
         "connect-product-routing-source",
@@ -528,15 +591,22 @@ EXPECTED_MIDDLEWARE_OWNED = (
     "combined cross-repository release evidence",
 )
 EXPECTED_CANONICAL_ADAPTER_OWNERS = {
+    "face-id": "appolon1908/FACE-ID",
+    "face-liveness": "appolon1908/Codestra-Face-Liveness",
+    "camera-gateway": "appolon1908/Codestra-Camera-Gateway",
+    "postgresql": "appolon1908/Codestra-PostgreSQL",
     "ai-provider": "appolon1908/Codestra-AI",
     "beyvra-nonfinancial": "appolon1908/beyvra-backend",
+    "blender-render": "appolon1908/Blender",
     "connect-router": "appolon1908/Codestra-Connect",
     "djone-mixxx": "appolon1908/DJONE",
     "evolution-whatsapp": "appolon1908/Evolution-API",
     "klyrow-alert-email": "appolon1908/klyrow.com",
     "klyrow-email": "appolon1908/klyrow.com",
+    "kdenlive-render": "appolon1908/Kdenlive",
     "kyqra-crawler": "appolon1908/kyqra-crawler",
     "marketing-provider": "appolon1908/Codestra-Marketing-",
+    "natron-compositor": "appolon1908/Natron",
     "odoo-19": "appolon1908/Odoo",
     "postly-social": "appolon1908/social.codestra.co",
     "provisioning-service": "appolon1908/codestra-provisioning-service",
@@ -544,7 +614,49 @@ EXPECTED_CANONICAL_ADAPTER_OWNERS = {
     "vicidial-restricted": "appolon1908/Vicidialer-Codestra",
 }
 EXPECTED_CANONICAL_ADAPTER_PROFILES = {
+    "face-id": (
+        "core-communications",
+        "appolon1908/FACE-ID",
+        (
+            "face-id.verify.",
+            "face-id.access.",
+            "face-id.presence.",
+            "face-id.watchlist.",
+            "face-id.enrollment.",
+            "face-id.duplicate.",
+        ),
+        (),
+    ),
+    "face-liveness": (
+        "core-communications",
+        "appolon1908/Codestra-Face-Liveness",
+        ("face-liveness.",),
+        (),
+    ),
+    "camera-gateway": (
+        "core-communications",
+        "appolon1908/Codestra-Camera-Gateway",
+        (
+            "camera-gateway.capture.",
+            "camera-gateway.ptz.",
+            "camera-gateway.event.",
+            "camera-gateway.maintenance.",
+        ),
+        (),
+    ),
+    "postgresql": (
+        "core-communications",
+        "appolon1908/Codestra-PostgreSQL",
+        ("postgresql.",),
+        (),
+    ),
     "ai-provider": ("core-communications", "appolon1908/Codestra-AI", ("ai.",), ()),
+    "blender-render": (
+        "core-communications",
+        "appolon1908/Blender",
+        ("media.blender.",),
+        (),
+    ),
     "beyvra-nonfinancial": (
         "beyvra-financial",
         "appolon1908/beyvra-backend",
@@ -602,6 +714,12 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
         ("email.",),
         (),
     ),
+    "kdenlive-render": (
+        "core-communications",
+        "appolon1908/Kdenlive",
+        ("media.kdenlive.",),
+        (),
+    ),
     "kyqra-crawler": (
         "core-communications",
         "appolon1908/kyqra-crawler",
@@ -612,6 +730,12 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
         "core-communications",
         "appolon1908/Codestra-Marketing-",
         ("marketing.",),
+        (),
+    ),
+    "natron-compositor": (
+        "core-communications",
+        "appolon1908/Natron",
+        ("media.natron.",),
         (),
     ),
     "odoo-19": ("core-communications", "appolon1908/Odoo", ("crm.",), ()),
@@ -636,6 +760,30 @@ EXPECTED_CANONICAL_ADAPTER_PROFILES = {
     ),
 }
 EXPECTED_ADAPTER_BOUND_SYSTEMS = {
+    "face-id": (
+        "face-id",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "face-liveness": (
+        "face-liveness",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "camera-gateway": (
+        "camera-gateway",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "postgresql": (
+        "postgresql",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "evolution-whatsapp": (
         "evolution-whatsapp",
         "communications",
@@ -647,6 +795,12 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
         "financial-isolated",
         "product-adapter-nonfinancial",
         "caller-and-target",
+    ),
+    "blender": (
+        "blender-render",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
     ),
     "codestra-connect": (
         "connect-router",
@@ -666,6 +820,12 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
         "provider-adapter",
         "target-and-event-source",
     ),
+    "kdenlive": (
+        "kdenlive-render",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "kyqra-crawler": (
         "kyqra-crawler",
         "crawler",
@@ -676,6 +836,12 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
         "odoo-19",
         "communications",
         "business-system-adapter",
+        "target-and-event-source",
+    ),
+    "natron": (
+        "natron-compositor",
+        "communications",
+        "provider-adapter",
         "target-and-event-source",
     ),
     "provisioning": (
@@ -704,6 +870,30 @@ EXPECTED_ADAPTER_BOUND_SYSTEMS = {
     ),
 }
 EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
+    "face-id": (
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "face-liveness": (
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "camera-gateway": (
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
+    "postgresql": (
+        "active",
+        "core-control-plane",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "evolution-whatsapp": (
         "active",
         "communications",
@@ -716,6 +906,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
         "financial-isolated",
         "product-adapter-nonfinancial",
         "caller-and-target",
+    ),
+    "blender": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
     ),
     "codestra-connect": (
         "active",
@@ -735,6 +931,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
         "provider-adapter",
         "target-and-event-source",
     ),
+    "kdenlive": (
+        "active",
+        "communications",
+        "provider-adapter",
+        "target-and-event-source",
+    ),
     "kyqra-crawler": (
         "active",
         "crawler",
@@ -746,6 +948,12 @@ EXPECTED_CANONICAL_ADAPTER_OWNER_SECURITY = {
         "active",
         "communications",
         "business-system-adapter",
+        "target-and-event-source",
+    ),
+    "natron": (
+        "active",
+        "communications",
+        "provider-adapter",
         "target-and-event-source",
     ),
     "provisioning": (

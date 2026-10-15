@@ -82,7 +82,7 @@ def test_trust_steady_state_rejects_old_validator_generations() -> None:
     current = launcher.CURRENT_VALIDATOR_SHA256
     expected_policy = (
         "security-fingerprint",
-        "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548",
+        "39f415ea9425b818501d3e5689ccafc9ca8a8748d16220dd6acb1c3e4873f094",
     )
     assert launcher.APPROVED_VALIDATOR_TRANSITIONS == {
         current: {current: expected_policy}
@@ -194,7 +194,7 @@ def test_orchestrator_classifies_the_evidence_gate_as_read_only(
 def test_repaired_candidate_requires_independent_protected_trust_transition(monkeypatch) -> None:
     import hashlib
     launcher = load_launcher()
-    repaired = "a0464ee3ac87ed1127d8ca349b821ab861d40451f595d74d40cd47e7f1f72dac"
+    repaired = "3137f350738121d88ef3c173b5ae95f4b8bb98518111aef1e353197b150afce2"
     assert hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest() == repaired
     # Until a separately reviewed launcher-only trust transition reaches
     # protected main, the unchanged launcher must reject this generation.
@@ -228,19 +228,19 @@ def test_repaired_candidate_requires_independent_protected_trust_transition(monk
 
 
 def test_protected_validator_generation_matches_exact_main_bytes() -> None:
-    """Pin the validator actually merged in PR #447, not its predecessor."""
+    """Pin the validator present at the reviewed protected-main baseline."""
     import hashlib
     launcher = load_launcher()
     observed = hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest()
-    assert observed == "a0464ee3ac87ed1127d8ca349b821ab861d40451f595d74d40cd47e7f1f72dac"
+    assert observed == "3137f350738121d88ef3c173b5ae95f4b8bb98518111aef1e353197b150afce2"
     assert launcher.CURRENT_VALIDATOR_SHA256 == observed
     assert not hasattr(launcher, "SUCCESSOR_VALIDATOR_SHA256")
 
-def test_mw447_current_trust_is_fingerprint_bound() -> None:
+def test_current_main_trust_is_fingerprint_bound() -> None:
     """Candidate needs an exact current-main digest and no historical downgrade."""
     launcher = load_launcher()
     current = launcher.CURRENT_VALIDATOR_SHA256
-    fingerprint = "4c2cba2fae0abccfce66b32c45e10f9a77509921a13435441096abdf216a8548"
+    fingerprint = "39f415ea9425b818501d3e5689ccafc9ca8a8748d16220dd6acb1c3e4873f094"
     orchestrator = runpy.run_path(str(ORCHESTRATOR), run_name="trusted_validator_test")
     actual = orchestrator["release_validator_security_fingerprint"](
         (ROOT / ".codestra/validate-release-intent.py").read_text(encoding="utf-8")
