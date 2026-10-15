@@ -690,7 +690,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
+        ".github/workflows/required-ci.yml": "f1b02f4254fb515c94771fbb17a023fa163561d70608c90d76afd669c76c71af",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -9377,8 +9377,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # The only external mutation is the required job posting its own exact
         # commit status through checks:write.
         ".github/workflows/required-ci.yml:test": (
-            "82afd5c0eb2a45cbd15c45312f37036b"
-            "ab123b68d2790497c6cb53be64eb8bc6"
+            "40717c16aee84d4648f05f692bf3b035"
+            "f43759501019331335dd1b2a2679881e"
         ),
         # Single-lane governance mutates only runner-local Git refs/worktree
         # state to materialize the exact PR head before executing the
