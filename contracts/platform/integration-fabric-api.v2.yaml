@@ -37,6 +37,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
   /healthz:
     get:
       tags:
@@ -67,6 +68,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
       security:
       - bearerAuth: []
   /health/live:
@@ -99,6 +101,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
       security:
       - bearerAuth: []
   /ready:
@@ -127,6 +130,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
   /readyz:
     get:
       tags:
@@ -153,6 +157,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
       security:
       - bearerAuth: []
   /health/ready:
@@ -181,6 +186,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
       security:
       - bearerAuth: []
   /readiness:
@@ -209,6 +215,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
   /version:
     get:
       tags:
@@ -237,6 +244,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
   /capabilities:
     get:
       tags:
@@ -265,6 +273,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
   /dependencies:
     get:
       tags:
@@ -293,6 +302,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: public
   /health/dependencies:
     get:
       tags:
@@ -321,6 +331,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: route-dependency
       security:
       - bearerAuth: []
   /internal/v1/database/health:
@@ -351,6 +362,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/readiness:
@@ -381,6 +393,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/status:
@@ -411,6 +424,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/schema:
@@ -441,6 +455,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/migrations:
@@ -471,6 +486,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/migrations/verify:
@@ -502,6 +518,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/pool:
@@ -532,6 +549,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/security/tls:
@@ -562,6 +580,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/security/certificates:
@@ -593,6 +612,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/security/rls:
@@ -623,6 +643,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/security/roles:
@@ -663,6 +684,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/performance:
@@ -693,6 +715,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/locks:
@@ -723,6 +746,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/capacity:
@@ -753,6 +777,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/backups:
@@ -783,6 +808,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/backups/latest:
@@ -814,6 +840,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/database/restores/latest:
@@ -845,6 +872,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/certification:
@@ -876,6 +904,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/certification/evaluate:
@@ -907,6 +936,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/candidate:
@@ -937,6 +967,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/lock:
@@ -967,6 +998,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/backups/latest:
@@ -997,6 +1029,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/restore-rehearsals/latest:
@@ -1028,6 +1061,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/rollback/readiness:
@@ -1059,6 +1093,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/release/seal:
@@ -1089,6 +1124,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/production/decision/policy:
@@ -1118,6 +1154,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/production/decision:
@@ -1147,6 +1184,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /internal/v1/production/decision/evaluate:
@@ -1188,6 +1226,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands:
@@ -1255,6 +1294,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/operations/{operation_id}:
@@ -1295,6 +1335,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands/{operation_id}:
@@ -1335,6 +1376,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/operations/{operation_id}/timeline:
@@ -1375,6 +1417,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands/{operation_id}/history:
@@ -1415,6 +1458,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands/{operation_id}/result:
@@ -1455,6 +1499,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands/{operation_id}/retry:
@@ -1501,6 +1546,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/operations/{operation_id}/cancel:
@@ -1547,6 +1593,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands/{operation_id}/cancel:
@@ -1593,6 +1640,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/operations/{operation_id}/replay:
@@ -1639,6 +1687,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/commands/{operation_id}/replay:
@@ -1685,6 +1734,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/dead-letters:
@@ -1726,6 +1776,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/dead-letters/{operation_id}:
@@ -1765,6 +1816,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/operations/{operation_id}/recovery-history:
@@ -1804,6 +1856,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/replays/{replay_id}/cancel:
@@ -1843,6 +1896,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/adapters:
@@ -1874,6 +1928,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/adapters/{adapter_id}:
@@ -1915,6 +1970,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/dead-letters/{operation_id}/replay:
@@ -1961,6 +2017,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/reconciliation:
@@ -2002,6 +2059,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/reconciliation/{operation_id}:
@@ -2042,6 +2100,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/reconciliation/{operation_id}/readback:
@@ -2088,6 +2147,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/reconciliation/{operation_id}/resolve:
@@ -2134,6 +2194,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/kernel/describe:
@@ -2162,6 +2223,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/rehearsals/no-effect:
@@ -2206,6 +2268,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/rehearsals/{rehearsal_id}:
@@ -2246,6 +2309,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/connectors:
@@ -2274,6 +2338,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/connectors/{connector_id}:
@@ -2312,6 +2377,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/connectors/{connector_id}/capabilities:
@@ -2350,6 +2416,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/connectors/{connector_id}/health:
@@ -2388,6 +2455,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/connectors/{connector_id}/readback:
@@ -2432,6 +2500,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/connectors/{connector_id}/reconcile:
@@ -2476,6 +2545,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/claim:
@@ -2516,6 +2586,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/{job_id}:
@@ -2558,6 +2629,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/executions/{job_id}:
@@ -2600,6 +2672,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/executions/{job_id}/result:
@@ -2642,6 +2715,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/executions/{job_id}/cancel:
@@ -2684,6 +2758,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/{job_id}/heartbeat:
@@ -2732,6 +2807,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/{job_id}/steps:
@@ -2780,6 +2856,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/{job_id}/complete:
@@ -2828,6 +2905,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/{job_id}/fail:
@@ -2876,6 +2954,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/commands:
@@ -2916,6 +2995,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/commands/{command_id}:
@@ -2958,6 +3038,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/approvals:
@@ -2998,6 +3079,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/approvals/{approval_id}:
@@ -3040,6 +3122,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/dead-letters/{dead_letter_id}/replay:
@@ -3088,6 +3171,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/jobs/reconcile:
@@ -3128,6 +3212,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v2/automation/capabilities/{capability}:
@@ -3169,6 +3254,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/automation/idempotency/check:
@@ -3212,6 +3298,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -3280,6 +3367,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -3348,6 +3436,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: signed-ingress
       security:
       - bearerAuth: []
   /api/v1/automation/policy-check:
@@ -3401,6 +3490,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/automation/executions/{transition}:
@@ -3458,6 +3548,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/automation/events/dead-letter:
@@ -3500,6 +3591,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -3550,6 +3642,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/automation/context/{resource}/{identifier}:
@@ -3600,6 +3693,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/automation/callbacks/{state}:
@@ -3647,6 +3741,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/automation/queues/status:
@@ -3677,6 +3772,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -3732,6 +3828,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks:
@@ -3795,6 +3892,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/callbacks/due:
@@ -3838,6 +3936,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/callbacks/dashboard/supervisor:
@@ -3881,6 +3980,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/callbacks/dashboard/campaigns:
@@ -3924,6 +4024,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/callbacks/{callback_id}:
@@ -3974,6 +4075,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/callbacks:
@@ -4035,6 +4137,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}:
@@ -4105,6 +4208,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/results/callbacks/{callback_id}:
@@ -4163,6 +4267,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/snooze:
@@ -4233,6 +4338,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/reschedule:
@@ -4303,6 +4409,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/cancel:
@@ -4373,6 +4480,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/complete:
@@ -4443,6 +4551,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/start:
@@ -4513,6 +4622,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/call-now:
@@ -4583,6 +4693,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/callbacks/{callback_id}/reassign:
@@ -4653,6 +4764,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/status:
@@ -4682,6 +4794,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/readiness:
@@ -4712,6 +4825,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/quotas:
@@ -4742,6 +4856,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/audit:
@@ -4788,6 +4903,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/authorize:
@@ -4829,6 +4945,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/activate:
@@ -4870,6 +4987,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/revoke:
@@ -4911,6 +5029,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/email/production/kill-switch:
@@ -4952,6 +5071,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/agent-provisioning/requests:
@@ -5016,6 +5136,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/requests/{request_id}:
     get:
       tags:
@@ -5066,6 +5187,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/requests/{request_id}/reconcile:
     post:
       tags:
@@ -5122,6 +5244,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/requests/{request_id}/suspend:
     post:
       tags:
@@ -5178,6 +5301,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/requests/{request_id}/reactivate:
     post:
       tags:
@@ -5234,6 +5358,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/requests/{request_id}/revoke:
     post:
       tags:
@@ -5290,6 +5415,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/requests/{request_id}/history:
     get:
       tags:
@@ -5340,6 +5466,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/{request_id}/sync:
     post:
       tags:
@@ -5396,6 +5523,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/{request_id}/disable:
     post:
       tags:
@@ -5452,6 +5580,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/{request_id}/readback:
     get:
       tags:
@@ -5502,6 +5631,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/{request_id}/repair-intents:
     post:
       tags:
@@ -5550,6 +5680,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/reserve-extension:
     post:
       tags:
@@ -5599,6 +5730,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/adopt-extension:
     post:
       tags:
@@ -5639,6 +5771,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/{request_id}/release-extension:
     post:
       tags:
@@ -5701,6 +5834,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/webrtc/tickets:
     post:
       tags:
@@ -5741,6 +5875,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agent-provisioning/{request_id}/webrtc/revoke:
     post:
       tags:
@@ -5797,6 +5932,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/users/{employee_id}:
     get:
       tags:
@@ -5848,6 +5984,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/users/{employee_id}/campaigns:
     get:
       tags:
@@ -5900,6 +6037,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/users/{employee_id}/entitlements:
     get:
       tags:
@@ -5952,6 +6090,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/telephony/assignments:
     get:
       tags:
@@ -6024,6 +6163,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/email/identities:
     get:
       tags:
@@ -6105,6 +6245,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/sms/identities:
     get:
       tags:
@@ -6185,6 +6326,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/session/context:
     get:
       tags:
@@ -6228,6 +6370,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/session/context/select:
     post:
       tags:
@@ -6271,6 +6414,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/calls:
     get:
       tags:
@@ -6341,6 +6485,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/calls/{call_id}:
     get:
       tags:
@@ -6393,6 +6538,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/activity:
     get:
       tags:
@@ -6461,6 +6607,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/activity/{activity_id}:
     get:
       tags:
@@ -6510,6 +6657,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agents/presence:
     get:
       tags:
@@ -6564,6 +6712,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/agents/{user_id}/presence:
     get:
       tags:
@@ -6616,6 +6765,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/me/presence:
     get:
       tags:
@@ -6644,6 +6794,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/queues:
@@ -6691,6 +6842,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/queues/{queue_id}:
     get:
       tags:
@@ -6742,6 +6894,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/queues/{queue_id}/members:
     get:
       tags:
@@ -6794,6 +6947,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/queues/{queue_id}/calls:
     get:
       tags:
@@ -6855,6 +7009,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/queues/{queue_id}/metrics:
     get:
       tags:
@@ -6907,6 +7062,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/contacts:
     get:
       tags:
@@ -6965,6 +7121,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     post:
       tags:
       - contacts
@@ -7012,6 +7169,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/contacts/{contact_id}:
     get:
       tags:
@@ -7059,6 +7217,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     patch:
       tags:
       - contacts
@@ -7112,6 +7271,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/contacts/{contact_id}/notes:
     get:
       tags:
@@ -7159,6 +7319,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     post:
       tags:
       - contacts
@@ -7212,6 +7373,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/contacts/{contact_id}/notes/{note_id}:
     patch:
       tags:
@@ -7272,6 +7434,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/contacts/{contact_id}/tasks:
     get:
       tags:
@@ -7319,6 +7482,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     post:
       tags:
       - contacts
@@ -7372,6 +7536,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tasks/{task_id}:
     patch:
       tags:
@@ -7426,6 +7591,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tasks/{task_id}/complete:
     post:
       tags:
@@ -7473,6 +7639,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/opportunities:
     get:
       tags:
@@ -7531,6 +7698,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     post:
       tags:
       - opportunities
@@ -7578,6 +7746,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/opportunities/{opportunity_id}:
     get:
       tags:
@@ -7625,6 +7794,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     patch:
       tags:
       - opportunities
@@ -7678,6 +7848,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tickets:
     get:
       tags:
@@ -7736,6 +7907,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     post:
       tags:
       - tickets
@@ -7783,6 +7955,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tickets/{ticket_id}:
     get:
       tags:
@@ -7830,6 +8003,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
     patch:
       tags:
       - tickets
@@ -7883,6 +8057,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tenants:
     get:
       tags:
@@ -7947,6 +8122,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tenants/authorized:
     get:
       tags:
@@ -8003,6 +8179,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tenants/{tenant_id}:
     get:
       tags:
@@ -8048,6 +8225,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tenants/{tenant_id}/campaigns:
     get:
       tags:
@@ -8109,6 +8287,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/tenants/{tenant_id}/health:
     get:
       tags:
@@ -8153,6 +8332,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaigns:
     get:
       tags:
@@ -8215,6 +8395,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaigns/{campaign_id}:
     get:
       tags:
@@ -8266,6 +8447,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaigns/{campaign_id}/members:
     get:
       tags:
@@ -8335,6 +8517,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaigns/{campaign_id}/channels:
     get:
       tags:
@@ -8387,6 +8570,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaigns/{campaign_id}/health:
     get:
       tags:
@@ -8439,6 +8623,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaign-engine/plan:
     post:
       summary: Dry-run next-action planning for one or more leads
@@ -9715,6 +9900,7 @@ paths:
                   - type: string
                     pattern: ^mcr-policy-[0-9]+\.[0-9]+\.[0-9]+$
                   - type: 'null'
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaign-engine/execute:
     post:
       summary: Execute a previously planned set of decisions
@@ -10402,6 +10588,7 @@ paths:
                       LEAD).
                     type: string
                     pattern: ^[1-9][0-9]*00-L-[0-9]{8}$
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/leads/{lead_id}/journey:
     get:
       summary: Lifecycle, channel health, and exposure history for one lead
@@ -12645,6 +12832,7 @@ paths:
           type: integer
           minimum: 1
           maximum: 500
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/leads/{lead_id}/next-action:
     get:
       summary: Current next-action decision for one lead (read mode, dry run)
@@ -13758,6 +13946,7 @@ paths:
           - sms
           - whatsapp
           - voice
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaigns/{campaign_id}/eligible-leads:
     get:
       summary: Leads currently eligible for a campaign version (read model, dry run)
@@ -14281,6 +14470,7 @@ paths:
           type: integer
           minimum: 1
           maximum: 500
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/delivery-events:
     post:
       summary: Ingest one normalized delivery or engagement event
@@ -15244,6 +15434,7 @@ paths:
                       const: whatsapp
                     origin:
                       type: 'null'
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/suppressions:
     post:
       summary: Record an additive, scoped suppression
@@ -16053,6 +16244,7 @@ paths:
                       minLength: 1
                       maxLength: 210
                       pattern: ^(klyrow|whatsapp):[A-Za-z0-9][A-Za-z0-9._-]{0,199}$
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/campaign-engine/status:
     get:
       summary: Non-secret engine and policy status
@@ -16384,6 +16576,7 @@ paths:
           type: string
           minLength: 1
           maxLength: 180
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/repositories:
     get:
       tags:
@@ -16413,6 +16606,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/hosts:
     get:
       tags:
@@ -16466,6 +16660,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/hosts/{host_id}:
     get:
       tags:
@@ -16525,6 +16720,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/services/{service_id}/deployments:
     get:
       tags:
@@ -16574,6 +16770,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/services/{service_id}/endpoints:
     get:
       tags:
@@ -16623,6 +16820,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/services/{service_id}/dependencies:
     get:
       tags:
@@ -16665,6 +16863,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/services/{service_id}/coverage:
     get:
       tags:
@@ -16714,6 +16913,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/services/{service_id}/telemetry-profile:
     post:
       tags:
@@ -16762,6 +16962,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/services/{service_id}/contract-refresh:
     post:
       tags:
@@ -16810,6 +17011,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/sync/status:
     get:
       tags:
@@ -16853,6 +17055,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/sync/reconciliations:
     post:
       tags:
@@ -16894,6 +17097,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/sync/reconciliations/{reconciliation_id}:
     get:
       tags:
@@ -16936,6 +17140,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/integrations/github/events:
     post:
       tags:
@@ -16963,6 +17168,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /platform/v1/runtime/observations:
@@ -17006,6 +17212,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /platform/v1/telemetry/heartbeats:
     post:
       tags:
@@ -17047,6 +17254,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: handler-bearer
   /v1/observability/overview:
     get:
       tags:
@@ -17076,6 +17284,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
   /v1/observability/services/{service_id}/health:
@@ -17128,6 +17337,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/topology:
     get:
       tags:
@@ -17157,6 +17367,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
   /v1/observability/metrics/query:
@@ -17200,6 +17411,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
       - *id003
@@ -17245,6 +17457,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
       - *id003
@@ -17290,6 +17503,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
       - *id003
@@ -17335,6 +17549,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
       - *id003
@@ -17382,6 +17597,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/slo:
     get:
       tags:
@@ -17436,6 +17652,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/dashboards:
     get:
       tags:
@@ -17490,6 +17707,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/certificates:
     get:
       tags:
@@ -17544,6 +17762,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/backups:
     get:
       tags:
@@ -17598,6 +17817,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/secrets/health:
     get:
       tags:
@@ -17627,6 +17847,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
   /v1/observability/integrations:
@@ -17658,6 +17879,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
   /v1/observability/integrations/{integration_id}:
@@ -17720,6 +17942,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/agents:
     get:
       tags:
@@ -17782,6 +18005,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/campaigns/{campaign_id}:
     get:
       tags:
@@ -17825,6 +18049,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/events/stream:
     get:
       tags:
@@ -17868,6 +18093,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/probe-runs:
     post:
       tags:
@@ -17909,6 +18135,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
       - *id003
@@ -17956,6 +18183,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/telemetry/browser-events:
     post:
       tags:
@@ -17997,6 +18225,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
       - *id003
@@ -18057,6 +18286,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
     get:
       tags:
       - kyyow-observability-sync
@@ -18131,6 +18361,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/incidents:
     post:
       tags:
@@ -18187,6 +18418,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/kpis/{event_id}:
     get:
       tags:
@@ -18229,6 +18461,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /v1/observability/odoo-sync:
     get:
       tags:
@@ -18257,6 +18490,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
   /api/v1/integrations/runtime:
@@ -18295,6 +18529,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -18329,6 +18564,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -18364,6 +18600,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -18433,6 +18670,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/integrations/odoo/campaigns/{campaign_id}/desired-state:
@@ -18500,6 +18738,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/integrations/odoo/commands:
@@ -18530,6 +18769,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -18581,6 +18821,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
   /api/v1/integrations/odoo/status:
@@ -18614,6 +18855,7 @@ paths:
           description: Required durable dependency unavailable
       security:
       - bearerAuth: []
+      x-codestra-auth-mode: shared-secret-bearer
       parameters:
       - *id002
   /api/v1/integrations/odoo/sync-status:
@@ -18675,6 +18917,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /api/v1/integrations/odoo/sync-errors:
     get:
       tags:
@@ -18751,6 +18994,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
   /api/v1/integrations/n8n/dispatch:
     post:
       tags:
@@ -18779,6 +19023,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -18844,6 +19089,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/integrations/n8n/results/{event_id}:
@@ -18904,6 +19150,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/integrations/n8n/progress:
@@ -18934,6 +19181,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -18968,6 +19216,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -19002,6 +19251,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -19036,6 +19286,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: shared-secret-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -19097,6 +19348,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -19175,6 +19427,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/campaign-designs/approvals:
@@ -19249,6 +19502,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/events/klyrow:
@@ -19755,6 +20009,7 @@ paths:
                   properties:
                     data:
                       $ref: '#/$defs/AccountStateData'
+      x-codestra-auth-mode: signed-ingress
   /api/v1/events/telnexa:
     post:
       tags:
@@ -19945,6 +20200,7 @@ paths:
               - provider_status
               title: TelnexaDeliveryEvent
               type: object
+      x-codestra-auth-mode: signed-ingress
   /api/v1/events/telnexa/verify:
     post:
       tags:
@@ -20136,6 +20392,7 @@ paths:
               - provider_status
               title: TelnexaDeliveryEvent
               type: object
+      x-codestra-auth-mode: signed-ingress
   /v1/operations-dashboard/overview:
     get:
       tags:
@@ -20162,6 +20419,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20192,6 +20450,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20222,6 +20481,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20252,6 +20512,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20282,6 +20543,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20312,6 +20574,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations-dashboard/tenants/{tenant_id}:
@@ -20351,6 +20614,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations-dashboard/queues:
@@ -20379,6 +20643,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20409,6 +20674,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20439,6 +20705,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -20521,6 +20788,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations/{command_id}:
@@ -20562,6 +20830,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations/{command_id}/events:
@@ -20620,6 +20889,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations/{command_id}/attempts:
@@ -20678,6 +20948,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations/{command_id}/cancel:
@@ -20727,6 +20998,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/operations/{command_id}/reconcile:
@@ -20776,6 +21048,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox:
@@ -20826,6 +21099,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/outbox:
@@ -20876,6 +21150,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox/{record_id}:
@@ -20915,6 +21190,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/outbox/{record_id}:
@@ -20954,6 +21230,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox/{record_id}/events:
@@ -20993,6 +21270,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/outbox/{record_id}/attempts:
@@ -21032,6 +21310,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox/{record_id}/reprocess:
@@ -21079,6 +21358,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox/{record_id}/quarantine:
@@ -21126,6 +21406,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox/{record_id}/release:
@@ -21173,6 +21454,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/inbox/{record_id}/discard:
@@ -21220,6 +21502,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/outbox/{record_id}/cancel:
@@ -21267,6 +21550,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/outbox/{record_id}/retry:
@@ -21314,6 +21598,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/reconciliation/operations/{record_id}/request:
@@ -21361,6 +21646,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/outbox/{record_id}/reconcile:
@@ -21408,6 +21694,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/system/capabilities:
@@ -21436,6 +21723,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21466,6 +21754,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21496,6 +21785,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21526,6 +21816,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21565,6 +21856,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21611,6 +21903,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/audit/events:
@@ -21661,6 +21954,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/identity-probes/{probe_id}:
@@ -21708,6 +22002,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/control/ai/inference-requests:
@@ -21753,6 +22048,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21802,6 +22098,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21851,6 +22148,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21900,6 +22198,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -21949,6 +22248,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -22032,6 +22332,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/operations/{operation_id}:
@@ -22072,6 +22373,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/operations/{operation_id}/cancel:
@@ -22120,6 +22422,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/operations/{operation_id}/retry:
@@ -22168,6 +22471,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/inbox:
@@ -22218,6 +22522,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/inbox/{record_id}:
@@ -22257,6 +22562,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/outbox:
@@ -22307,6 +22613,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/outbox/{record_id}:
@@ -22346,6 +22653,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/policy/decisions:
@@ -22383,6 +22691,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -22437,6 +22746,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/reconciliation/operations/{record_id}:
@@ -22476,6 +22786,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/reconciliation/operations/{record_id}/resolve:
@@ -22523,6 +22834,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/quarantine/events:
@@ -22573,6 +22885,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/quarantine/events/{record_id}:
@@ -22612,6 +22925,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/quarantine/events/{record_id}/release:
@@ -22659,6 +22973,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /api/v1/quarantine/events/{record_id}/discard:
@@ -22706,6 +23021,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/telephony/calls/originate:
@@ -22751,6 +23067,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -22797,6 +23114,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/telephony/calls/requests/{operation_id}/reconcile:
@@ -22853,6 +23171,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/telephony/calls/requests/{operation_id}/hangup:
@@ -22909,6 +23228,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/calls/originate:
@@ -22954,6 +23274,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23002,6 +23323,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23050,6 +23372,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23098,6 +23421,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23146,6 +23470,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23194,6 +23519,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23242,6 +23568,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23290,6 +23617,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23338,6 +23666,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23382,6 +23711,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/crm/operations/{operation_id}:
@@ -23422,6 +23752,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/email/operations/{operation_id}:
@@ -23462,6 +23793,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/sms/operations/{operation_id}:
@@ -23502,6 +23834,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/telephony/operations/{operation_id}:
@@ -23542,6 +23875,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/social/operations/{operation_id}:
@@ -23582,6 +23916,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/marketing/operations/{operation_id}:
@@ -23622,6 +23957,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/ai/operations/{operation_id}:
@@ -23662,6 +23998,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/odoo/operations:
@@ -23690,6 +24027,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23720,6 +24058,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23750,6 +24089,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23780,6 +24120,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23810,6 +24151,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23840,6 +24182,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23870,6 +24213,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23900,6 +24244,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -23950,6 +24295,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/odoo/operations/{operation_id}/reconcile:
@@ -23998,6 +24344,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/crm/operations/{operation_id}/cancel:
@@ -24046,6 +24393,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/crm/operations/{operation_id}/reconcile:
@@ -24094,6 +24442,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/telephony/operations/{operation_id}/cancel:
@@ -24142,6 +24491,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/telephony/operations/{operation_id}/reconcile:
@@ -24190,6 +24540,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/social/operations/{operation_id}/cancel:
@@ -24238,6 +24589,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/social/operations/{operation_id}/reconcile:
@@ -24286,6 +24638,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/marketing/operations/{operation_id}/cancel:
@@ -24334,6 +24687,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/marketing/operations/{operation_id}/reconcile:
@@ -24382,6 +24736,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/ai/operations/{operation_id}/cancel:
@@ -24430,6 +24785,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/ai/operations/{operation_id}/reconcile:
@@ -24478,6 +24834,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/odoo/provider-health:
@@ -24506,6 +24863,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -24536,6 +24894,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -24566,6 +24925,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -24606,6 +24966,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -24648,6 +25009,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -24727,6 +25089,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /webhooks/vicidial/call-result/{webhook_id}:
@@ -24790,6 +25153,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/crm/delivery-results/{webhook_id}:
@@ -24853,6 +25217,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/crm/events/{webhook_id}:
@@ -24916,6 +25281,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /metrics:
@@ -24944,6 +25310,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/runtime/safety:
@@ -24973,6 +25340,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/communications/messages:
@@ -25002,6 +25370,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25047,6 +25416,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25095,6 +25465,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25128,6 +25499,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25172,6 +25544,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/communication/messages/{messageId}:
@@ -25213,6 +25586,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/communications/messages/{messageId}/events:
@@ -25254,6 +25628,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/communications/messages/{messageId}/cancel:
@@ -25303,6 +25678,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/communications/providers/health:
@@ -25332,6 +25708,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25363,6 +25740,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25394,6 +25772,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25448,6 +25827,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
   /v1/intake/leads:
@@ -25476,6 +25856,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25508,6 +25889,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25556,6 +25938,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25616,6 +25999,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25676,6 +26060,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25736,6 +26121,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25796,6 +26182,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25856,6 +26243,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25916,6 +26304,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:
@@ -25976,6 +26365,7 @@ paths:
           description: Rate limited
         '503':
           description: Required durable dependency unavailable
+      x-codestra-auth-mode: handler-bearer
       security:
       - bearerAuth: []
       parameters:

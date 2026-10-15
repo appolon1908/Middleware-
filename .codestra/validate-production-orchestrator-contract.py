@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "f287636e16e0dde0ada0e8872ab4e0032147c5be13bf0a83acc53942e6136063"
+    "39f415ea9425b818501d3e5689ccafc9ca8a8748d16220dd6acb1c3e4873f094"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -655,8 +655,8 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
         ".github/workflows/codestra-hierarchy-governance.yml": (
-            "1fd7ab66359de998f5d0ee892d969c15"
-            "ec52954b583d540f7b8f5cb8d864b1dc"
+            "af299523d858eef83a99b818b3246237"
+            "a4eaac3b5a293068d56b7873b4ce6733"
         ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
@@ -690,7 +690,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "f2e2dee681f2c1efb84673bec829e6d9d083ead732837451255f930d10c29714",
+        ".github/workflows/required-ci.yml": "67d29b7c00d232ed78bacae64606f90081753d8786a876cf3222faf22e15cf30",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -9378,8 +9378,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # fixed runner-local egress containment wrapper. The job body is
         # exact-hash pinned; neither action grants production runtime authority.
         ".github/workflows/required-ci.yml:test": (
-            "afb7e9a8ae4c1fa7a3209d2d47be3f"
-            "2d3eb3298220d4c1f8e0d19b96dd8e3e11"
+            "82afd5c0eb2a45cbd15c45312f37036b"
+            "ab123b68d2790497c6cb53be64eb8bc6"
         ),
         # Final-status publication is limited to the exact tested commit and
         # the repository's statuses:write permission; the job body is pinned.

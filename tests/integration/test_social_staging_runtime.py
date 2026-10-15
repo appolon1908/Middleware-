@@ -16,7 +16,11 @@ from app.social.domain import (
     ProviderResult,
     SocialPostStatus,
 )
-from app.social.providers import SocialError, SocialProviderAdapter, SocialProviderRegistry
+from app.social.providers import (
+    SocialError,
+    SocialProviderAdapter,
+    SocialProviderRegistry,
+)
 from app.social.production import ProductionCanaryPolicy
 from app.social.sql_repository import SqlSocialRepository
 from app.social.queue import RedisSocialQueue
@@ -186,6 +190,8 @@ def test_media_artifact_registration_is_durable_and_idempotent():
                 storage_reference="codestra-video://exports/example.mp4",
                 checksum_sha256=checksum,
                 metadata={"source": "codestra-video-controller"},
+                actor_subject="video-controller-subject",
+                actor_authorized_party="codestra-video-controller",
                 idempotency_key=key,
                 correlation_id="video-media-correlation",
                 request_id="video-media-request",
@@ -197,6 +203,8 @@ def test_media_artifact_registration_is_durable_and_idempotent():
                 storage_reference="codestra-video://exports/example.mp4",
                 checksum_sha256=checksum,
                 metadata={"source": "codestra-video-controller"},
+                actor_subject="video-controller-subject",
+                actor_authorized_party="codestra-video-controller",
                 idempotency_key=key,
                 correlation_id="video-media-correlation",
                 request_id="video-media-request",
@@ -205,19 +213,27 @@ def test_media_artifact_registration_is_durable_and_idempotent():
             assert first_created is True and second_created is False
             assert (
                 await session.scalar(
-                    text("SELECT count(*) FROM social_media_assets WHERE tenant_id=:tenant"),
+                    text(
+                        "SELECT count(*) FROM social_media_assets WHERE tenant_id=:tenant"
+                    ),
                     {"tenant": tenant_id},
                 )
                 == 1
             )
-            assert (
-                await session.scalar(
-                    text("""SELECT count(*) FROM social_audit_events
+            audit = (
+                (
+                    await session.execute(
+                        text("""SELECT actor_type,actor_id,metadata FROM social_audit_events
                     WHERE tenant_id=:tenant AND action='MEDIA_REGISTERED'"""),
-                    {"tenant": tenant_id},
+                        {"tenant": tenant_id},
+                    )
                 )
-                == 1
+                .mappings()
+                .one()
             )
+            assert audit["actor_type"] == "keycloak"
+            assert audit["actor_id"] == "video-controller-subject"
+            assert audit["metadata"]["authorized_party"] == "codestra-video-controller"
             with pytest.raises(SocialError) as error:
                 await repository.create_media_asset(
                     tenant_id=tenant_id,
@@ -226,6 +242,8 @@ def test_media_artifact_registration_is_durable_and_idempotent():
                     storage_reference="codestra-video://exports/different.mp4",
                     checksum_sha256="b" * 64,
                     metadata={"source": "codestra-video-controller"},
+                    actor_subject="video-controller-subject",
+                    actor_authorized_party="codestra-video-controller",
                     idempotency_key=key,
                     correlation_id="video-media-correlation",
                     request_id="video-media-request",

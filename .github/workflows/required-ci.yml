@@ -39,10 +39,9 @@ jobs:
           - 5432/tcp
         options: >-
           --health-cmd "pg_isready -U middleware_ci -d middleware_rehearsal"
-          --health-start-period 90s
           --health-interval 5s
           --health-timeout 5s
-          --health-retries 24
+          --health-retries 12
 
       redis:
         image: redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
