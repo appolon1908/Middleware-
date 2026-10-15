@@ -55,7 +55,7 @@ def validate_lock(path: Path, errors: list[str]) -> dict[str, str]:
             continue
         if current_name is not None and not current_has_hash:
             errors.append(f"{path.name} entry lacks a SHA-256 hash: {current_name}")
-        match = re.match(r"^([A-Za-z0-9_.-]+)==([^ ;\\]+)", line)
+        match = re.match(r"^([A-Za-z0-9_.-]+)(?:\[[A-Za-z0-9,_.-]+\])?==([^ ;\\]+)", line)
         if match is None:
             errors.append(f"{path.name} has an unpinned requirement: {line[:80]}")
             current_name = None
