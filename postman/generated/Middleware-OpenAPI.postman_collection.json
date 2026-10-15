@@ -16094,6 +16094,680 @@
               }
             }
           ],
+          "name": "List Leads",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "q",
+                  "value": "{{q}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "country",
+                  "value": "{{country}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "category",
+                  "value": "{{category}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "{{status}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "campaign_id",
+                  "value": "{{campaign_id}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "assigned_agent",
+                  "value": "{{assigned_agent}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "disabled": true,
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/leads"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Create Lead",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Request-ID",
+                "type": "text",
+                "value": "{{x_codestra_request_id}}"
+              },
+              {
+                "key": "X-Codestra-Correlation-ID",
+                "type": "text",
+                "value": "{{x_codestra_correlation_id}}"
+              },
+              {
+                "key": "X-Codestra-Causation-ID",
+                "type": "text",
+                "value": "{{x_codestra_causation_id}}"
+              },
+              {
+                "key": "traceparent",
+                "type": "text",
+                "value": "{{traceparent}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List Campaigns",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "campaigns"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "state",
+                  "value": "{{state}}"
+                }
+              ],
+              "raw": "{{base_url}}/platform/v1/leads/campaigns"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get Lead",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Update Lead",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "If-Match",
+                "type": "text",
+                "value": "{{if_match}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Request-ID",
+                "type": "text",
+                "value": "{{x_codestra_request_id}}"
+              },
+              {
+                "key": "X-Codestra-Correlation-ID",
+                "type": "text",
+                "value": "{{x_codestra_correlation_id}}"
+              },
+              {
+                "key": "X-Codestra-Causation-ID",
+                "type": "text",
+                "value": "{{x_codestra_causation_id}}"
+              },
+              {
+                "key": "traceparent",
+                "type": "text",
+                "value": "{{traceparent}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "PATCH",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Assign Lead",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Request-ID",
+                "type": "text",
+                "value": "{{x_codestra_request_id}}"
+              },
+              {
+                "key": "X-Codestra-Correlation-ID",
+                "type": "text",
+                "value": "{{x_codestra_correlation_id}}"
+              },
+              {
+                "key": "X-Codestra-Causation-ID",
+                "type": "text",
+                "value": "{{x_codestra_causation_id}}"
+              },
+              {
+                "key": "traceparent",
+                "type": "text",
+                "value": "{{traceparent}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "assign"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/assign"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Consent Lead",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Request-ID",
+                "type": "text",
+                "value": "{{x_codestra_request_id}}"
+              },
+              {
+                "key": "X-Codestra-Correlation-ID",
+                "type": "text",
+                "value": "{{x_codestra_correlation_id}}"
+              },
+              {
+                "key": "X-Codestra-Causation-ID",
+                "type": "text",
+                "value": "{{x_codestra_causation_id}}"
+              },
+              {
+                "key": "traceparent",
+                "type": "text",
+                "value": "{{traceparent}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "consent"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/consent"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get Contacts",
+          "request": {
+            "header": [
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "contacts"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/contacts"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Suppress Lead",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Request-ID",
+                "type": "text",
+                "value": "{{x_codestra_request_id}}"
+              },
+              {
+                "key": "X-Codestra-Correlation-ID",
+                "type": "text",
+                "value": "{{x_codestra_correlation_id}}"
+              },
+              {
+                "key": "X-Codestra-Causation-ID",
+                "type": "text",
+                "value": "{{x_codestra_causation_id}}"
+              },
+              {
+                "key": "traceparent",
+                "type": "text",
+                "value": "{{traceparent}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "suppress"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/suppress"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Transition Lead",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "type": "text",
+                "value": "{{idempotency_key}}"
+              },
+              {
+                "key": "X-Codestra-Request-ID",
+                "type": "text",
+                "value": "{{x_codestra_request_id}}"
+              },
+              {
+                "key": "X-Codestra-Correlation-ID",
+                "type": "text",
+                "value": "{{x_codestra_correlation_id}}"
+              },
+              {
+                "key": "X-Codestra-Causation-ID",
+                "type": "text",
+                "value": "{{x_codestra_causation_id}}"
+              },
+              {
+                "key": "traceparent",
+                "type": "text",
+                "value": "{{traceparent}}"
+              },
+              {
+                "key": "Authorization",
+                "type": "text",
+                "value": "Bearer {{bearer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "platform",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "transition"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/platform/v1/leads/{{lead_id}}/transition"
+            }
+          }
+        }
+      ],
+      "name": "leads-workstation"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const allowedSuccessStatuses = [200];",
+                  "pm.test('response matches OpenAPI success contract', () => pm.expect(allowedSuccessStatuses).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "name": "Odoo Event",
           "request": {
             "header": [
@@ -19456,6 +20130,10 @@
       "value": ""
     },
     {
+      "key": "assigned_agent",
+      "value": ""
+    },
+    {
       "key": "authorization",
       "value": ""
     },
@@ -19496,6 +20174,10 @@
       "value": ""
     },
     {
+      "key": "category",
+      "value": ""
+    },
+    {
       "key": "command_id",
       "value": ""
     },
@@ -19509,6 +20191,10 @@
     },
     {
       "key": "contact_id",
+      "value": ""
+    },
+    {
+      "key": "country",
       "value": ""
     },
     {
@@ -19564,6 +20250,10 @@
       "value": ""
     },
     {
+      "key": "if_match",
+      "value": ""
+    },
+    {
       "key": "integration_id",
       "value": ""
     },
@@ -19573,6 +20263,10 @@
     },
     {
       "key": "last_event_id",
+      "value": ""
+    },
+    {
+      "key": "lead_id",
       "value": ""
     },
     {
@@ -19605,6 +20299,10 @@
     },
     {
       "key": "probe_run_id",
+      "value": ""
+    },
+    {
+      "key": "q",
       "value": ""
     },
     {
@@ -19668,6 +20366,10 @@
       "value": ""
     },
     {
+      "key": "traceparent",
+      "value": ""
+    },
+    {
       "key": "transition",
       "value": ""
     },
@@ -19688,11 +20390,23 @@
       "value": ""
     },
     {
+      "key": "x_codestra_causation_id",
+      "value": ""
+    },
+    {
       "key": "x_codestra_client_certificate_der",
       "value": ""
     },
     {
+      "key": "x_codestra_correlation_id",
+      "value": ""
+    },
+    {
       "key": "x_codestra_event_id",
+      "value": ""
+    },
+    {
+      "key": "x_codestra_request_id",
       "value": ""
     },
     {
