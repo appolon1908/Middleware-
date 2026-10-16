@@ -34,10 +34,10 @@ SHA = re.compile(r"[0-9a-f]{40}")
 # Steady-state authority for the reviewed protected-main generation. This policy
 # admits exactly the validator now present on main, with no rollback edge.
 CURRENT_VALIDATOR_SHA256 = (
-    "3137f350738121d88ef3c173b5ae95f4b8bb98518111aef1e353197b150afce2"
+    "274000149369e9b7aa6e34a550c211cb934357bc413002d8a98d96da04044bfd"
 )
 CURRENT_RELEASE_VALIDATOR_SHA256 = (
-    "dbccf9c411742a99a63816826affb9a32eb73c06d56b36ce4125d9c72a8b01ad"
+    "8d7cf8cd87811cc3c01e16aae5a1d490197badbaa5c487b046d995d2ba2ed254"
 )
 CURRENT_RELEASE_SECURITY_FINGERPRINT = (
     "39f415ea9425b818501d3e5689ccafc9ca8a8748d16220dd6acb1c3e4873f094"

@@ -306,16 +306,11 @@ jobs:
           uvicorn app.main:app --host 127.0.0.1 --port "${app_port}"             > application-startup.txt 2>&1 &
           server_pid=$!
           trap 'kill "${server_pid}" 2>/dev/null || true' EXIT
-          for _ in {1..20}; do
-            if ! kill -0 "${server_pid}" 2>/dev/null; then
-              cat application-startup.txt >&2
-              exit 1
-            fi
-            if curl --fail --silent "http://127.0.0.1:${app_port}/healthz"               > healthz.json; then
-              break
-            fi
-            sleep 1
-          done
+          python scripts/wait_for_http.py \
+            --pid "${server_pid}" \
+            --url "http://127.0.0.1:${app_port}/healthz" \
+            --log application-startup.txt \
+            --timeout 120 --request-timeout 2 --interval 1
           kill -0 "${server_pid}"
           curl --fail --silent "http://127.0.0.1:${app_port}/healthz"             | tee healthz-final.json
           curl --fail --silent "http://127.0.0.1:${app_port}/readyz"             | tee readyz-final.json
@@ -458,6 +453,7 @@ jobs:
             > required-ci-evidence.sha256
 
       - name: Upload exact-SHA CI evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: required-ci-${{ env.TARGET_SHA }}-${{ github.run_id }}

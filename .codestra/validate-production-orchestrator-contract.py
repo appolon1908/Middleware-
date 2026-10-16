@@ -690,7 +690,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "24e3826e097cf10c8333f71ea93f0af342a35b4b7dc8d7a8eb7da8413d4b3b74",
+        ".github/workflows/required-ci.yml": "f1b02f4254fb515c94771fbb17a023fa163561d70608c90d76afd669c76c71af",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -9378,8 +9378,8 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # fixed runner-local egress containment wrapper. The job body is
         # exact-hash pinned; neither action grants production runtime authority.
         ".github/workflows/required-ci.yml:test": (
-            "dceec9adfa34db1d1268d156f95cd224"
-            "ef01e7b5e0f95599b96a2025529c4e9a"
+            "40717c16aee84d4648f05f692bf3b035"
+            "f43759501019331335dd1b2a2679881e"
         ),
         # Final-status publication is limited to the exact tested commit and
         # the repository's statuses:write permission; the job body is pinned.
