@@ -205,6 +205,11 @@
       "path": "tests/test_release_authority.py",
       "gate": "GIT_METADATA+SYMLINK_SUPPORT",
       "required_job": "docker-test-build"
+    },
+    {
+      "path": "tests/integration/test_tenant_context_pooling.py",
+      "gate": "RUNTIME_INTEGRATION_TESTS",
+      "required_job": "Disposable PostgreSQL Redis integration"
     }
   ],
   "policy": {

@@ -163,3 +163,60 @@ executes leased commands through the adapter registry), `middleware-scheduler`
 (`workers.run_scheduler`, time-based enqueue only), `middleware-reconciler`
 (`workers.run_reconciler`, unknown outcomes/drift). All build the same
 `RuntimeContainer` from the same image; none is a second command authority.
+
+## 9. mw-02 recovery and concurrency guarantees
+
+Every command transition increments `resource_version`, including worker state
+changes. Operators must read the current version before cancellation or replay.
+Reconciliation finalization accepts `expected_version` and checks it under the
+command row lock; an older readback cannot overwrite a newer observation.
+
+The reconciler protects its quarantined outbox row with `FOR UPDATE` through
+readback and resolution. Competing claims use `SKIP LOCKED`. Ownership and the
+unexpired lease are checked before entering that transaction, and cancellation,
+tenant and command identity are checked again on resolution. A protected claim
+remains exclusive until the transaction ends, even if its nominal lease expires
+while the provider read runs. Reconciliation adapter calls are bounded by the
+configured timeout. Memory certification mirrors this exclusive claim behavior.
+
+A worker crash with an outbox quarantine and a command in `dispatching`,
+`accepted` or `readback_pending` is recovered by transitioning to
+`reconciliation_required` and reading the provider. Dispatch never executes a
+command already awaiting reconciliation. A crash after a safe ledger requeue but
+before outbox resolution is repaired on the next claim. Ledger and outbox
+resolution use separate recoverable transactions: the outbox lock protects the
+decision, and terminal or queued ledger states repair a rolled-back resolution.
+No provider write occurs inside a database transaction.
+
+A transient result is retried only when classified as a known failure before an
+effect or a provider rate limit. An ambiguous transient result is quarantined.
+Readiness, circuit and bulkhead refusals share the bounded dispatch budget;
+exhaustion dead-letters the command and its outbox intent.
+Readiness probes use the adapter timeout; exceptions and timeouts are known-safe
+deferrals before opening an execution attempt and consume the same durable budget.
+A reconciled `NOT_FOUND` cannot reset that dispatch budget. The existing durable worker owns
+backoff timing. Provider-effect metrics increment only when execute is invoked,
+so a bulkhead refusal is not counted as an effect attempt.
+
+The durable outbox applies exponential backoff when its live lease owner certifies
+a known-safe retry. At the dispatch limit, the same fenced transaction instead
+dead-letters the intent and records a `dead_letter` reconciliation audit. Manual
+retry requests still cannot bypass the attempt ceiling, and expired or foreign
+workers cannot resolve the quarantine.
+
+Completion requires persisted readback evidence. Generic Temporal matched
+readbacks persist a bounded summary rather than raw provider data. The adapter
+bus and reconciler own the evidence's outcome fields; adapter details cannot
+override those fields. Command payloads reject non-finite JSON numbers before
+hashing or persistence.
+
+`REEXECUTE` checks the original resource version, validates the new envelope,
+and derives a stable operation ID from the original operation, authenticated
+client, actor and new execution idempotency key. Retrying the same request
+returns the same governed operation without another intent. Fresh policy and
+safety checks still apply. `REPROCESS` retains read-only reconciliation semantics.
+
+These changes use the existing schema version 11 columns and immutable audit
+carriers. No second command store, queue, policy authority or migration is added.
+All certification uses synthetic adapters and disposable local databases:
+`PRODUCTION_GO=NO`, `LIVE_CAPABILITIES_ENABLED=NO`, `EXTERNAL_EFFECTS=false`.

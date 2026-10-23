@@ -13,6 +13,9 @@ No new table, no new column: this is the schema proof of the V3 design.
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 import asyncpg
@@ -58,11 +61,59 @@ class PostgresDenialAuditSink(DenialAuditSink):
 class PostgresReconciliationSource:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
+        self._guard_connection: ContextVar[asyncpg.Connection | None] = ContextVar(
+            "reconciliation_guard_connection", default=None
+        )
 
-    async def claim(self, *, reconciler_id: str, lease_seconds: float) -> ReconciliationClaim | None:
+    @asynccontextmanager
+    async def _connection(self) -> AsyncIterator[asyncpg.Connection]:
+        current = self._guard_connection.get()
+        if current is not None:
+            yield current
+        else:
+            async with self.pool.acquire() as conn:
+                yield conn
+
+    @asynccontextmanager
+    async def guard(
+        self, claim: ReconciliationClaim, *, reconciler_id: str
+    ) -> AsyncIterator[None]:
+        # Hold the outbox row lock through readback and finalization. SKIP LOCKED
+        # prevents another reconciler from taking over even if the TTL elapses.
+        # Ledger commits are recoverable if the outer outbox transaction fails.
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                owned = await conn.fetchval(
+                    """
+                    SELECT id FROM middleware_outbox
+                    WHERE id=$1 AND tenant_id=$2 AND command_id=$3
+                      AND lease_owner=$4 AND lease_until > now()
+                      AND reconciliation_required_at IS NOT NULL
+                      AND completed_at IS NULL AND dead_lettered_at IS NULL
+                      AND cancelled_at IS NULL
+                    FOR UPDATE
+                    """,
+                    claim.outbox_id,
+                    claim.tenant_id,
+                    str(claim.command_id),
+                    reconciler_id,
+                )
+                if owned is None:
+                    raise RuntimeError(
+                        "reconciliation lease ownership lost before readback"
+                    )
+                token = self._guard_connection.set(conn)
+                try:
+                    yield
+                finally:
+                    self._guard_connection.reset(token)
+
+    async def claim(
+        self, *, reconciler_id: str, lease_seconds: float
+    ) -> ReconciliationClaim | None:
         if lease_seconds <= 0:
             raise ValueError("lease_seconds must be positive")
-        async with self.pool.acquire() as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 row = await conn.fetchrow(
                     """
@@ -85,7 +136,7 @@ class PostgresReconciliationSource:
                         lease_until=now() + ($2 * interval '1 second')
                     FROM candidate
                     WHERE o.id=candidate.id
-                    RETURNING o.id, o.tenant_id, o.command_id
+                    RETURNING o.id, o.tenant_id, o.command_id, o.attempt_count
                     """,
                     reconciler_id,
                     lease_seconds,
@@ -118,25 +169,39 @@ class PostgresReconciliationSource:
             tenant_id=row["tenant_id"],
             command_id=UUID(str(row["command_id"])),
             reconciliation_attempts=int(attempts or 0),
+            dispatch_attempts=int(row["attempt_count"]),
         )
 
-    async def resolve(self, claim: ReconciliationClaim, *, reconciler_id: str, action: str, reason: str) -> None:
+    async def resolve(
+        self,
+        claim: ReconciliationClaim,
+        *,
+        reconciler_id: str,
+        action: str,
+        reason: str,
+    ) -> None:
         if action not in {"retry", "complete", "dead_letter"}:
             raise ValueError("unsupported reconciliation action")
         safe_reason = reason.strip()[:2048] or action
-        async with self.pool.acquire() as conn:
+        async with self._connection() as conn:
             async with conn.transaction():
                 row = await conn.fetchrow(
                     """
                     SELECT id, tenant_id, attempt_count FROM middleware_outbox
-                    WHERE id=$1 AND lease_owner=$2 AND completed_at IS NULL AND dead_lettered_at IS NULL
+                    WHERE id=$1 AND tenant_id=$3 AND command_id=$4 AND lease_owner=$2
+                      AND lease_until > now() AND reconciliation_required_at IS NOT NULL
+                      AND completed_at IS NULL AND dead_lettered_at IS NULL AND cancelled_at IS NULL
                     FOR UPDATE
                     """,
                     claim.outbox_id,
                     reconciler_id,
+                    claim.tenant_id,
+                    str(claim.command_id),
                 )
                 if row is None:
-                    raise RuntimeError("reconciliation lease ownership lost before resolution")
+                    raise RuntimeError(
+                        "reconciliation lease ownership lost before resolution"
+                    )
                 await conn.execute(
                     """
                     INSERT INTO middleware_reconciliation_audit
@@ -184,23 +249,29 @@ class PostgresReconciliationSource:
                         safe_reason,
                     )
 
-    async def release(self, claim: ReconciliationClaim, *, reconciler_id: str, reason: str) -> None:
-        async with self.pool.acquire() as conn:
+    async def release(
+        self, claim: ReconciliationClaim, *, reconciler_id: str, reason: str
+    ) -> None:
+        async with self._connection() as conn:
             result = await conn.execute(
                 """
                 UPDATE middleware_outbox
                 SET lease_owner=NULL, lease_until=NULL, last_error=$3
-                WHERE id=$1 AND lease_owner=$2
+                WHERE id=$1 AND lease_owner=$2 AND lease_until > now()
+                  AND tenant_id=$4 AND command_id=$5 AND cancelled_at IS NULL
+                  AND completed_at IS NULL AND dead_lettered_at IS NULL
                 """,
                 claim.outbox_id,
                 reconciler_id,
                 reason.strip()[:2048],
+                claim.tenant_id,
+                str(claim.command_id),
             )
             if result != "UPDATE 1":
                 raise RuntimeError("reconciliation lease ownership lost before release")
 
     async def backlog(self) -> int:
-        async with self.pool.acquire() as conn:
+        async with self._connection() as conn:
             value = await conn.fetchval(
                 """
                 SELECT count(*) FROM middleware_outbox

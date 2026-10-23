@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Decision date:** 2026-08-30
 - **Owner:** Ralph L. Appolon
-- **Repository:** `appolon1908-hue/Middleware-`
+- **Repository:** `appolon1908/Middleware-`
 - **Supersedes:** any assumption that n8n will be rewritten to the Middleware v1 API
 
 ## Context

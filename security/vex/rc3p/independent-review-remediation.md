@@ -19,7 +19,7 @@ Signing, release tagging, migration, and production deployment remain blocked.
 
 ## Required independent review
 
-A GitHub account different from `appolon1908-hue` must review:
+A GitHub account different from `appolon1908` must review:
 
 - `security/vex/rc3p/security-owner-decision.md`
 - `security/vex/rc3p/openvex.json`

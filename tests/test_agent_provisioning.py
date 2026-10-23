@@ -362,6 +362,79 @@ async def test_suspend_reactivate_and_revoke_transition_lifecycle(client, author
 
 
 @pytest.mark.asyncio
+async def test_suspend_and_revoke_do_not_claim_success_when_identity_disable_fails(
+    client, authority, monkeypatch,
+):
+    """A request whose Keycloak user is still enabled must not read as
+    SUSPENDED or REVOKED: the failed step is kept and the caller retries."""
+    from dataclasses import dataclass
+
+    from app.adapters.keycloak.lifecycle_client import (
+        KeycloakLifecycleAdapter,
+        KeycloakLifecycleError,
+    )
+
+    @dataclass(frozen=True)
+    class _KeycloakRecord:
+        keycloak_subject: str
+        enabled: bool = True
+
+    async def _query_user(self, email):
+        return _KeycloakRecord(keycloak_subject="kc-subject-synthetic-disable")
+
+    async def _assign_roles(self, subject, roles):
+        return None
+
+    disable_ok = {"value": False}
+
+    async def _disable_user(self, subject):
+        if not disable_ok["value"]:
+            raise KeycloakLifecycleError("synthetic disable failure")
+
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "query_user_by_email", _query_user)
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "create_user", _query_user)
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "assign_approved_roles", _assign_roles)
+    monkeypatch.setattr(KeycloakLifecycleAdapter, "disable_user", _disable_user)
+    monkeypatch.setattr(settings, "live_identity_provisioning_enabled", True)
+
+    token = authority()
+    body = _body(channels={"odoo": True, "phone": False, "webrtc": False, "sms": False, "email": False})
+    created = await client.post(
+        "/platform/v1/agent-provisioning/requests", json=body, headers=_headers(token),
+    )
+    assert created.status_code == 202
+    assert created.json()["keycloak_subject"] == "kc-subject-synthetic-disable"
+    initial_state = created.json()["state"]
+    request_pk = await _internal_id_for(body["request_id"])
+
+    for action in ("suspend", "revoke"):
+        refused = await client.post(
+            f"/platform/v1/agent-provisioning/requests/{request_pk}/{action}",
+            json={"reason": "offboarding"}, headers=_headers(token),
+        )
+        assert refused.status_code == 502, refused.text
+
+    current = await client.get(
+        f"/platform/v1/agent-provisioning/requests/{request_pk}", headers=_headers(token),
+    )
+    assert current.status_code == 200
+    assert current.json()["state"] == initial_state
+    failed = [
+        step for step in current.json()["steps"]
+        if step["operation"] == "disable_user" and step["state"] == "failed"
+    ]
+    assert len(failed) == 2
+
+    disable_ok["value"] = True
+    revoked = await client.post(
+        f"/platform/v1/agent-provisioning/requests/{request_pk}/revoke",
+        json={"reason": "offboarding"}, headers=_headers(token),
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["state"] == "REVOKED"
+
+
+@pytest.mark.asyncio
 async def test_real_identity_failure_emits_provision_failed_outbox_event(
     client, authority, monkeypatch,
 ):
@@ -837,3 +910,80 @@ async def test_sms_reconcile_does_not_replay_a_succeeded_sender_profile_step(
         if step["operation"] == "provision_sender_profile" and step["state"] == "succeeded"
     ]
     assert len(succeeded_steps) == 1
+
+
+async def _sql(statement: str, **params):
+    engine = create_async_engine(os.environ["DATABASE_URL"], poolclass=NullPool)
+    try:
+        async with engine.begin() as connection:
+            result = await connection.execute(text(statement), params)
+            return result.scalars().all() if result.returns_rows else None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_webrtc_revoke_never_records_a_revocation_it_did_not_perform(
+    client, authority, monkeypatch,
+):
+    """The local session row may only turn REVOKED after VICIdial revoked the
+    credential; with writes closed or the provider failing it stays active."""
+    from app.adapters.vicidial.mtls_client import VicidialMtlsError
+
+    calls: list[dict] = []
+    fail = {"value": True}
+
+    class _FakeVicidialClient:
+        def __init__(self, _settings):
+            pass
+
+        def revoke_webrtc(self, payload, **_kwargs):
+            calls.append(payload)
+            if fail["value"]:
+                raise VicidialMtlsError("synthetic revoke failure")
+            return {"revoked": True}
+
+    monkeypatch.setattr(agent_provisioning, "VicidialMtlsClient", _FakeVicidialClient)
+
+    token = authority()
+    body = _body(
+        channels={"odoo": True, "phone": False, "webrtc": False, "sms": False, "email": False},
+        campaigns=[{
+            "campaign_id": "TEST_SYN", "role": "supervisor",
+            "vicidial_user_id": "COD0017", "vicidial_user_group": "COD_TEST_SDR",
+            "vicidial_supervisor_subject": "supervisor-cod",
+        }],
+    )
+    created = await client.post(
+        "/platform/v1/agent-provisioning/requests", json=body, headers=_headers(token),
+    )
+    assert created.status_code == 202
+    request_pk = await _internal_id_for(body["request_id"])
+    await _sql(
+        "INSERT INTO agent_webrtc_session (id, tenant_id, request_id, employee_id, campaign_id,"
+        " extension, state, expires_at, correlation_id) VALUES (:id, 'COD', :rid, :emp,"
+        " 'TEST_SYN', '6101', 'ISSUED', now() + interval '5 minutes', 'corr-webrtc')",
+        id=str(uuid4()), rid=request_pk, emp=body["employee_id"],
+    )
+    url = f"/platform/v1/agent-provisioning/{request_pk}/webrtc/revoke"
+    session_state = "SELECT state FROM agent_webrtc_session WHERE request_id = CAST(:rid AS uuid)"
+    try:
+        closed = await client.post(url, json={"reason": "offboarding"}, headers=_headers(token))
+        assert closed.status_code == 403
+        assert calls == []
+        assert await _sql(session_state, rid=request_pk) == ["ISSUED"]
+
+        monkeypatch.setattr(settings, "vicidial_write_enabled", True)
+        monkeypatch.setattr(settings, "live_writes_enabled", True)
+        failed = await client.post(url, json={"reason": "offboarding"}, headers=_headers(token))
+        assert failed.status_code == 502
+        assert await _sql(session_state, rid=request_pk) == ["ISSUED"]
+
+        fail["value"] = False
+        revoked = await client.post(url, json={"reason": "offboarding"}, headers=_headers(token))
+        assert revoked.status_code == 200
+        assert revoked.json()["state"] == "REVOKED"
+        assert len(calls) == 2
+        assert await _sql(session_state, rid=request_pk) == ["REVOKED"]
+    finally:
+        await _sql("DELETE FROM agent_webrtc_session WHERE request_id = CAST(:rid AS uuid)", rid=request_pk)
