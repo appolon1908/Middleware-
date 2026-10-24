@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .api_inputs import authorization_header, optional_header, required_header
+from .api_inputs import authorization_header, optional_header
 from .core.header_authority import TENANT_ID, CORRELATION_ID, IDEMPOTENCY_KEY
 
 import hashlib

@@ -27,7 +27,7 @@ from app.core.policy_engine import CommandPolicyRequest, evaluate_command
 from app.platform.adapter import AdapterConfigurationError, AdapterResult, ErrorClass, Outcome, ReadbackStatus
 from app.platform.adapters.fixtures import FixtureAdapter, development_fixtures
 from app.platform.adapters.fixtures import test_syn_adapter as synthetic_adapter
-from app.platform.bus import AdapterDispatch, BusSettings, UnknownOutcomeError
+from app.platform.bus import AdapterDispatch, BusSettings
 from app.platform.kernel import (
     KernelSaturated,
     MemoryDenialAuditSink,
@@ -936,7 +936,9 @@ async def test_reconciler_completes_matched_and_requeues_not_found(
 
 
 @pytest.mark.asyncio
-async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_readback(harness: Harness) -> None:
+async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_readback(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The read-back runs unlocked: a verdict is recorded only against the
     resource_version that was read, otherwise the claim is released."""
     command = envelope(payload={"fixture": "unknown"})
@@ -952,7 +954,7 @@ async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_r
         )
         return await original(operation, context)
 
-    harness.test_syn.reconcile = racing_reconcile
+    monkeypatch.setattr(harness.test_syn, "reconcile", racing_reconcile)
     harness.bus.expire_leases()
     decision = await harness.reconciler.run_once()
     assert decision is not None
@@ -961,7 +963,7 @@ async def test_reconciler_discards_a_verdict_when_the_operation_changed_during_r
     assert operation.state == "reconciliation_required" and operation.readback_evidence is None
     assert await harness.reconciler.source.backlog() == 1
 
-    harness.test_syn.reconcile = original
+    monkeypatch.setattr(harness.test_syn, "reconcile", original)
     harness.bus.expire_leases()
     decision = await harness.reconciler.run_once()
     assert decision is not None and decision.action == "complete"
@@ -1265,14 +1267,16 @@ async def test_reconciler_dead_letters_when_connector_mapping_disappears(harness
 
 
 @pytest.mark.asyncio
-async def test_bus_backs_off_without_an_attempt_when_readiness_raises(harness: Harness) -> None:
+async def test_bus_backs_off_without_an_attempt_when_readiness_raises(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     command = envelope()
     await harness.submit(command)
 
     async def broken_readiness(context):
         raise ConnectionError("readiness probe unreachable")
 
-    harness.test_syn.readiness = broken_readiness
+    monkeypatch.setattr(harness.test_syn, "readiness", broken_readiness)
     await harness.bus.run_once()
     operation = await harness.commands.get(TENANT, command.command_id)
     assert operation.state in {"persisted", "queued"}
@@ -1281,14 +1285,16 @@ async def test_bus_backs_off_without_an_attempt_when_readiness_raises(harness: H
 
 
 @pytest.mark.asyncio
-async def test_bus_fails_a_provider_rejected_status_without_readback(harness: Harness) -> None:
+async def test_bus_fails_a_provider_rejected_status_without_readback(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     command = envelope()
     await harness.submit(command)
 
     async def rejected_status(operation, context):
         return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code="provider_rejected")
 
-    harness.test_syn.status = rejected_status
+    monkeypatch.setattr(harness.test_syn, "status", rejected_status)
     await harness.bus.run_once()
     operation = await harness.commands.get(TENANT, command.command_id)
     assert operation.state == "failed"
