@@ -6,3 +6,4 @@ security/python312/*.patch -whitespace
 *.yml  text eol=lf
 *.yaml text eol=lf
 *.json text eol=lf
+*.sql  text eol=lf

@@ -18,6 +18,7 @@ from app.commands import (
     CommandEnvelope,
     CommandOperation,
     CommandService,
+    PostgresCommandStore,
 )
 
 from app.mcr_observability import MCR_TELEMETRY, MCRObservability, delivery_readback
@@ -2138,6 +2139,9 @@ class PostgresCampaignRecyclingStore:
             authenticated_subject=authenticated_subject,
             authenticated_client_id=authenticated_client_id,
         )
+        command_store = command_service.store
+        if not isinstance(command_store, PostgresCommandStore):
+            raise CampaignRecyclingConflict("transactional command store is required")
         reserved_at = _utc(reserved_at or datetime.now(UTC))
         natural = (
             tenant_id,
@@ -2225,7 +2229,7 @@ class PostgresCampaignRecyclingStore:
                     sender_identity_id,
                     reserved_at,
                 )
-                operation = await command_service.store.submit_on_connection(
+                operation = await command_store.submit_on_connection(
                     conn,
                     command,
                     authenticated_client_id=authenticated_client_id,
