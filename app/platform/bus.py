@@ -319,6 +319,8 @@ class AdapterDispatch:
             # Readiness runs before execute, so no provider effect can exist yet.
             logger.warning("adapter_readiness_failed", extra={"adapter": adapter.adapter_id, "error": type(exc).__name__})
             raise KnownSafeRetryError(f"adapter readiness unavailable: {type(exc).__name__}") from exc
+        tenant_backlog: int | None
+        global_backlog: int | None
         try:
             tenant_backlog, global_backlog = await self.commands.backlog(operation.tenant_id)
         except Exception as exc:  # an unavailable backlog signal fails closed below
