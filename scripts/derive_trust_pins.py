@@ -646,10 +646,10 @@ def atomic_apply(root: Path, proposed: dict[str, bytes]) -> list[str]:
             handle, temp_name = tempfile.mkstemp(
                 dir=str(target.parent), prefix=".derive-", suffix=".tmp"
             )
+            staged.append((Path(temp_name), target))
             with os.fdopen(handle, "wb") as stream:
                 stream.write(data)
-                os.fchmod(stream.fileno(), stat.S_IMODE(target.stat().st_mode))
-            staged.append((Path(temp_name), target))
+            os.chmod(temp_name, stat.S_IMODE(target.stat().st_mode))
         for temp, target in staged:
             os.replace(temp, target)
             changed.append(target.relative_to(root).as_posix())
