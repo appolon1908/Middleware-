@@ -4,13 +4,13 @@ x-middleware-canary-runtime: &middleware-canary-runtime
   image: ${MIDDLEWARE_IMAGE_REFERENCE:?exact signed image reference required}
   env_file:
     - ${MIDDLEWARE_RUNTIME_ENV_FILE:?root-owned production runtime environment required}
-  environment:
+  environment: &middleware-canary-environment
     APP_ENV: production
     RUNTIME_PROFILE_ID: codestra-middleware-production-compose-v1
     APP_VERSION: ${MIDDLEWARE_APP_VERSION:?immutable application version required}
     APP_SOURCE_SHA: ${MIDDLEWARE_SOURCE_SHA:?exact protected source SHA required}
     IMAGE_DIGEST: ${MIDDLEWARE_IMAGE_DIGEST:?exact signed image digest required}
-    SCHEMA_HEAD: 0067_service_catalog_monitoring_state
+    SCHEMA_HEAD: 0071_defer_unbound_tenant_rls
     BUILD_TIME: ${MIDDLEWARE_BUILD_TIME:?signed build timestamp required}
     RELEASE_ID: ${MIDDLEWARE_RELEASE_ID:?signed release identifier required}
     CONFIGURATION_CHECKSUM: ${MIDDLEWARE_CONFIGURATION_CHECKSUM:?sanitized configuration checksum required}
@@ -82,23 +82,23 @@ services:
       com.codestra.service: middleware-migrate-canary
       com.codestra.environment: production
       com.codestra.deployment.mode: read-only-canary
-      com.codestra.source.repository: ingtrader21-spec/Middleware-
+      com.codestra.source.repository: appolon1908/Middleware-
       com.codestra.source.sha: ${MIDDLEWARE_SOURCE_SHA:?exact protected source SHA required}
       com.codestra.image.digest: ${MIDDLEWARE_IMAGE_DIGEST:?exact signed image digest required}
 
   middleware-api-canary:
     <<: *middleware-canary-runtime
-    # The canonical deployed process (app.entrypoints.integration_api on
-    # 8095, the image's /usr/local/bin/python3.14), read-only canary mode.
+    # Fail-closed launcher validates the integration service before the
+    # uvicorn multi-worker supervisor is exec'd.
+    # YAML merge keys are shallow: re-merge the shared mapping so the
+    # service-specific keys extend it instead of replacing it.
+    environment:
+      <<: *middleware-canary-environment
+      PORT: "8095"
+      UVICORN_WORKERS: "2"
+      FORWARDED_ALLOW_IPS: ${MIDDLEWARE_FORWARDED_ALLOW_IPS:-127.0.0.1}
     command:
-      - -m
-      - uvicorn
-      - app.entrypoints.integration_api:app
-      - --host=0.0.0.0
-      - --port=8095
-      - --workers=2
-      - --proxy-headers
-      - --forwarded-allow-ips=${MIDDLEWARE_FORWARDED_ALLOW_IPS:-127.0.0.1}
+      - /app/scripts/start_integration_api.py
     restart: unless-stopped
     expose:
       - "8095"
@@ -119,7 +119,7 @@ services:
       com.codestra.environment: production
       com.codestra.deployment.mode: read-only-canary
       com.codestra.gateway.exposure: none
-      com.codestra.source.repository: ingtrader21-spec/Middleware-
+      com.codestra.source.repository: appolon1908/Middleware-
       com.codestra.source.sha: ${MIDDLEWARE_SOURCE_SHA:?exact protected source SHA required}
       com.codestra.image.digest: ${MIDDLEWARE_IMAGE_DIGEST:?exact signed image digest required}
 

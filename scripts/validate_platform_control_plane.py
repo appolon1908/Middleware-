@@ -106,7 +106,7 @@ def main() -> int:
     if contract.get("decision") != "middleware_adopts_automation_v2":
         fail("automation v2 authority decision drifted")
     repositories = contract.get("repositories", {})
-    if repositories.get("write_authority") != "ingtrader21-spec/Middleware-":
+    if repositories.get("write_authority") != "appolon1908/Middleware-":
         fail("Middleware repository is not declared write authority")
 
     edge = contract.get("n8n_to_middleware", {})
@@ -176,7 +176,7 @@ def main() -> int:
     required_input_markers = (
         "request.headers.getlist(name)",
         "if len(values) != 1",
-        'request.headers.getlist("Authorization")',
+        'request.headers.getlist(AUTHORIZATION)',
         "if len(values) > 1",
     )
     missing_inputs = [

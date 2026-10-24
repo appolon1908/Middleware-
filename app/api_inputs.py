@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import Request
 
 from .control_plane_auth import ControlPlaneCaller, caller_for_authorization
+from .core.header_authority import AUTHORIZATION, TENANT_ID
 from .security import AuthorizationError, RequestValidationError, SecurityError, authorize_tenant
 
 
@@ -16,11 +17,12 @@ async def restrict_sms_identity(request: Request) -> None:
     # has authenticated it.
     if request.method == "POST" and request.url.path in {
         "/api/v1/events/telnexa",
+        "/api/v1/events/telnexa/verify",
         "/api/v1/events/klyrow",
     }:
         return
     try:
-        caller = caller_for_authorization(request.headers.get("Authorization", ""))
+        caller = caller_for_authorization(request.headers.get(AUTHORIZATION, ""))
     except SecurityError:
         return
     if caller.client_id == "odoo-sms" and (request.method, request.url.path) not in {
@@ -74,7 +76,7 @@ def optional_header(
 
 
 def authorization_header(request: Request) -> str:
-    values = request.headers.getlist("Authorization")
+    values = request.headers.getlist(AUTHORIZATION)
     if len(values) > 1:
         raise RequestValidationError("Authorization must be provided at most once")
     value = values[0] if values else ""
@@ -97,7 +99,7 @@ async def authenticated_tenant(
     )
     tenant = required_header(
         request,
-        "X-Tenant-ID",
+        TENANT_ID,
         minimum=1,
         maximum=128,
     )

@@ -4,7 +4,7 @@
   "approvals": {
     "business_owner": {"name": null,"role":"Business owner","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},
     "telephony_owner": {"name":null,"role":"Telephony owner","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},
-    "security_owner": {"name":"Ralph Appolon","github_username":"appolon1908-hue","role":"Security owner","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},
+    "security_owner": {"name":"Ralph Appolon","github_username":"appolon1908","role":"Security owner","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},
     "compliance_owner": {"name":null,"role":"Compliance owner","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},
     "supervisor": {"name":null,"role":"Pilot supervisor","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},
     "carrier_authorization": {"name":null,"role":"Carrier account owner","decision":null,"scope":null,"timestamp":null,"evidence_reference":null,"approved_campaign":null,"approved_destination_class":null},

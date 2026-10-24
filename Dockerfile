@@ -16,7 +16,7 @@ RUN apk add --no-cache \
       build-base=0.5-r4 \
       bzip2-dev=1.0.8-r6 \
       curl=8.22.0-r0 \
-      expat-dev=2.8.5-r0 \
+      expat-dev=2.9.0-r0 \
       gdbm-dev=1.26-r0 \
       libffi-dev=3.5.2-r1 \
       linux-headers=7.0.0-r1 \
@@ -27,7 +27,7 @@ RUN apk add --no-cache \
       readline-dev=8.3.3-r1 \
       tar=1.35-r5 \
       xz-dev=5.8.4-r0 \
-      zlib-dev=1.3.2-r0
+      zlib-dev=1.3.2-r1
 RUN curl --fail --location --proto '=https' --tlsv1.2 \
       --output /tmp/sqlite.apk \
       https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/sqlite-3.53.4-r0.apk \
@@ -48,13 +48,13 @@ RUN curl --fail --location --proto '=https' --tlsv1.2 \
       --enable-shared \
       --with-ensurepip \
       --with-system-expat \
- && make -j"$(nproc)" \
- && make install
-RUN python -c 'import html.parser,http.cookies,inspect,pyexpat,sys,tarfile; assert sys.version_info[:3] == (3,12,14); assert "unfiltered.replace" in inspect.getsource(tarfile.TarFile.makelink_with_filter); assert "_pending_len" in inspect.getsource(html.parser.HTMLParser.feed); assert "_has_control_character" in inspect.getsource(http.cookies.Morsel.update); assert pyexpat.EXPAT_VERSION == "expat_2.8.5"'
+ && make -j"$(nproc)" EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000" \
+ && make install EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"
+RUN python -c 'import html.parser,http.cookies,inspect,pyexpat,sys,tarfile; assert sys.version_info[:3] == (3,12,14); assert "unfiltered.replace" in inspect.getsource(tarfile.TarFile.makelink_with_filter); assert "_pending_len" in inspect.getsource(html.parser.HTMLParser.feed); assert "_has_control_character" in inspect.getsource(http.cookies.Morsel.update); assert pyexpat.EXPAT_VERSION == "expat_2.9.0"'
 
 FROM ${PYTHON_BASE} AS verified-python
 USER root
-RUN apk add --no-cache expat=2.8.5-r0
+RUN apk add --no-cache expat=2.9.0-r0
 RUN rm -rf /usr/local/*
 COPY --from=python-builder /usr/local /usr/local
 
@@ -78,7 +78,7 @@ RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements.lock
 
 FROM builder AS test
-RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 openssl=3.5.9-r0
+RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 nodejs=24.22.1-r0 openssl=3.5.9-r0
 RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements-test.lock
 WORKDIR /app

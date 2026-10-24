@@ -123,6 +123,9 @@ class LegacyBridge(BaseAdapter):
     required_settings: tuple[str, ...] = ()
     transient_errors: tuple[type[BaseException], ...] = ()
     rejected_errors: tuple[type[BaseException], ...] = ()
+    # Raised after the request may have reached the provider. Checked before
+    # transient_errors, which usually name their base class.
+    unknown_errors: tuple[type[BaseException], ...] = ()
     readiness_probe: Callable[[], Awaitable[bool]] | None = None
     supports_cancel: bool = False
     supports_status: bool = True
@@ -160,6 +163,8 @@ class LegacyBridge(BaseAdapter):
             raw = await self.legacy.execute(request)
         except self.rejected_errors as exc:
             return AdapterResult(Outcome.REJECTED, error_class=ErrorClass.NON_RETRYABLE, safe_error_code=type(exc).__name__)
+        except self.unknown_errors as exc:
+            return AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code=type(exc).__name__)
         except self.transient_errors as exc:
             return AdapterResult(Outcome.TRANSIENT, error_class=ErrorClass.RETRYABLE_BEFORE_EFFECT, safe_error_code=type(exc).__name__)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
@@ -340,6 +345,11 @@ class OdooAdapter(LegacyBridge):
     async def _readback_crm(self, operation: CommandOperation, context: AdapterContext) -> ReadbackResult:
         if self.crm_bridge is None:
             return ReadbackResult(ReadbackStatus.UNAVAILABLE, safe_error_code="crm_bridge_not_configured")
+        configured = getattr(self.crm_bridge, "configured_tenant_id", None)
+        if isinstance(configured, str) and configured and configured != operation.tenant_id:
+            # Same boundary as execute: another tenant's operation must not
+            # be confirmed against this bridge's Odoo.
+            return ReadbackResult(ReadbackStatus.MISMATCH, safe_error_code="crm_bridge_tenant_mismatch")
         entity = operation.command_type.split(".")[1]
         reference = operation.provider_operation_id or ""
         if entity in CRM_LIST_READBACK:
@@ -442,11 +452,12 @@ def _try(name: str, build: Callable[[], BaseAdapter]) -> BaseAdapter | None:
 def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> tuple[BaseAdapter, ...]:
     """The real provider adapters, each registered only when it validates."""
     from app.calling_contract import HANGUP, ORIGINATE
-    from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError
-    from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError
+    from app.klyrow_email_adapter import KlyrowEmailAdapter, KlyrowEmailAdapterError, KlyrowEmailUnknownOutcomeError
+    from app.odoo_provider_adapter import OdooProviderAdapter, OdooProviderAdapterError, OdooUnknownOutcomeError
     from app.postly_social_adapter import PostlySocialAdapter, PostlySocialAdapterError
-    from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter
+    from app.telnexa_provider_adapter import TelnexaProviderAdapterError, TelnexaSmsAdapter, TelnexaUnknownOutcomeError
     from app.vicidial_internal_call_adapter import VicidialInternalCallAdapter, VicidialInternalCallPreDispatchRejected
+    from app.platform.adapters.whatsapp import WhatsAppProviderAdapter
 
     def odoo() -> BaseAdapter:
         crm_bridge = None
@@ -468,10 +479,12 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
             crm_bridge=crm_bridge,
             supported_command_types=frozenset({OdooProviderAdapter.UPSERT_LEAD}) | frozenset(CRM_BRIDGE_COMMANDS),
             transient_errors=(OdooProviderAdapterError,),
+            unknown_errors=(OdooUnknownOutcomeError,),
         )
 
     candidates: tuple[tuple[str, Callable[[], BaseAdapter]], ...] = (
         ("odoo-19", odoo),
+        ("evolution-whatsapp", lambda: WhatsAppProviderAdapter(settings)),
         (
             "klyrow-email",
             lambda: LegacyBridge(
@@ -482,6 +495,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 legacy=KlyrowEmailAdapter(settings),
                 supported_command_types=frozenset({KlyrowEmailAdapter.COMMAND_TYPE}),
                 transient_errors=(KlyrowEmailAdapterError,),
+                unknown_errors=(KlyrowEmailUnknownOutcomeError,),
                 required_settings=("KLYROW_EMAIL_API_BASE_URL", "KLYROW_EMAIL_MTLS_CA_FILE", "KLYROW_EMAIL_MTLS_CERT_FILE", "KLYROW_EMAIL_MTLS_KEY_FILE"),
             ),
         ),
@@ -495,6 +509,7 @@ def provider_adapters(settings: Settings, *, http: httpx.AsyncClient | None) -> 
                 legacy=TelnexaSmsAdapter(settings),
                 supported_command_types=frozenset({TelnexaSmsAdapter.SUBMIT_SMS}),
                 transient_errors=(TelnexaProviderAdapterError,),
+                unknown_errors=(TelnexaUnknownOutcomeError,),
                 required_settings=("TELNEXA_SMS_BASE_URL", "TELNEXA_SMS_API_KEY"),
             ),
         ),
