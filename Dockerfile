@@ -15,7 +15,7 @@ WORKDIR /usr/src
 RUN apk add --no-cache \
       build-base=0.5-r4 \
       bzip2-dev=1.0.8-r6 \
-      curl=8.22.0-r0 \
+      curl=8.23.0-r0 \
       expat-dev=2.9.0-r0 \
       gdbm-dev=1.26-r0 \
       libffi-dev=3.5.2-r1 \
