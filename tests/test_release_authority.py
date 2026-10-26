@@ -649,15 +649,25 @@ def test_trust_derivation_check_passes() -> None:
     result = subprocess.run(
         command, capture_output=True, text=True, cwd=ROOT, check=False
     )
-    if result.returncode == 2 and "dirty tree" in result.stderr:
-        result = subprocess.run(
-            command + ["--allow-dirty"],
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            check=False,
-        )
     assert result.returncode == 0, result.stdout + result.stderr
+    assert "SOURCE_INPUT_MODE=GIT_INDEX" in result.stdout
     assert "ACTIVE_STALE_AFTER=0" in result.stdout
     assert "STRUCTURAL_EXCEPTION_COUNT=1" in result.stdout
     assert "UNKNOWN_TRUST_TABLES=0" in result.stdout
+
+
+def test_executable_bindings_validate_raw_git_index_bytes(tmp_path: Path) -> None:
+    if not (ROOT / ".git").exists():
+        pytest.skip("raw executable bindings require Git metadata")
+    policy = tmp_path / "release_validator.py"
+    policy.write_bytes(subprocess.check_output(
+        ["git", "show", ":.codestra/validate-release-intent.py"], cwd=ROOT,
+    ))
+    namespace = runpy.run_path(str(policy), run_name="raw_index_binding_probe")
+    manifests = namespace["EXPECTED_CHECK_WORKFLOW_EXECUTABLE_SHA256"][REPOSITORY]
+    for workflow, executables in manifests.items():
+        for path in executables:
+            raw = subprocess.check_output(["git", "show", f":{path}"], cwd=ROOT)
+            namespace["validate_workflow_executable_bytes"](
+                REPOSITORY, workflow, path, raw,
+            )
