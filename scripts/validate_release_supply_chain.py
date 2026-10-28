@@ -149,8 +149,8 @@ def main() -> int:
     )
     for package_pin, label in (
         ("libpcre2-8-0=10.42-1+deb12u2", "fixed PCRE2 runtime package"),
-        ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
-        ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
+        ("libssl3=3.0.22-1~deb12u2", "fixed OpenSSL runtime library"),
+        ("openssl=3.0.22-1~deb12u2", "fixed OpenSSL runtime package"),
     ):
         require(dockerfile, package_pin, label, errors)
     require(dockerfile, "--require-hashes", "hashed dependency install", errors)
