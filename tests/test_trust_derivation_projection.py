@@ -1,15 +1,92 @@
 """Compare proposed trust-tree closure with the bytes candidate apply writes."""
 import contextlib
+import hashlib
 from pathlib import Path
 import runpy
 import subprocess
 import tempfile
 import unittest
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DERIVATION = runpy.run_path(str(ROOT / "scripts/derive_trust_pins.py"))
 RELEASE_VALIDATOR = runpy.run_path(str(ROOT / ".codestra/validate-release-intent.py"))
+
+
+@pytest.fixture
+def crlf_checkout(tmp_path):
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "core.autocrlf", "true")
+    git(tmp_path, "config", "user.name", "Index Bytes Regression")
+    git(tmp_path, "config", "user.email", "index-bytes@example.invalid")
+    paths = (*DERIVATION["TRUST_FILES"], "Dockerfile.runtime")
+    for rel in paths:
+        write(tmp_path, rel, b"VALUE = 1\n")
+    git(tmp_path, "add", "--all")
+    git(tmp_path, "commit", "-q", "-m", "canonical LF inputs")
+    for rel in paths:
+        write(tmp_path, rel, b"VALUE = 1\r\n")
+    return tmp_path
+
+
+@pytest.mark.parametrize("rel", (*DERIVATION["TRUST_FILES"], "Dockerfile.runtime"))
+def test_default_source_reads_staged_lf_despite_crlf_checkout(crlf_checkout, rel):
+    source = DERIVATION["Source"](crlf_checkout, False)
+    assert source.read(rel) == b"VALUE = 1\n"
+    assert DERIVATION["Source"](crlf_checkout, True).read(rel) == b"VALUE = 1\r\n"
+
+
+def test_index_digest_passes_strict_raw_binding_and_crlf_is_rejected(
+    crlf_checkout, monkeypatch,
+):
+    source = DERIVATION["Source"](crlf_checkout, False)
+    digest = DERIVATION["Derivation"](source).file_digest("Dockerfile.runtime")
+    assert digest == hashlib.sha256(b"VALUE = 1\n").hexdigest()
+    validate = RELEASE_VALIDATOR["validate_workflow_executable_bytes"]
+    monkeypatch.setitem(validate.__globals__, "EXPECTED_CHECK_WORKFLOW_EXECUTABLE_SHA256", {
+        "fixture/repo": {"fixture.yml": {"Dockerfile.runtime": digest}},
+    })
+    raw = subprocess.check_output(["git", "show", ":Dockerfile.runtime"], cwd=crlf_checkout)
+    validate("fixture/repo", "fixture.yml", "Dockerfile.runtime", raw)
+    with pytest.raises(RELEASE_VALIDATOR["PolicyError"], match="executable drift"):
+        validate("fixture/repo", "fixture.yml", "Dockerfile.runtime", b"VALUE = 1\r\n")
+
+
+def test_apply_rejects_development_worktree_mode_before_derivation(
+    crlf_checkout, monkeypatch, capsys,
+):
+    main = DERIVATION["main"]
+
+    def forbidden_derivation(*args):
+        raise AssertionError("development input reached candidate derivation")
+
+    monkeypatch.setitem(main.__globals__, "Derivation", forbidden_derivation)
+    with pytest.raises(SystemExit) as caught:
+        main(["--apply-candidate", "--allow-dirty", "--root", str(crlf_checkout)])
+    assert caught.value.code == 2
+    assert "staged Git bytes" in capsys.readouterr().err
+    assert (crlf_checkout / DERIVATION["VALIDATOR"]).read_bytes() == b"VALUE = 1\r\n"
+
+
+@pytest.mark.parametrize("mode", ["--check", "--apply-candidate"])
+def test_index_mode_preserves_unstaged_work_before_derivation(
+    crlf_checkout, monkeypatch, capsys, mode,
+):
+    initial_index = git(crlf_checkout, "write-tree")
+    write(crlf_checkout, "Dockerfile.runtime", b"VALUE = 2\r\n")
+    main = DERIVATION["main"]
+
+    def forbidden_derivation(*args):
+        raise AssertionError("unstaged work reached candidate derivation")
+
+    monkeypatch.setitem(main.__globals__, "Derivation", forbidden_derivation)
+    assert main([mode, "--root", str(crlf_checkout)]) == 2
+    assert "unstaged changes" in capsys.readouterr().err
+    assert (crlf_checkout / "Dockerfile.runtime").read_bytes() == b"VALUE = 2\r\n"
+    assert git(crlf_checkout, "write-tree") == initial_index
+
 
 
 def git(root: Path, *args: str) -> str:

@@ -5,12 +5,12 @@ The protected production validators pin the exact bytes of workflows, scripts,
 configuration and of each other.  This tool is the single, repository-owned
 derivation of those pins for ``appolon1908/Middleware-``:
 
-  --check              report every stale active pin (exit 1 if any)
-  --apply-candidate    rewrite the candidate trust files atomically
+  --check              check staged Git bytes (exit 1 for stale active pins)
+  --apply-candidate    derive from staged Git bytes and apply atomically
   --emit-transition P  write the launcher transition manifest to P (JSON)
   --json-output P      write the full derivation report to P (JSON)
   --allow-dirty        read every file from the working tree instead of the
-                       index (development only; --check refuses a dirty tree)
+                       index (development diagnostics only; cannot apply)
 
 Generation identity is the canonical Git blob (``git show :path``) so that a
 checkout with converted line endings cannot change a pin; the runtime
@@ -146,7 +146,7 @@ class Source:
 
     def read(self, rel: str) -> bytes:
         path = self.root / rel
-        if self.allow_dirty or rel in TRUST_FILES:
+        if self.allow_dirty:
             if not path.is_file():
                 raise DerivationError(f"missing file: {rel}")
             return path.read_bytes()
@@ -666,16 +666,18 @@ def main(argv: list[str] | None = None) -> int:
         help="derive from working-tree bytes (development only)",
     )
     args = parser.parse_args(argv)
+    if args.apply_candidate and args.allow_dirty:
+        parser.error("--apply-candidate requires staged Git bytes; omit --allow-dirty")
 
     root = Path(args.root).resolve()
     if not (root / VALIDATOR).is_file():
         print(f"not a Middleware checkout: {root}", file=sys.stderr)
         return 2
-    status = git(root, "status", "--porcelain", "--untracked-files=no").strip()
-    if args.check and status and not args.allow_dirty:
+    unstaged = git(root, "diff", "--name-only", "--").strip()
+    if unstaged and not args.allow_dirty:
         print(
-            "refusing --check on a dirty tree (commit or stage first, or pass --allow-dirty):\n"
-            + status,
+            "refusing index derivation with unstaged changes (stage intended inputs first):\n"
+            + unstaged,
             file=sys.stderr,
         )
         return 2
@@ -686,6 +688,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"git diff --check failed: {error}", file=sys.stderr)
             return 2
 
+    print(f"SOURCE_INPUT_MODE={'DEVELOPMENT_WORKTREE' if args.allow_dirty else 'GIT_INDEX'}")
     derivation = Derivation(Source(root, args.allow_dirty))
     try:
         proposed = derivation.run()
