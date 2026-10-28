@@ -11,6 +11,8 @@ LABEL org.opencontainers.image.revision=$VCS_REF \
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libpcre2-8-0=10.42-1+deb12u2 \
+      libssl3=3.0.22-1~deb12u2 \
+      openssl=3.0.22-1~deb12u2 \
       perl-base=5.36.0-7+deb12u4 \
  && dpkg-query -W -f='${Version}\n' perl-base | grep -Fx '5.36.0-7+deb12u4' \
  && rm -rf /var/lib/apt/lists/*

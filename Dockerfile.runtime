@@ -10,8 +10,8 @@ USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libpcre2-8-0=10.42-1+deb12u2 \
-      libssl3=3.0.22-1~deb12u1 \
-      openssl=3.0.22-1~deb12u1 \
+      libssl3=3.0.22-1~deb12u2 \
+      openssl=3.0.22-1~deb12u2 \
  && rm -rf /var/lib/apt/lists/*
 
 FROM ${RUNTIME_BASE} AS runtime-dependencies
