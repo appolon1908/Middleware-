@@ -1,14 +1,12 @@
 from pathlib import Path
 
 from app.platform.tenant_inventory import (
-    INVENTORY_RELATIVE_PATH,
     inventory_by_table,
     inventory_document,
     load_inventory_snapshot,
     remediation_list,
     scan_tenant_inventory,
     validate_inventory,
-    validate_snapshot_matches_migrations,
     write_inventory_snapshot,
 )
 

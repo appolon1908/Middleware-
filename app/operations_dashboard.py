@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from .runtime_safety import runtime_safety_readback
 from .api_inputs import authorization_header, required_header
 from .core.header_authority import TENANT_ID
-from .security import RequestValidationError, authorize_tenant
+from .security import authorize_tenant
 
 
 router = APIRouter(

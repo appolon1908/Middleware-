@@ -28,7 +28,8 @@ async def test_catalog_list_is_deterministic(runtime):
 
 @pytest.mark.asyncio
 async def test_unknown_connector_is_normalized(runtime):
- with pytest.raises(ConnectorCatalogError) as exc: await describe_connector(runtime,"missing")
+ with pytest.raises(ConnectorCatalogError) as exc:
+     await describe_connector(runtime,"missing")
  assert exc.value.code=="connector_unavailable"
 
 def test_required_connector_routes_are_registered_in_source():
