@@ -261,6 +261,23 @@ class CommandKernel:
             )
         )
 
+    def _tenant_denial(self, tenant_id: str, principal: KernelPrincipal) -> str | None:
+        """The Policy Engine's reason code when ``principal`` holds no
+        authority over ``tenant_id`` (counted as a policy denial), else ``None``.
+        Checked before any lookup keyed by the tenant so that a duplicate, a
+        conflict or a not-found never tells an unauthorized caller what the
+        tenant holds."""
+        if principal.authorized_for(tenant_id):
+            return None
+        reason = "wildcard_tenant_prohibited" if "*" in principal.tenants else "tenant_not_authorized"
+        self.metrics.policy_denials.labels(reason=reason).inc()
+        return reason
+
+    def _require_tenant(self, tenant_id: str, principal: KernelPrincipal) -> None:
+        reason = self._tenant_denial(tenant_id, principal)
+        if reason is not None:
+            raise PolicyDenied(f"policy denied: {reason}")
+
     async def submit(
         self,
         command: CommandEnvelope,
@@ -276,6 +293,14 @@ class CommandKernel:
         if not authorize_mission(command.command_type, principal.scopes):
             await self._deny("policy_deny", command, principal, reason_code="mission_scope_missing", decision_id=str(uuid4()), version="identity-missions.v1")
             raise PolicyDenied("policy denied: mission_scope_missing")
+        # Tenant authority comes before any lookup keyed by the command's
+        # tenant: an unauthorized principal must not learn from a duplicate
+        # or a 409 conflict whether that tenant holds a command id or key.
+        # The reason codes are the Policy Engine's own for the same check.
+        tenant_reason = self._tenant_denial(command.tenant_id, principal)
+        if tenant_reason is not None:
+            await self._deny("policy_deny", command, principal, reason_code=tenant_reason, decision_id=str(uuid4()), version=COMMAND_POLICY_VERSION)
+            raise PolicyDenied(f"policy denied: {tenant_reason}")
         started = time.perf_counter()
         family = _family(command.command_type)
         self.metrics.commands_received.labels(command_family=family).inc()
@@ -293,8 +318,8 @@ class CommandKernel:
         # 8 — idempotency comes before the gates: an exact replay (same tenant,
         # key, client and payload) returns the operation the original
         # submission produced, whatever the gates would decide today, and
-        # consumes no rate budget. The caller must still hold the same
-        # authority over the tenant and scope it presents.
+        # consumes no rate budget. Tenant authority was checked above; the
+        # caller must still hold the scope it presents.
         existing = await self.commands.find_existing(command, authenticated_client_id=principal.client_id)
         if existing is not None:
             if scope_required not in principal.scopes or not principal.authorized_for(command.tenant_id):
@@ -412,6 +437,7 @@ class CommandKernel:
         reason: str,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        self._require_tenant(tenant_id, principal)
         operation = await self.commands.mutate_operation(
             tenant_id,
             operation_id,
@@ -436,6 +462,7 @@ class CommandKernel:
         reason: str,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        self._require_tenant(tenant_id, principal)
         operation = await self.commands.mutate_operation(
             tenant_id,
             operation_id,
@@ -465,6 +492,7 @@ class CommandKernel:
         new_idempotency_key: str | None = None,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        self._require_tenant(tenant_id, principal)
         if PLATFORM_OPERATOR_ROLE not in principal.roles:
             raise ReplayNotAllowed("replay requires the platform-operator role")
         original = await self.commands.get(tenant_id, operation_id)

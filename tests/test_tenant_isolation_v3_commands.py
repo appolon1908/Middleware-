@@ -33,9 +33,10 @@ from app.commands import (
 from app.core.config import Settings
 from app.core.runtime import RuntimeContainer
 from app.platform.adapter import AdapterContext
-from app.platform.kernel import PolicyDenied
+from app.platform.kernel import MemoryDenialAuditSink, PolicyDenied
 from app.platform.memory import MemoryExecutionBus
-from app.platform.principal import KernelPrincipal
+from app.platform.resilience import ReplayMode
+from app.platform.principal import KernelPrincipal, with_synthetic_authority
 from app.platform.runtime import build_platform_runtime, command_policies
 from app.platform.safety import SafetyGate, SafetySwitches
 from app.replay import MemoryReplayGuard
@@ -680,42 +681,264 @@ def test_same_idempotency_key_and_payload_under_two_tenants_are_two_operations(
 # ----------------------------------------------------------------------------
 # kernel boundary: an unauthorized principal learns nothing from idempotency
 # ----------------------------------------------------------------------------
-def _principal(tenants: tuple[str, ...]) -> KernelPrincipal:
+def _principal(
+    stack: Stack,
+    tenants: tuple[str, ...],
+    *,
+    scopes: tuple[str, ...] = ("platform.command", "platform.command.read"),
+    roles: tuple[str, ...] = (),
+) -> KernelPrincipal:
     return KernelPrincipal(
         subject="user-1",
         client_id="middleware-api",
         tenants=tenants,
-        roles=(),
-        scopes=("platform.command", "platform.command.read"),
-        caller=caller_for_client_id("middleware-api"),
+        roles=roles,
+        scopes=scopes,
+        # the caller authority the HTTP route resolves for this client
+        caller=with_synthetic_authority(
+            caller_for_client_id("middleware-api"), stack.runtime.settings.app_env
+        ),
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=CommandConflict,
-    reason=(
-        "known defect: CommandKernel.submit (app/platform/kernel.py) runs commands.find_existing "
-        "before checking principal.authorized_for(command.tenant_id), so a content-conflicting reuse "
-        "of a foreign tenant's identity is a 409 oracle; the HTTP route checks the tenant first "
-        "(app/platform/api.py submit_command). Remove this marker with the kernel repair."
-    ),
+def _operator(stack: Stack, tenants: tuple[str, ...]) -> KernelPrincipal:
+    return _principal(
+        stack,
+        tenants,
+        scopes=(
+            "platform.command",
+            "platform.command.read",
+            "platform.command.replay",
+        ),
+        roles=OPERATOR_ROLES,
+    )
+
+
+# Every store read or write keyed by tenant that a kernel submission or
+# mutation can reach before deciding.
+STORE_LOOKUPS = (
+    "find_existing",
+    "submit",
+    "get",
+    "mutate_operation",
+    "get_dead_letter",
+    "create_replay",
+    "load_envelope",
 )
+
+
+def record_store_lookups(store: MemoryCommandStore) -> list[str]:
+    calls: list[str] = []
+    for name in STORE_LOOKUPS:
+        original = getattr(store, name)
+
+        def recorder(*args: Any, _name: str = name, _original=original, **kwargs: Any):
+            calls.append(_name)
+            return _original(*args, **kwargs)
+
+        setattr(store, name, recorder)
+    return calls
+
+
 def test_kernel_submit_denies_foreign_tenant_before_any_idempotency_lookup(
     stack: Stack,
 ) -> None:
     """The kernel must not reveal whether tenant A holds a command id or
-    idempotency key to a principal that is not authorized for A: an exact or
-    a content-conflicting reuse must both be a policy denial, never A's
-    operation and never a 409 conflict oracle."""
+    idempotency key to a principal that is not authorized for A: an exact
+    reuse (whose identity digest still differs by authenticated client), a
+    content-conflicting reuse and a reuse of the command id under a fresh key
+    must all be a policy denial, never A's operation and never a 409
+    conflict oracle, and must not touch the store at all."""
     with TestClient(stack.app) as client:
         owner = submit_a(client)
     kernel = stack.runtime.platform.kernel
+    before = stack.snapshot(TENANT_A, owner["command_id"])
+    denials = stack.runtime.platform.denials
+    assert isinstance(denials, MemoryDenialAuditSink)
+    denials_before = len(denials.records)
+    lookups = record_store_lookups(stack.store)
+
     envelope = CommandEnvelope(**{**owner, "capability": "TEST_SYN_EXECUTE"})
-    foreign = _principal((TENANT_B,))
-    with pytest.raises(PolicyDenied):
-        asyncio.run(kernel.submit(envelope, foreign))
+    foreign = _principal(stack, (TENANT_B,))
+    identical = envelope
     conflicting = envelope.model_copy(update={"payload": {"probe": "different"}})
-    with pytest.raises(PolicyDenied):
-        asyncio.run(kernel.submit(conflicting, foreign))
-    assert stack.snapshot(TENANT_A, owner["command_id"])["resource_version"] == 1
+    reused_command_id = envelope.model_copy(
+        update={"idempotency_key": "idem-" + uuid4().hex}
+    )
+    for attempt in (identical, conflicting, reused_command_id):
+        try:
+            asyncio.run(kernel.submit(attempt, foreign))
+        except CommandConflict as exc:
+            pytest.fail(f"foreign tenant received a conflict oracle: {exc}")
+        except PolicyDenied as exc:
+            assert str(exc) == "policy denied: tenant_not_authorized"
+        else:
+            pytest.fail("foreign tenant submission was not denied")
+
+    assert lookups == []
+    recorded = denials.records[denials_before:]
+    assert [item.reason_code for item in recorded] == ["tenant_not_authorized"] * 3
+    assert all(
+        item.tenant_id == TENANT_A and item.actor_id == "user-1" for item in recorded
+    )
+    assert stack.snapshot(TENANT_A, owner["command_id"]) == before
+    assert asyncio.run(stack.store.list_operations(TENANT_B, limit=100)) == []
+
+
+def test_kernel_submit_exact_duplicate_by_authorized_tenant_returns_original_operation(
+    stack: Stack,
+) -> None:
+    kernel = stack.runtime.platform.kernel
+    authorized = _principal(stack, (TENANT_A,))
+    envelope = CommandEnvelope(**command_body(TENANT_A))
+    first = asyncio.run(kernel.submit(envelope, authorized))
+    assert first.operation.duplicate is False
+    before = stack.snapshot(TENANT_A, str(envelope.command_id))
+
+    result = asyncio.run(kernel.submit(envelope, authorized))
+
+    assert result.operation.command_id == envelope.command_id
+    assert result.operation.tenant_id == TENANT_A
+    assert result.operation.correlation_id == envelope.correlation_id
+    assert result.operation.duplicate is True
+    assert result.policy is None and result.safety is None
+    assert stack.snapshot(TENANT_A, str(envelope.command_id)) == before
+
+
+def _kernel_cancel(kernel, op: UUID, version: int, principal: KernelPrincipal):
+    return kernel.cancel(
+        TENANT_A,
+        op,
+        principal=principal,
+        idempotency_key="attack-kernel-cancel",
+        expected_version=version,
+        reason="attack",
+    )
+
+
+def _kernel_retry(kernel, op: UUID, version: int, principal: KernelPrincipal):
+    return kernel.retry(
+        TENANT_A,
+        op,
+        principal=principal,
+        idempotency_key="attack-kernel-retry",
+        expected_version=version,
+        reason="attack",
+    )
+
+
+def _kernel_reprocess(kernel, op: UUID, version: int, principal: KernelPrincipal):
+    return kernel.replay(
+        TENANT_A,
+        op,
+        principal=principal,
+        mode=ReplayMode.REPROCESS,
+        idempotency_key="attack-kernel-reprocess",
+        expected_version=version,
+        reason="attack",
+    )
+
+
+def _kernel_reexecute(kernel, op: UUID, version: int, principal: KernelPrincipal):
+    return kernel.replay(
+        TENANT_A,
+        op,
+        principal=principal,
+        mode=ReplayMode.REEXECUTE,
+        idempotency_key="attack-kernel-reexecute",
+        expected_version=version,
+        reason="attack",
+        new_idempotency_key="attacker-new-key-0003",
+    )
+
+
+# (name, call, fixture behaviour) — each arrangement leaves A's operation in a
+# state where the call would succeed for an authorized operator.
+KERNEL_MUTATIONS = (
+    ("cancel", _kernel_cancel, "success", False),
+    ("retry", _kernel_retry, "reject", True),
+    ("replay_reprocess", _kernel_reprocess, "unknown", True),
+    ("replay_reexecute", _kernel_reexecute, "reject", True),
+)
+
+
+@pytest.mark.parametrize(
+    "name, call, behaviour, execute",
+    KERNEL_MUTATIONS,
+    ids=[item[0] for item in KERNEL_MUTATIONS],
+)
+def test_kernel_mutations_deny_foreign_tenant_before_any_lookup(
+    stack: Stack, name: str, call, behaviour: str, execute: bool
+) -> None:
+    with TestClient(stack.app) as client:
+        owner = submit_a(client, payload={"fixture": behaviour, "probe": SECRET_MARKER})
+    op = UUID(owner["command_id"])
+    if execute:
+        stack.run_bus()
+    if name == "replay_reexecute":
+        asyncio.run(
+            stack.store.record_dead_letter(
+                TENANT_A,
+                op,
+                actor_id="test",
+                reason_code="fixture_rejected",
+                error_class="NON_RETRYABLE",
+                terminal_reason="arranged",
+            )
+        )
+    kernel = stack.runtime.platform.kernel
+    before = stack.snapshot(TENANT_A, owner["command_id"])
+    lookups = record_store_lookups(stack.store)
+
+    with pytest.raises(PolicyDenied, match="tenant_not_authorized"):
+        asyncio.run(
+            call(kernel, op, before["resource_version"], _operator(stack, (TENANT_B,)))
+        )
+    with pytest.raises(PolicyDenied, match="wildcard_tenant_prohibited"):
+        asyncio.run(
+            call(kernel, op, before["resource_version"], _operator(stack, ("*",)))
+        )
+
+    assert lookups == []
+    assert stack.snapshot(TENANT_A, owner["command_id"]) == before
+
+
+def test_kernel_reexecute_by_authorized_operator_still_submits(stack: Stack) -> None:
+    with TestClient(stack.app) as client:
+        owner = submit_a(client, payload={"fixture": "reject", "probe": SECRET_MARKER})
+    op = UUID(owner["command_id"])
+    stack.run_bus()
+    asyncio.run(
+        stack.store.record_dead_letter(
+            TENANT_A,
+            op,
+            actor_id="test",
+            reason_code="fixture_rejected",
+            error_class="NON_RETRYABLE",
+            terminal_reason="arranged",
+        )
+    )
+    kernel = stack.runtime.platform.kernel
+    version = stack.snapshot(TENANT_A, owner["command_id"])["resource_version"]
+
+    replayed = asyncio.run(
+        kernel.replay(
+            TENANT_A,
+            op,
+            principal=_operator(stack, (TENANT_A,)),
+            mode=ReplayMode.REEXECUTE,
+            idempotency_key="operator-reexecute-0001",
+            expected_version=version,
+            reason="operator",
+            new_idempotency_key="operator-new-key-0001",
+        )
+    )
+
+    assert replayed.command_id != op
+    assert replayed.tenant_id == TENANT_A
+    assert replayed.duplicate is False
+    events = asyncio.run(
+        stack.store.list_events(TENANT_A, replayed.command_id, limit=5)
+    )
+    assert events[0].safe_metadata["replay_mode"] == "REEXECUTE"
+    assert events[0].safe_metadata["replay_of"] == str(op)
