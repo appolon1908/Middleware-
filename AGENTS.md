@@ -37,11 +37,13 @@ Before reading mission-specific instructions or editing a tracked file, run:
 
 A failing preflight is a STOP condition. Do not work around it with another worktree, host, port, route, provider, database path, or Git write path.
 
-## Single writer
+## Single writer per file scope
 
-- Exactly one worktree/branch may be declared as the active write lane for a mission.
+- Exactly one writer may hold a file scope. A writer is an `ACTIVE` lane in `governance/file-ownership.v1.json`; lane scopes are disjoint and at most `max_concurrent_writers` lanes are `ACTIVE` at once.
+- Each writer uses its own worktree and its own `fix/*` branch cut from current `main`, and changes only files its lane owns plus shared files it currently holds by a recorded handoff. `scripts/validate_lane_file_scope.py` must pass before push.
+- Merges to `main` stay one at a time: before review each PR merges current `main` into its branch (normal push, no rebase) and re-derives the release pin.
 - Every other checkout is preserved read-only reconciliation/evidence until its unique semantics are proven reachable or deliberately migrated.
-- Never start a second agent on the same repository/worktree while a writer is active.
+- Never start a second agent on the same worktree or on a file scope held by another writer.
 - Never reset, clean, stash, discard, rebase, rewrite, force-push, delete branches/worktrees, or overwrite unproven history.
 - Never develop directly on `main`, a detached HEAD, a stale branch, or a branch whose upstream differs from its remote head.
 
