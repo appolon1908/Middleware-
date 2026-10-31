@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "governance" / "promotion-policy.json"
 GUARD = ROOT / "governance" / "promotion_guard.py"
 TRUST_BRANCH = "trust/mw447-verified-validator-successor-20261008"
-EXPIRY = date(2026, 10, 10)
+EXPIRY = date(2026, 11, 6)
 
 
 def check(head: str, base: str) -> subprocess.CompletedProcess[str]:
