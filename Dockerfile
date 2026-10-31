@@ -78,7 +78,7 @@ RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements.lock
 
 FROM builder AS test
-RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 nodejs=24.22.1-r0 openssl=3.5.9-r0
+RUN apk add --no-cache bash=5.3.9-r1 git=2.54.0-r0 nodejs=24.22.1-r1 openssl=3.5.9-r0
 RUN python -m pip install --no-cache-dir --disable-pip-version-check \
       --require-hashes -r requirements-test.lock
 WORKDIR /app
