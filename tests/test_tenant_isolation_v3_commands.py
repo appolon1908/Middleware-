@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -33,7 +34,16 @@ from app.commands import (
 from app.core.config import Settings
 from app.core.runtime import RuntimeContainer
 from app.platform.adapter import AdapterContext
-from app.platform.kernel import MemoryDenialAuditSink, PolicyDenied
+from app.platform.kernel import (
+    FOREIGN_PRINCIPAL_ACTOR,
+    PLATFORM_AUDIT_TENANT,
+    DenialAudit,
+    MemoryDenialAuditSink,
+    PolicyDenied,
+)
+from app.platform.persistence import PostgresDenialAuditSink
+from app.platform.principal import principal_from_claims, tenants_from_claims
+from app.security import AuthorizationError, authorize_tenant
 from app.platform.memory import MemoryExecutionBus
 from app.platform.resilience import ReplayMode
 from app.platform.principal import KernelPrincipal, with_synthetic_authority
@@ -687,9 +697,10 @@ def _principal(
     *,
     scopes: tuple[str, ...] = ("platform.command", "platform.command.read"),
     roles: tuple[str, ...] = (),
+    subject: str = "user-1",
 ) -> KernelPrincipal:
     return KernelPrincipal(
-        subject="user-1",
+        subject=subject,
         client_id="middleware-api",
         tenants=tenants,
         roles=roles,
@@ -759,7 +770,10 @@ def test_kernel_submit_denies_foreign_tenant_before_any_idempotency_lookup(
     lookups = record_store_lookups(stack.store)
 
     envelope = CommandEnvelope(**{**owner, "capability": "TEST_SYN_EXECUTE"})
-    foreign = _principal(stack, (TENANT_B,))
+    # The owner submitted as "user-1"; the foreign principal is a different
+    # subject so the audit rows can tell the two apart.
+    foreign = _principal(stack, (TENANT_B,), subject=FOREIGN_SUBJECT)
+    assert owner["requested_by"] != FOREIGN_SUBJECT
     identical = envelope
     conflicting = envelope.model_copy(update={"payload": {"probe": "different"}})
     reused_command_id = envelope.model_copy(
@@ -777,12 +791,204 @@ def test_kernel_submit_denies_foreign_tenant_before_any_idempotency_lookup(
 
     assert lookups == []
     recorded = denials.records[denials_before:]
-    assert [item.reason_code for item in recorded] == ["tenant_not_authorized"] * 3
-    assert all(
-        item.tenant_id == TENANT_A and item.actor_id == "user-1" for item in recorded
-    )
+    victim_rows = [item for item in recorded if item.tenant_id == TENANT_A]
+    platform_rows = [item for item in recorded if item.tenant_id == PLATFORM_AUDIT_TENANT]
+    assert len(victim_rows) == len(platform_rows) == 3
+    assert len(recorded) == 6
+    # (a) Q-B4: the row under the victim tenant names the caller only as
+    # "foreign principal", with no caller client and no caller correlation id.
+    for item in victim_rows:
+        assert item.reason_code == "tenant_not_authorized"
+        assert item.actor_id == FOREIGN_PRINCIPAL_ACTOR
+        assert item.client_id is None
+        assert item.correlation_id != envelope.correlation_id
+        assert item.correlation_id == item.decision_id
+    # (b) the operator-only platform row holds the full identity.
+    for item in platform_rows:
+        assert item.actor_id == FOREIGN_SUBJECT
+        assert item.client_id == foreign.client_id
+        assert item.correlation_id == envelope.correlation_id
+        code, _, detail = item.reason_code.partition(" ")
+        assert code == "tenant_not_authorized"
+        assert json.loads(detail) == {
+            "target_tenant": TENANT_A,
+            "principal_tenants": [TENANT_B],
+        }
+    assert {item.decision_id for item in victim_rows} == {
+        item.decision_id for item in platform_rows
+    }
+    # (e) nothing the victim tenant can read carries the foreign identity.
+    assert_no_foreign_identity(denials.records, TENANT_A, foreign, envelope.correlation_id)
     assert stack.snapshot(TENANT_A, owner["command_id"]) == before
     assert asyncio.run(stack.store.list_operations(TENANT_B, limit=100)) == []
+
+
+FOREIGN_SUBJECT = "foreign-user-9"
+
+
+def assert_no_foreign_identity(
+    records: list[DenialAudit],
+    tenant_id: str,
+    foreign: KernelPrincipal,
+    correlation_id: str,
+) -> None:
+    """No denial row under ``tenant_id`` carries the foreign subject, its
+    client or the correlation id it supplied."""
+    for item in records:
+        if item.tenant_id != tenant_id:
+            continue
+        assert FOREIGN_SUBJECT not in (item.actor_id, item.reason_code)
+        assert item.actor_id != foreign.subject
+        assert item.correlation_id != correlation_id
+        if item.actor_id == FOREIGN_PRINCIPAL_ACTOR:
+            assert item.client_id is None
+
+
+def test_kernel_rejects_foreign_principal_before_mission_scope_evaluation(
+    stack: Stack, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(c) a foreign principal is refused on tenant authority before the
+    mission-scope check runs, so even a principal that also lacks the mission
+    scope records nothing under the victim tenant but the redacted row."""
+    import app.identity_missions as identity_missions
+
+    evaluated: list[str] = []
+
+    def no_mission_scope(command_type: str, scopes: tuple[str, ...]) -> bool:
+        evaluated.append(command_type)
+        return False
+
+    monkeypatch.setattr(identity_missions, "authorize_mission", no_mission_scope)
+    kernel = stack.runtime.platform.kernel
+    denials = stack.runtime.platform.denials
+    assert isinstance(denials, MemoryDenialAuditSink)
+    envelope = CommandEnvelope(**command_body(TENANT_A))
+    foreign = _principal(stack, (TENANT_B,), subject=FOREIGN_SUBJECT)
+    before = len(denials.records)
+
+    with pytest.raises(PolicyDenied, match="^policy denied: tenant_not_authorized$"):
+        asyncio.run(kernel.submit(envelope, foreign))
+
+    assert evaluated == []
+    recorded = denials.records[before:]
+    assert [(item.tenant_id, item.reason_code.split(" ", 1)[0]) for item in recorded] == [
+        (PLATFORM_AUDIT_TENANT, "tenant_not_authorized"),
+        (TENANT_A, "tenant_not_authorized"),
+    ]
+    assert_no_foreign_identity(recorded, TENANT_A, foreign, envelope.correlation_id)
+
+    # The same check for an authorized principal is a same-tenant denial and
+    # keeps the full identity under its own tenant (unchanged).
+    authorized = _principal(stack, (TENANT_A,))
+    before = len(denials.records)
+    with pytest.raises(PolicyDenied, match="^policy denied: mission_scope_missing$"):
+        asyncio.run(kernel.submit(envelope, authorized))
+    assert evaluated == [envelope.command_type]
+    (own,) = denials.records[before:]
+    assert (own.tenant_id, own.actor_id, own.client_id, own.correlation_id, own.reason_code) == (
+        TENANT_A,
+        "user-1",
+        authorized.client_id,
+        envelope.correlation_id,
+        "mission_scope_missing",
+    )
+
+
+def test_kernel_wildcard_foreign_denial_is_redacted_for_the_target_tenant(
+    stack: Stack,
+) -> None:
+    kernel = stack.runtime.platform.kernel
+    denials = stack.runtime.platform.denials
+    assert isinstance(denials, MemoryDenialAuditSink)
+    envelope = CommandEnvelope(**command_body(TENANT_A))
+    wildcard = _principal(stack, ("*",), subject=FOREIGN_SUBJECT)
+    before = len(denials.records)
+
+    with pytest.raises(PolicyDenied, match="^policy denied: wildcard_tenant_prohibited$"):
+        asyncio.run(kernel.submit(envelope, wildcard))
+
+    victim, = [item for item in denials.records[before:] if item.tenant_id == TENANT_A]
+    assert (victim.actor_id, victim.client_id, victim.reason_code) == (
+        FOREIGN_PRINCIPAL_ACTOR,
+        None,
+        "wildcard_tenant_prohibited",
+    )
+    assert_no_foreign_identity(denials.records, TENANT_A, wildcard, envelope.correlation_id)
+
+
+def test_platform_audit_tenant_can_never_be_an_authorized_tenant(stack: Stack) -> None:
+    """The operator-only pseudo-tenant cannot be selected by any tenant feed:
+    even a token that claims it is not authorized for it, by the HTTP tenant
+    check or by the kernel principal."""
+    caller = caller_for_client_id("middleware-api")
+    for claim in (
+        {"tenant_id": PLATFORM_AUDIT_TENANT},
+        {"tenant_ids": [PLATFORM_AUDIT_TENANT]},
+        {"tenant_id": TENANT_B, "tenant_ids": [PLATFORM_AUDIT_TENANT, TENANT_A]},
+    ):
+        with pytest.raises(AuthorizationError):
+            authorize_tenant(dict(claim), PLATFORM_AUDIT_TENANT)
+        assert PLATFORM_AUDIT_TENANT not in tenants_from_claims(claim)
+        principal = principal_from_claims(
+            {"sub": FOREIGN_SUBJECT, "azp": caller.client_id, **claim}, caller
+        )
+        assert not principal.authorized_for(PLATFORM_AUDIT_TENANT)
+
+
+def test_durable_victim_row_never_carries_the_foreign_identity(stack: Stack) -> None:
+    """(e) what the Postgres sink writes under the victim tenant, i.e. what
+    GET /v1/audit/events returns to it (actor_id, reason) and keeps in
+    metadata, holds no foreign subject, client or correlation id."""
+
+    class Connection:
+        def __init__(self, sink: list[tuple[Any, ...]]) -> None:
+            self.sink = sink
+
+        async def execute(self, _sql: str, *args: Any) -> None:
+            self.sink.append(args)
+
+    class Acquire:
+        def __init__(self, connection: Connection) -> None:
+            self.connection = connection
+
+        async def __aenter__(self) -> Connection:
+            return self.connection
+
+        async def __aexit__(self, *_exc: Any) -> None:
+            return None
+
+    class Pool:
+        def __init__(self) -> None:
+            self.rows: list[tuple[Any, ...]] = []
+
+        def acquire(self) -> Acquire:
+            return Acquire(Connection(self.rows))
+
+    pool = Pool()
+    kernel = stack.runtime.platform.kernel
+    original = kernel.denials
+    kernel.denials = PostgresDenialAuditSink(pool)  # type: ignore[arg-type]
+    try:
+        envelope = CommandEnvelope(**command_body(TENANT_A))
+        foreign = _principal(stack, (TENANT_B,), subject=FOREIGN_SUBJECT)
+        with pytest.raises(PolicyDenied):
+            asyncio.run(kernel.submit(envelope, foreign))
+    finally:
+        kernel.denials = original
+
+    by_tenant = {row[0]: row for row in pool.rows}
+    assert set(by_tenant) == {TENANT_A, PLATFORM_AUDIT_TENANT}
+    tenant_id, _resource_id, action, actor_id, reason, metadata = by_tenant[TENANT_A]
+    assert (action, actor_id, reason) == ("policy_deny", FOREIGN_PRINCIPAL_ACTOR, "tenant_not_authorized")
+    stored = json.loads(metadata)
+    assert stored["client_id"] is None
+    assert stored["correlation_id"] != envelope.correlation_id
+    victim_text = json.dumps(by_tenant[TENANT_A])
+    assert FOREIGN_SUBJECT not in victim_text
+    assert envelope.correlation_id not in victim_text
+    platform = by_tenant[PLATFORM_AUDIT_TENANT]
+    assert platform[3] == FOREIGN_SUBJECT
+    assert json.loads(platform[5])["correlation_id"] == envelope.correlation_id
 
 
 def test_kernel_submit_exact_duplicate_by_authorized_tenant_returns_original_operation(

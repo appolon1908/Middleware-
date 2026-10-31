@@ -29,6 +29,8 @@ from app.platform.adapters.fixtures import FixtureAdapter, development_fixtures
 from app.platform.adapters.fixtures import test_syn_adapter as synthetic_adapter
 from app.platform.bus import AdapterDispatch, BusSettings
 from app.platform.kernel import (
+    FOREIGN_PRINCIPAL_ACTOR,
+    PLATFORM_AUDIT_TENANT,
     KernelSaturated,
     MemoryDenialAuditSink,
     PolicyDenied,
@@ -361,7 +363,12 @@ async def test_submit_rejects_registry_mismatch_policy_and_safety_denials(harnes
     denials = harness.platform.denials
     assert isinstance(denials, MemoryDenialAuditSink)
     kinds = [item.kind for item in denials.records]
-    assert kinds.count("policy_deny") == 2 and kinds.count("safety_deny") == 2
+    # The foreign-tenant denial is recorded twice (owner decision Q-B4): once,
+    # redacted, under the target tenant and once, in full, operator-only.
+    assert kinds.count("policy_deny") == 3 and kinds.count("safety_deny") == 2
+    foreign = [item for item in denials.records if item.reason_code.startswith("tenant_not_authorized")]
+    assert sorted(item.tenant_id for item in foreign) == sorted([TENANT, PLATFORM_AUDIT_TENANT])
+    assert {item.actor_id for item in foreign if item.tenant_id == TENANT} == {FOREIGN_PRINCIPAL_ACTOR}
     assert harness.store._outbox == []  # a denied command never creates an intent
 
 
