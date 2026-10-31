@@ -5,11 +5,14 @@ ARG VERSION
 LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source=$SOURCE_URL \
       org.opencontainers.image.version=$VERSION
-# Debian security update for libpcre2-8-0 (CVE-2026-86145, CVE-2026-89157,
-# CVE-2026-89161); the same pin Dockerfile.runtime applies in patched-final-base.
+# Debian security updates for libpcre2-8-0 (CVE-2026-86145, CVE-2026-89157,
+# CVE-2026-89161) and libssl3/openssl (CVE-2026-84782); the same pins
+# Dockerfile.runtime applies in patched-final-base.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libpcre2-8-0=10.42-1+deb12u2 \
+      libssl3=3.0.22-1~deb12u2 \
+      openssl=3.0.22-1~deb12u2 \
       perl-base=5.36.0-7+deb12u4 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/codestra
