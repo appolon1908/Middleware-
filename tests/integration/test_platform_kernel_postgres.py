@@ -580,9 +580,10 @@ async def test_reexecute_waiver_for_never_sent_dead_letter(pool: asyncpg.Pool, m
     record = await stack.commands.get_dead_letter(TENANT, command.command_id)
     assert (record.reason_code, record.attempt_number) == ("terminal_failure", 0)
     adapter.connector_ids = ("test-syn",)
+    replay_key = "idem-pg-" + uuid4().hex  # a fresh REEXECUTE idempotency key
     with pytest.raises(ReplayNotAllowed, match="platform-operator"):
-        await stack.platform.kernel.replay(TENANT, command.command_id, principal=_principal(), mode=ReplayMode.REEXECUTE, idempotency_key="replay-pg-0001", expected_version=dead.resource_version, reason="never sent", new_idempotency_key="idem-pg-waiver-0001")
-    replayed = await stack.platform.kernel.replay(TENANT, command.command_id, principal=_operator(), mode=ReplayMode.REEXECUTE, idempotency_key="replay-pg-0001", expected_version=dead.resource_version, reason="never sent", new_idempotency_key="idem-pg-waiver-0001")
+        await stack.platform.kernel.replay(TENANT, command.command_id, principal=_principal(), mode=ReplayMode.REEXECUTE, idempotency_key="replay-pg-0001", expected_version=dead.resource_version, reason="never sent", new_idempotency_key=replay_key)
+    replayed = await stack.platform.kernel.replay(TENANT, command.command_id, principal=_operator(), mode=ReplayMode.REEXECUTE, idempotency_key="replay-pg-0001", expected_version=dead.resource_version, reason="never sent", new_idempotency_key=replay_key)
     assert replayed.command_id != command.command_id
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT replay_command_id, state FROM middleware_command_replays WHERE original_command_id=$1", str(command.command_id))
