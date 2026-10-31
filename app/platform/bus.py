@@ -36,7 +36,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, NoReturn
 from uuid import UUID
 
 from app.commands import (
@@ -67,6 +67,12 @@ from app.platform.adapter import (
     ReadbackStatus,
 )
 from app.platform.metrics import KernelMetrics
+from app.platform.outcome_codes import (
+    CANCEL_REQUESTED_PROVIDER_MISSING,
+    CANCELLED_BEFORE_SEND,
+    DEFERRAL_EXHAUSTED,
+    RETRY_EXHAUSTED,
+)
 from app.platform.principal import with_synthetic_authority
 from app.platform.registry import AdapterRegistry, Ownership
 from app.platform.resilience import Bulkhead, BulkheadFull, CircuitBreaker, CircuitOpen
@@ -318,7 +324,7 @@ class AdapterDispatch:
         except Exception as exc:
             # Readiness runs before execute, so no provider effect can exist yet.
             logger.warning("adapter_readiness_failed", extra={"adapter": adapter.adapter_id, "error": type(exc).__name__})
-            raise KnownSafeRetryError(f"adapter readiness unavailable: {type(exc).__name__}") from exc
+            await self._defer(operation, reason=f"adapter readiness unavailable: {type(exc).__name__}", outbox_attempt=outbox_attempt, cause=exc)
         try:
             tenant_backlog, global_backlog = await self.commands.backlog(operation.tenant_id)
         except Exception as exc:  # an unavailable backlog signal fails closed below
@@ -346,7 +352,7 @@ class AdapterDispatch:
             if set(decision.reason_codes) <= TRANSIENT_EXECUTION_DENIALS:
                 # Readiness and backlog are transient for an admitted command;
                 # back off without opening an attempt instead of dead-lettering.
-                raise KnownSafeRetryError(f"execution deferred: {decision.reason_code}")
+                await self._defer(operation, reason=f"execution deferred: {decision.reason_code}", outbox_attempt=outbox_attempt)
             await self._fail(operation, reason=f"safety denied at execution: {decision.reason_code}", attempt=None)
             return self._record(DispatchOutcome(command_id, None, "failed", False))
 
@@ -364,18 +370,26 @@ class AdapterDispatch:
             breaker.admit()
         except CircuitOpen as exc:
             self.metrics.adapter_failures.labels(adapter=adapter.adapter_id, operation="execute", result="circuit_open").inc()
-            raise KnownSafeRetryError(str(exc)) from exc
+            await self._defer(operation, reason=str(exc), outbox_attempt=outbox_attempt, cause=exc)
 
         # queued → dispatching opens the attempt this worker owns, recorded
         # with the outbox lease (owner + fencing token) it executes under.
         lease_owner = record.lease_owner if record is not None and record.lease_owner else self.worker_id
         fencing_token = record.fencing_token if record is not None else None
-        if operation.state == "persisted":
-            operation = await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
-        operation = await self.commands.transition(
-            tenant_id, command_id, new_state="dispatching", actor_id=self.worker_id,
-            reason=f"attempt via adapter {adapter.adapter_id}", worker_id=lease_owner, fencing_token=fencing_token,
-        )
+        try:
+            if operation.state == "persisted":
+                operation = await self.commands.transition(tenant_id, command_id, new_state="queued", actor_id=self.worker_id, reason="claimed by execution bus")
+            operation = await self.commands.transition(
+                tenant_id, command_id, new_state="dispatching", actor_id=self.worker_id,
+                reason=f"attempt via adapter {adapter.adapter_id}", worker_id=lease_owner, fencing_token=fencing_token,
+            )
+        except CommandConflict:
+            current = await self.commands.get(tenant_id, command_id)
+            if current.state == "cancelled":
+                # A cancel won the command row lock: no attempt was opened and
+                # nothing was sent. The intent is finished, not quarantined.
+                return self._record(DispatchOutcome(command_id, None, "cancelled", False))
+            raise
         attempt = await self.commands.latest_attempt(tenant_id, command_id)
         context = self.context(operation, attempt=attempt, timeout=timeout, trace=trace, payload=envelope.payload)
 
@@ -387,6 +401,25 @@ class AdapterDispatch:
             await self._fail(operation, reason="outbox lease lost before the provider call", attempt=attempt, retryable=True)
             self._record(DispatchOutcome(command_id, attempt, "queued", False))
             raise LeaseLostError("outbox lease lost before the provider effect")
+
+        # Re-read before the external call: a cancel (or REPROCESS) committed
+        # after the attempt opened must stop the send. This narrows the window;
+        # a cancel after this read reports reconciliation_required, never cancelled.
+        current = await self.commands.get(tenant_id, command_id)
+        if current.state != "dispatching":
+            if current.state == "reconciliation_required" and current.cancellation_reason is not None:
+                try:
+                    await self.commands.dead_letter(
+                        tenant_id, command_id, actor_id=self.worker_id,
+                        reason="cancel requested after the attempt opened; the provider was not called",
+                        reason_code=CANCEL_REQUESTED_PROVIDER_MISSING, error_class=CANCELLED_BEFORE_SEND,
+                        terminal_reason="cancel requested before the provider call; no request was sent",
+                        expected_attempt=attempt,
+                    )
+                except CommandConflict:
+                    raise UnknownOutcomeError("operation changed before the provider call; not sent") from None
+                return self._record(DispatchOutcome(command_id, attempt, "dead_lettered", False))
+            raise UnknownOutcomeError("operation left dispatching before the provider call; not sent")
 
         self.metrics.adapter_requests.labels(adapter=adapter.adapter_id, operation="execute").inc()
         self.metrics.provider_effect_attempts.labels(adapter=adapter.adapter_id).inc()
@@ -401,7 +434,7 @@ class AdapterDispatch:
             self.metrics.bulkhead_rejections.labels(adapter=adapter.adapter_id).inc()
             # Nothing was sent: close the attempt as failed and retry safely.
             await self._fail(operation, reason=f"bulkhead saturated: {exc}", attempt=attempt, retryable=True)
-            raise KnownSafeRetryError(str(exc)) from exc
+            await self._defer(operation, reason=str(exc), outbox_attempt=outbox_attempt, cause=exc)
         except asyncio.TimeoutError:
             result = AdapterResult(Outcome.UNKNOWN, error_class=ErrorClass.AMBIGUOUS, safe_error_code="adapter_timeout")
         except Exception as exc:  # noqa: BLE001 - classified below
@@ -439,11 +472,15 @@ class AdapterDispatch:
 
         if result.outcome in {Outcome.ACCEPTED, Outcome.COMPLETED}:
             breaker.record_success()
-            operation = await self.commands.transition(
-                tenant_id, command_id, new_state="accepted", actor_id=self.worker_id,
-                reason=f"provider acknowledged ({result.outcome.value})", provider_operation_id=result.provider_operation_id,
-                expected_attempt=attempt,
-            )
+            try:
+                operation = await self.commands.transition(
+                    tenant_id, command_id, new_state="accepted", actor_id=self.worker_id,
+                    reason=f"provider acknowledged ({result.outcome.value})", provider_operation_id=result.provider_operation_id,
+                    expected_attempt=attempt,
+                )
+            except CommandConflict:
+                await self._keep_late_reference(operation, attempt, result)
+                raise UnknownOutcomeError("provider acknowledged after the operation left dispatching") from None
             readback = await self._readback(operation, adapter, context, ownership, attempt)
             return self._record(DispatchOutcome(command_id, attempt, readback[0], True, result, readback[1]))
 
@@ -551,6 +588,56 @@ class AdapterDispatch:
             pass
         readback = await self._readback(operation, adapter, context, ownership, attempt)
         return self._record(DispatchOutcome(operation.command_id, attempt, readback[0], False, None, readback[1]))
+
+    async def _keep_late_reference(self, operation: CommandOperation, attempt: int, result: AdapterResult) -> None:
+        """A cancel moved the command to reconciliation_required while the
+        provider call ran, and the provider acknowledged it. Keep the provider
+        reference so the reconciler reads back by it (a reference-keyed read
+        surface would otherwise report NOT_FOUND for a message that was sent).
+        The state does not change; the row stays quarantined."""
+        if not result.provider_operation_id:
+            return
+        current = await self.commands.get(operation.tenant_id, operation.command_id)
+        if current.state != "reconciliation_required":
+            return
+        if await self.commands.latest_attempt(operation.tenant_id, operation.command_id) != attempt:
+            return
+        try:
+            await self.commands.reconcile(
+                operation.tenant_id, operation.command_id, matched=False, actor_id=self.worker_id,
+                reason="provider acknowledged after the operation left dispatching; read-back required",
+                provider_operation_id=result.provider_operation_id,
+                evidence={
+                    "schema_version": "1.0",
+                    "status": "acknowledged_after_cancel",
+                    "provider_operation_id": result.provider_operation_id,
+                },
+                expected_version=current.resource_version,
+            )
+        except CommandConflict:
+            # Changed again meanwhile (the reconciler or an operator owns it now).
+            logger.warning("adapter_late_reference_not_recorded", extra={"command_id": str(operation.command_id)})
+
+    async def _defer(self, operation: CommandOperation, *, reason: str, outbox_attempt: int, cause: BaseException | None = None) -> NoReturn:
+        """A known-safe deferral (nothing sent on this claim). On the final
+        outbox attempt the command is terminalized *before* the worker
+        dead-letters the intent, so the command never stays active behind a
+        dead outbox row (interim budget until C1's deferral counter)."""
+        if outbox_attempt >= self.bus.max_attempts:
+            tenant_id, command_id = operation.tenant_id, operation.command_id
+            opened = await self.commands.latest_attempt(tenant_id, command_id)
+            try:
+                await self.commands.dead_letter(
+                    tenant_id, command_id, actor_id=self.worker_id,
+                    reason=f"dispatch budget exhausted without a provider effect: {reason}",
+                    reason_code=DEFERRAL_EXHAUSTED if opened == 0 else RETRY_EXHAUSTED,
+                    error_class="deferred", terminal_reason=reason, retry_exhausted=True,
+                    expected_attempt=opened,
+                )
+            except CommandConflict:
+                # A newer attempt or a cancel owns the command now; leave it.
+                logger.warning("adapter_deferral_terminalization_skipped", extra={"command_id": str(command_id)})
+        raise KnownSafeRetryError(reason) from cause
 
     async def _fail(self, operation: CommandOperation, *, reason: str, attempt: int | None, retryable: bool = False) -> None:
         tenant_id, command_id = operation.tenant_id, operation.command_id
