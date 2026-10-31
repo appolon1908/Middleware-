@@ -13,6 +13,7 @@ capability registry here.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -58,6 +59,21 @@ SCOPE_COMMAND_REPLAY = "platform.command.replay"
 # REEXECUTE names its new operation deterministically, so a retried replay
 # request is an exact replay of the same new command, never a second one.
 REEXECUTE_NAMESPACE = uuid5(NAMESPACE_URL, "urn:codestra:middleware:platform:reexecute:v1")
+# Owner decision Q-B4: a tenant-facing audit feed names a principal that holds
+# no authority over the tenant only as "foreign principal"; the caller's full
+# identity is kept solely in the operator-only platform audit below.
+FOREIGN_PRINCIPAL_ACTOR = "foreign principal"
+# The pseudo-tenant under which a foreign principal's full identity is
+# recorded. It can never be an authorized tenant, so no tenant feed (whose
+# tenant must be one the caller is authorized for) can select it: every tenant
+# authority parser (principal.tenants_from_claims, security.authorize_tenant)
+# strips surrounding whitespace from claim values before an exact-equality
+# membership test, so no principal holds a tenant with a leading space. A bare
+# "__platform__" carries no such guarantee: a token whose tenant_id claim is
+# "__platform__" would be authorized for it.
+PLATFORM_AUDIT_TENANT = " __platform__"
+# The denial sinks persist at most this many characters of a reason.
+DENIAL_REASON_LIMIT = 2048
 
 
 class PolicyDenied(CommandError):
@@ -135,12 +151,29 @@ class DenialAudit:
     target: str
     capability: str
     actor_id: str
-    client_id: str
+    # None when the row is written under a tenant the caller holds no
+    # authority over: the caller's client is not that tenant's to see.
+    client_id: str | None
     correlation_id: str
     reason_code: str
     decision_id: str
     version: str
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+def foreign_denial_detail(reason_code: str, target_tenant: str, principal_tenants: tuple[str, ...]) -> str:
+    """The operator-only reason for a foreign-tenant denial: the reason code,
+    then the attempted target tenant and the tenants the principal does hold,
+    bounded to what a denial sink persists (omitted tenants are counted)."""
+    held = list(principal_tenants)
+    while True:
+        detail: dict[str, Any] = {"target_tenant": target_tenant, "principal_tenants": held}
+        if len(held) < len(principal_tenants):
+            detail["principal_tenants_omitted"] = len(principal_tenants) - len(held)
+        encoded = f"{reason_code} {json.dumps(detail, separators=(',', ':'), sort_keys=True)}"
+        if len(encoded) <= DENIAL_REASON_LIMIT or not held:
+            return encoded[:DENIAL_REASON_LIMIT]
+        held.pop()
 
 
 class DenialAuditSink:
@@ -261,6 +294,62 @@ class CommandKernel:
             )
         )
 
+    async def _deny_foreign(self, command: CommandEnvelope, principal: KernelPrincipal, *, reason_code: str) -> None:
+        """Record a denial of a principal holding no authority over
+        ``command.tenant_id`` (owner decision Q-B4). The row under that tenant,
+        which its own audit feed returns, names the caller only as
+        \"foreign principal\" and carries no caller client or caller-supplied
+        correlation id; the full identity is recorded once, under the
+        operator-only :data:`PLATFORM_AUDIT_TENANT`. Both rows share the
+        server-generated decision id, so an operator can join them."""
+        decision_id = str(uuid4())
+        common: dict[str, Any] = {
+            "kind": "policy_deny",
+            "command_id": command.command_id,
+            "command_type": command.command_type,
+            "target": command.target,
+            "capability": command.capability,
+            "decision_id": decision_id,
+            "version": COMMAND_POLICY_VERSION,
+        }
+        await self.denials.record(
+            DenialAudit(
+                **common,
+                tenant_id=PLATFORM_AUDIT_TENANT,
+                actor_id=principal.subject,
+                client_id=principal.client_id,
+                correlation_id=command.correlation_id,
+                reason_code=foreign_denial_detail(reason_code, command.tenant_id, principal.tenants),
+            )
+        )
+        await self.denials.record(
+            DenialAudit(
+                **common,
+                tenant_id=command.tenant_id,
+                actor_id=FOREIGN_PRINCIPAL_ACTOR,
+                client_id=None,
+                correlation_id=decision_id,
+                reason_code=reason_code,
+            )
+        )
+
+    def _tenant_denial(self, tenant_id: str, principal: KernelPrincipal) -> str | None:
+        """The Policy Engine's reason code when ``principal`` holds no
+        authority over ``tenant_id`` (counted as a policy denial), else ``None``.
+        Checked before any lookup keyed by the tenant so that a duplicate, a
+        conflict or a not-found never tells an unauthorized caller what the
+        tenant holds."""
+        if principal.authorized_for(tenant_id):
+            return None
+        reason = "wildcard_tenant_prohibited" if "*" in principal.tenants else "tenant_not_authorized"
+        self.metrics.policy_denials.labels(reason=reason).inc()
+        return reason
+
+    def _require_tenant(self, tenant_id: str, principal: KernelPrincipal) -> None:
+        reason = self._tenant_denial(tenant_id, principal)
+        if reason is not None:
+            raise PolicyDenied(f"policy denied: {reason}")
+
     async def submit(
         self,
         command: CommandEnvelope,
@@ -273,6 +362,17 @@ class CommandKernel:
     ) -> SubmitResult:
         from app.identity_missions import authorize_mission
 
+        # Tenant authority comes first: before any other check that records
+        # a denial under the command's tenant (so a foreign principal's
+        # identity never reaches that tenant's audit feed) and before any
+        # lookup keyed by the tenant (so an unauthorized principal cannot
+        # learn from a duplicate or a 409 conflict whether that tenant holds
+        # a command id or key). The reason codes are the Policy Engine's own
+        # for the same check.
+        tenant_reason = self._tenant_denial(command.tenant_id, principal)
+        if tenant_reason is not None:
+            await self._deny_foreign(command, principal, reason_code=tenant_reason)
+            raise PolicyDenied(f"policy denied: {tenant_reason}")
         if not authorize_mission(command.command_type, principal.scopes):
             await self._deny("policy_deny", command, principal, reason_code="mission_scope_missing", decision_id=str(uuid4()), version="identity-missions.v1")
             raise PolicyDenied("policy denied: mission_scope_missing")
@@ -293,8 +393,8 @@ class CommandKernel:
         # 8 — idempotency comes before the gates: an exact replay (same tenant,
         # key, client and payload) returns the operation the original
         # submission produced, whatever the gates would decide today, and
-        # consumes no rate budget. The caller must still hold the same
-        # authority over the tenant and scope it presents.
+        # consumes no rate budget. Tenant authority was checked above; the
+        # caller must still hold the scope it presents.
         existing = await self.commands.find_existing(command, authenticated_client_id=principal.client_id)
         if existing is not None:
             if scope_required not in principal.scopes or not principal.authorized_for(command.tenant_id):
@@ -412,6 +512,7 @@ class CommandKernel:
         reason: str,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        self._require_tenant(tenant_id, principal)
         operation = await self.commands.mutate_operation(
             tenant_id,
             operation_id,
@@ -436,6 +537,7 @@ class CommandKernel:
         reason: str,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        self._require_tenant(tenant_id, principal)
         operation = await self.commands.mutate_operation(
             tenant_id,
             operation_id,
@@ -465,6 +567,7 @@ class CommandKernel:
         new_idempotency_key: str | None = None,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        self._require_tenant(tenant_id, principal)
         if PLATFORM_OPERATOR_ROLE not in principal.roles:
             raise ReplayNotAllowed("replay requires the platform-operator role")
         original = await self.commands.get(tenant_id, operation_id)
@@ -594,6 +697,8 @@ __all__ = [
     "CommandUnowned",
     "DenialAudit",
     "DenialAuditSink",
+    "FOREIGN_PRINCIPAL_ACTOR",
+    "PLATFORM_AUDIT_TENANT",
     "KernelSaturated",
     "MemoryDenialAuditSink",
     "PolicyDenied",

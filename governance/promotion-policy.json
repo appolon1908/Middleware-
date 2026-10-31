@@ -92,6 +92,11 @@
       "head": "convergence/middleware-saas-certified-20261005",
       "base": "fix/source-hygiene-post430-20261005",
       "expires": "2026-10-15"
+    },
+    {
+      "head": "fix/kernel-tenant-before-idempotency-20261030",
+      "base": "main",
+      "expires": "2026-11-07"
     }
   ],
   "protected": [
