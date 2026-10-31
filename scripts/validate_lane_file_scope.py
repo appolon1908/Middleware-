@@ -341,7 +341,7 @@ def check_schema(raw: object, rep: Report) -> Policy | None:
             lanes.append(lane)
 
     for key, label in (("id", "lane id"), ("branch", "branch"), ("worktree", "worktree")):
-        values = [getattr(lane, key) for lane in lanes]
+        values = [vars(lane)[key] for lane in lanes]
         dups = sorted({v for v in values if values.count(v) > 1})
         if dups:
             rep.err("a", f"duplicate {label}: {dups} (each writer needs its own worktree and fix/* branch)")
