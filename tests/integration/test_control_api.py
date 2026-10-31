@@ -265,3 +265,78 @@ async def test_durable_inbox_outbox_control_api_is_tenant_scoped_and_idempotent(
             )
     finally:
         await pool.close()
+
+
+@pytest.mark.asyncio
+async def test_outbox_cancel_refuses_command_intents(test_settings):
+    """Section 5 B1: cancelling only a command's outbox intent would leave the
+    command active with no live row; it is cancelled through the operation."""
+    from uuid import uuid4
+
+    from app.commands import ADAPTER_COMMAND_DESTINATION, CommandEnvelope, PostgresCommandStore
+
+    pool = await asyncpg.create_pool(os.environ["DATABASE_URL"])
+    try:
+        async with pool.acquire() as conn:
+            for path in sorted(Path("migrations").glob("[0-9][0-9][0-9][0-9]_*.sql")):
+                await conn.execute(path.read_text())
+        envelope = CommandEnvelope.model_validate(
+            {
+                "command_id": str(uuid4()),
+                "command_type": "test.syn.execute.v1",
+                "command_version": "1.0",
+                "target": "test-syn",
+                "tenant_id": "tenant-1",
+                "requested_by": "user-1",
+                "correlation_id": "b1-" + uuid4().hex[:12],
+                "idempotency_key": "b1-" + uuid4().hex,
+                "capability": "TEST_SYN_EXECUTE",
+                "payload": {"probe": True},
+            }
+        )
+        store = PostgresCommandStore(pool, owns_pool=False)
+        await store.submit(
+            envelope,
+            authenticated_client_id="middleware-api",
+            destination=ADAPTER_COMMAND_DESTINATION,
+        )
+        async with pool.acquire() as conn:
+            intent = await conn.fetchrow(
+                "SELECT id, resource_version FROM middleware_outbox WHERE tenant_id='tenant-1' AND command_id=$1",
+                str(envelope.command_id),
+            )
+        assert intent is not None
+        runtime = Runtime(
+            settings=test_settings,
+            inbox=PostgresInboxStore(pool),
+            replay=MemoryReplayGuard(),
+            tokens=CommandTokenVerifier(),
+        )
+        app = create_app(settings=test_settings, runtime=runtime)
+        app.state.runtime = runtime
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            refused = await client.post(
+                f"/v1/outbox/{intent['id']}/cancel",
+                headers={
+                    "Authorization": "Bearer legacy-command-token",
+                    "X-Tenant-ID": "tenant-1",
+                    "X-Correlation-ID": "b1-outbox-cancel",
+                    "Idempotency-Key": "b1-outbox-cancel-" + uuid4().hex[:8],
+                },
+                json={"expected_version": intent["resource_version"], "reason": "operator_requested"},
+            )
+        assert refused.status_code == 409
+        assert "through the operation" in refused.text
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT cancelled_at FROM middleware_outbox WHERE id=$1", intent["id"]
+            )
+            state = await conn.fetchval(
+                "SELECT state FROM middleware_commands WHERE tenant_id='tenant-1' AND command_id=$1",
+                str(envelope.command_id),
+            )
+        assert row["cancelled_at"] is None and state == "persisted"
+    finally:
+        await pool.close()
