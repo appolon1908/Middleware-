@@ -11,6 +11,7 @@ RUNTIME_INTEGRATION_TESTS=1 with a disposable DATABASE_URL (see conftest).
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import os
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,8 @@ RUN = os.getenv("RUNTIME_INTEGRATION_TESTS") == "1"
 pytestmark = pytest.mark.skipif(not RUN, reason="set RUNTIME_INTEGRATION_TESTS=1 against disposable PostgreSQL/Redis")
 TENANT = "TEST_SYN"
 TABLES = (
+    "middleware_command_replays",
+    "middleware_command_dead_letters",
     "middleware_outbox_attempt_events",
     "middleware_control_mutations",
     "middleware_control_audit",
@@ -98,12 +101,12 @@ def _envelope(**updates: Any) -> CommandEnvelope:
 
 
 class Stack:
-    def __init__(self, settings: Settings, pool: asyncpg.Pool, *, worker_id: str = "worker-a", bus_settings: BusSettings | None = None) -> None:
+    def __init__(self, settings: Settings, pool: asyncpg.Pool, *, worker_id: str = "worker-a", bus_settings: BusSettings | None = None, adapters: tuple[object, ...] | None = None) -> None:
         self.settings = settings
         self.pool = pool
         self.store = PostgresCommandStore(pool, owns_pool=False)
         self.commands = CommandService(store=self.store, policies=command_policies(settings))
-        self.platform = build_platform_runtime(settings, commands=self.commands, http=None, pool=pool, service_id="middleware-integration-api", adapters=development_fixtures(), bus_settings=bus_settings)
+        self.platform = build_platform_runtime(settings, commands=self.commands, http=None, pool=pool, service_id="middleware-integration-api", adapters=adapters if adapters is not None else development_fixtures(), bus_settings=bus_settings)
         assert self.platform.registry_error is None, self.platform.registry_error
         self.platform.dispatch.worker_id = worker_id
         self.outbox = PostgresOutboxStore(pool)
@@ -351,3 +354,330 @@ async def test_chaos_j_restart_keeps_operation_idempotency_and_timeline(pool: as
     events = await after.commands.list_events(TENANT, command.command_id, limit=20)
     assert [event.new_state for event in events] == ["persisted", "queued", "dispatching", "accepted", "readback_pending", "completed"]
     assert after.test_syn.provider_effects == 1 and before.test_syn.provider_effects == 0
+
+
+# ----------------------------------------------------------------------------
+# Section 5: cancellation and retry races on PostgreSQL (the real OutboxWorker)
+# ----------------------------------------------------------------------------
+STRANDED_COMMANDS = """
+SELECT c.command_id FROM middleware_commands c
+WHERE c.tenant_id=$1
+  AND c.state IN ('persisted','queued','dispatching','accepted','readback_pending','reconciliation_required')
+  AND NOT EXISTS (
+    SELECT 1 FROM middleware_outbox o
+    WHERE o.tenant_id=c.tenant_id AND o.command_id=c.command_id
+      AND o.completed_at IS NULL AND o.dead_lettered_at IS NULL AND o.cancelled_at IS NULL)
+"""
+
+
+def _operator() -> KernelPrincipal:
+    base = _principal()
+    return KernelPrincipal(
+        subject="operator-1", client_id=base.client_id, tenants=base.tenants, roles=("platform-operator",),
+        scopes=("platform.command", "platform.command.read", "platform.command.replay"), caller=base.caller,
+    )
+
+
+def _racing_stack(settings: Settings, pool: asyncpg.Pool, *, safe: bool = True, max_attempts: int | None = None) -> Stack:
+    from tests.test_cancel_retry_races import racing
+
+    bus_settings = BusSettings(max_attempts=max_attempts) if max_attempts is not None else BusSettings(max_attempts=3)
+    return Stack(settings, pool, adapters=(racing(safe=safe), *development_fixtures()[1:]), bus_settings=bus_settings)
+
+
+async def _cancel(stack: Stack, command_id: UUID, key: str) -> Any:
+    current = await stack.commands.get(TENANT, command_id)
+    return await stack.platform.kernel.cancel(
+        TENANT, command_id, principal=_principal(), idempotency_key=key,
+        expected_version=current.resource_version, reason="operator cancel",
+    )
+
+
+async def _stranded(pool: asyncpg.Pool) -> list[str]:
+    async with pool.acquire() as conn:
+        return [row["command_id"] for row in await conn.fetch(STRANDED_COMMANDS, TENANT)]
+
+
+async def _expire(pool: asyncpg.Pool, command_id: UUID) -> None:
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE middleware_outbox SET lease_until=now() - interval '1 second' WHERE command_id=$1", str(command_id))
+
+
+@pytest.mark.asyncio
+async def test_cancel_before_dispatch_while_worker_holds_lease(pool: asyncpg.Pool, monkeypatch) -> None:
+    stack = _racing_stack(_settings(monkeypatch), pool)
+    adapter = stack.test_syn
+    command = _envelope()
+    await stack.submit(command)
+    seen: dict[str, Any] = {}
+
+    async def cancel_while_leased() -> None:
+        seen["cancel"] = await _cancel(stack, command.command_id, "cancel-pg-lease")
+
+    adapter.before_readiness = cancel_while_leased  # type: ignore[attr-defined]
+    assert await stack.worker.run_once() is True
+    assert seen["cancel"].state == "cancelled" and seen["cancel"].cancelled_at is not None
+    assert adapter.executed == [] and adapter.provider_effects == 0
+    assert stack.platform.dispatch.last_outcome is not None and stack.platform.dispatch.last_outcome.final_state == "cancelled"
+    rows = await stack.outbox_rows(command.command_id)
+    assert rows[0]["completed_at"] is not None and rows[0]["reconciliation_required_at"] is None
+    assert await stack.commands.latest_attempt(TENANT, command.command_id) == 0
+    assert await _stranded(pool) == []
+
+
+RACE_STEP_TIMEOUT = 10.0
+RACE_ROUND_TIMEOUT = 30.0
+# Set inside the cancelling task so G2 only ever holds the worker's dispatch
+# (the outbox worker runs its handler in a child task of its own).
+_IN_CANCEL: contextvars.ContextVar[bool] = contextvars.ContextVar("in_cancel", default=False)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_cancel_never_executes_after_a_committed_cancel(pool: asyncpg.Pool, monkeypatch) -> None:
+    """20 rounds of a cancel against a worker holding the lease, with two gates:
+    G1 in readiness (before queued -> dispatching) and G2 right after the
+    attempt opened (the bus's ``latest_attempt`` read, before the provider
+    call). Rounds rotate between cancelling at G1, cancelling at G2 and a free
+    race that releases G1 concurrently with the cancel, so both branches are
+    exercised deterministically and tallied from the observed outcome."""
+    stack = _racing_stack(_settings(monkeypatch), pool)
+    adapter = stack.test_syn
+    original_latest_attempt = stack.store.latest_attempt
+    tally = {"cancel_before_dispatch": 0, "cancel_after_attempt_open": 0}
+    for index in range(20):
+        mode = ("at_readiness", "after_open", "race")[index % 3]
+        command = _envelope()
+        await stack.submit(command)
+        at_g1, release_g1 = asyncio.Event(), asyncio.Event()
+        at_g2, cancel_done = asyncio.Event(), asyncio.Event()
+
+        async def gate_readiness() -> None:
+            at_g1.set()
+            await asyncio.wait_for(release_g1.wait(), RACE_STEP_TIMEOUT)
+
+        async def latest_attempt_gate(tenant_id: str, cid: UUID, command_id: UUID = command.command_id) -> int:
+            value = await original_latest_attempt(tenant_id, cid)
+            if cid == command_id and not _IN_CANCEL.get() and not at_g2.is_set():
+                # The attempt is open (dispatching committed); hold before the
+                # pre-send re-read until the racing cancel has returned.
+                at_g2.set()
+                await asyncio.wait_for(cancel_done.wait(), RACE_STEP_TIMEOUT)
+            return value
+
+        async def cancel_round(command_id: UUID = command.command_id, key: str = f"cancel-race-{index:04d}", mode: str = mode) -> Any:
+            _IN_CANCEL.set(True)
+            try:
+                await asyncio.wait_for(at_g1.wait(), RACE_STEP_TIMEOUT)
+                if mode == "at_readiness":
+                    result = await _cancel(stack, command_id, key)
+                    release_g1.set()
+                elif mode == "after_open":
+                    release_g1.set()
+                    await asyncio.wait_for(at_g2.wait(), RACE_STEP_TIMEOUT)
+                    result = await _cancel(stack, command_id, key)
+                else:
+                    release_g1.set()
+                    result = await _cancel(stack, command_id, key)
+                return result
+            finally:
+                release_g1.set()
+                cancel_done.set()
+
+        adapter.before_readiness = gate_readiness  # type: ignore[attr-defined]
+        monkeypatch.setattr(stack.store, "latest_attempt", latest_attempt_gate)
+        try:
+            claimed, cancelled = await asyncio.wait_for(asyncio.gather(stack.worker.run_once(), cancel_round()), RACE_ROUND_TIMEOUT)
+        finally:
+            monkeypatch.setattr(stack.store, "latest_attempt", original_latest_attempt)
+        assert claimed is True
+        executed = [item for item in adapter.executed if item[0] == str(command.command_id)]
+        effects = adapter.effects.get(str(command.command_id), 0)
+        if cancelled.state == "cancelled":
+            tally["cancel_before_dispatch"] += 1
+            assert cancelled.cancelled_at is not None
+            assert executed == [] and effects == 0
+            assert await stack.commands.latest_attempt(TENANT, command.command_id) == 0
+        else:
+            tally["cancel_after_attempt_open"] += 1
+            assert cancelled.state == "reconciliation_required" and cancelled.cancelled_at is None
+            assert at_g2.is_set()
+            assert len(executed) <= 1 and effects <= 1
+        if mode == "at_readiness":
+            assert cancelled.state == "cancelled"
+        if mode == "after_open":
+            # Cancelled after the attempt opened, before the provider call: the
+            # pre-send re-read stops the send and records it as never sent.
+            assert cancelled.state == "reconciliation_required" and executed == [] and effects == 0
+            final = await stack.commands.get(TENANT, command.command_id)
+            assert final.state == "dead_lettered"
+        final = await stack.commands.get(TENANT, command.command_id)
+        if final.state == "dead_lettered":
+            record = await stack.commands.get_dead_letter(TENANT, command.command_id)
+            assert record.reason_code == "cancel_requested_provider_missing"
+            if record.error_class == "cancelled_before_send":
+                assert executed == [] and effects == 0
+    assert tally["cancel_before_dispatch"] > 0, tally
+    assert tally["cancel_after_attempt_open"] > 0, tally
+    assert sum(tally.values()) == 20
+    assert await _stranded(pool) == []
+
+
+@pytest.mark.asyncio
+async def test_cancel_ignores_live_and_expired_leases(pool: asyncpg.Pool, monkeypatch) -> None:
+    stack = _racing_stack(_settings(monkeypatch), pool)
+    expired, live = _envelope(), _envelope()
+    await stack.submit(expired)
+    await stack.submit(live)
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE middleware_outbox SET lease_owner='dead', lease_until=now() - interval '1 second' WHERE command_id=$1", str(expired.command_id))
+        await conn.execute("UPDATE middleware_outbox SET lease_owner='busy', lease_until=now() + interval '60 seconds' WHERE command_id=$1", str(live.command_id))
+    assert (await _cancel(stack, expired.command_id, "cancel-pg-expired")).state == "cancelled"
+    assert (await _cancel(stack, live.command_id, "cancel-pg-live")).state == "cancelled"
+    # The leased row is closed by its owner, never marked cancelled under it.
+    assert (await stack.outbox_rows(live.command_id))[0]["cancelled_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_transmission_completes_or_dead_letters(pool: asyncpg.Pool, monkeypatch) -> None:
+    stack = _racing_stack(_settings(monkeypatch), pool)
+    adapter = stack.test_syn
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+
+    sent = _envelope()
+    await stack.submit(sent)
+
+    async def cancel_after_send() -> None:
+        assert (await _cancel(stack, sent.command_id, "cancel-pg-sent")).state == "reconciliation_required"
+
+    adapter.after_send = cancel_after_send  # type: ignore[attr-defined]
+    await stack.worker.run_once()
+    parked = await stack.commands.get(TENANT, sent.command_id)
+    assert parked.state == "reconciliation_required" and parked.provider_operation_id == f"test-syn:{sent.command_id}:1"
+    await _expire(pool, sent.command_id)
+    decision = await reconciler.run_once()
+    assert decision is not None and decision.final_state == "completed"
+    assert adapter.effects[str(sent.command_id)] == 1
+
+    lost = _envelope(payload={"fixture": "unknown"})
+    await stack.submit(lost)
+
+    async def cancel_and_lose() -> None:
+        await _cancel(stack, lost.command_id, "cancel-pg-lost")
+        adapter.effects.pop(str(lost.command_id), None)
+
+    adapter.after_send = cancel_and_lose  # type: ignore[attr-defined]
+    await stack.worker.run_once()
+    await _expire(pool, lost.command_id)
+    decision = await reconciler.run_once()
+    assert decision is not None and decision.final_state == "dead_lettered"
+    record = await stack.commands.get_dead_letter(TENANT, lost.command_id)
+    assert record.reason_code == "cancel_requested_provider_missing" and record.error_class == "not_found"
+    assert await stack.worker.run_once() is False
+    assert len([item for item in adapter.executed if item[0] == str(lost.command_id)]) == 1
+    assert await _stranded(pool) == []
+
+
+@pytest.mark.asyncio
+async def test_retry_refused_for_unsafe_adapter_and_standing_cancel(pool: asyncpg.Pool, monkeypatch) -> None:
+    settings = _settings(monkeypatch)
+    unsafe = _racing_stack(settings, pool, safe=False)
+    command = _envelope(payload={"fixture": "reject"})
+    await unsafe.submit(command)
+    await unsafe.worker.run_once()
+    failed = await unsafe.commands.get(TENANT, command.command_id)
+    assert failed.state == "failed"
+    with pytest.raises(CommandConflict, match="safe re-execution"):
+        await unsafe.platform.kernel.retry(TENANT, command.command_id, principal=_principal(), idempotency_key="retry-pg-unsafe", expected_version=failed.resource_version, reason="retry")
+    async with pool.acquire() as conn:
+        assert await conn.fetchval("SELECT count(*) FROM middleware_outbox WHERE command_id=$1 AND idempotency_key LIKE 'operation-retry:%'", str(command.command_id)) == 0
+    assert (await unsafe.commands.get(TENANT, command.command_id)).resource_version == failed.resource_version
+
+    safe = _racing_stack(settings, pool)
+    cancelled = _envelope(payload={"fixture": "reject"})
+    await safe.submit(cancelled)
+    await safe.worker.run_once()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE middleware_commands SET cancellation_reason='operator cancel' WHERE command_id=$1", str(cancelled.command_id))
+    current = await safe.commands.get(TENANT, cancelled.command_id)
+    with pytest.raises(CommandConflict, match="cancel"):
+        await safe.platform.kernel.retry(TENANT, cancelled.command_id, principal=_principal(), idempotency_key="retry-pg-cancel", expected_version=current.resource_version, reason="retry")
+    async with pool.acquire() as conn:
+        assert await conn.fetchval("SELECT count(*) FROM middleware_outbox WHERE command_id=$1 AND idempotency_key LIKE 'operation-retry:%'", str(cancelled.command_id)) == 0
+
+
+@pytest.mark.asyncio
+async def test_deferral_at_final_attempt_terminalizes_command_and_intent(pool: asyncpg.Pool, monkeypatch) -> None:
+    stack = _racing_stack(_settings(monkeypatch), pool, safe=False, max_attempts=3)
+    adapter = stack.test_syn
+    adapter.readiness_error = True  # type: ignore[attr-defined]
+    command = _envelope()
+    await stack.submit(command)
+    for _ in range(3):
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE middleware_outbox SET next_attempt_at=now() WHERE command_id=$1", str(command.command_id))
+        assert await stack.worker.run_once() is True
+    rows = await stack.outbox_rows(command.command_id)
+    assert rows[0]["dead_lettered_at"] is not None
+    assert (await stack.commands.get(TENANT, command.command_id)).state == "dead_lettered"
+    record = await stack.commands.get_dead_letter(TENANT, command.command_id)
+    assert (record.reason_code, record.attempt_number) == ("deferral_exhausted", 0)
+    assert adapter.executed == []
+    assert (await stack.commands.backlog(TENANT))[0] == 0
+    assert await _stranded(pool) == []
+
+
+@pytest.mark.asyncio
+async def test_deferral_after_reconciliation_requeue_is_not_terminalized(pool: asyncpg.Pool, monkeypatch) -> None:
+    """N1 on PostgreSQL: a re-queued command that was once quarantined is not
+    dead-lettered "without a provider effect" by a final-attempt deferral."""
+    from app.commands import CommandNotFound
+
+    stack = _racing_stack(_settings(monkeypatch), pool, max_attempts=2)
+    adapter = stack.test_syn
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+    command = _envelope(payload={"fixture": "unknown"})
+    await stack.submit(command)
+    await stack.worker.run_once()  # outbox attempt 1: unknown outcome, quarantined
+    assert (await stack.commands.get(TENANT, command.command_id)).state == "reconciliation_required"
+    adapter.effects.pop(str(command.command_id), None)
+    await _expire(pool, command.command_id)
+    decision = await reconciler.run_once()  # NOT_FOUND + safe adapter: re-queued
+    assert decision is not None and decision.final_state == "queued"
+
+    adapter.readiness_error = True  # type: ignore[attr-defined]
+    executed_before = list(adapter.executed)
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE middleware_outbox SET next_attempt_at=now() WHERE command_id=$1", str(command.command_id))
+    assert await stack.worker.run_once() is True  # outbox attempt 2 == max_attempts: readiness fails
+    assert (await stack.commands.get(TENANT, command.command_id)).state == "queued"
+    with pytest.raises(CommandNotFound):
+        await stack.commands.get_dead_letter(TENANT, command.command_id)
+    assert adapter.executed == executed_before
+
+
+@pytest.mark.asyncio
+async def test_reexecute_waiver_for_never_sent_dead_letter(pool: asyncpg.Pool, monkeypatch) -> None:
+    from app.platform.kernel import ReplayNotAllowed
+    from app.platform.resilience import ReplayMode
+
+    stack = _racing_stack(_settings(monkeypatch), pool, safe=False)
+    adapter = stack.test_syn
+    command = _envelope()
+    await stack.submit(command)
+    adapter.connector_ids = ("different-connector",)
+    await stack.worker.run_once()
+    dead = await stack.commands.get(TENANT, command.command_id)
+    assert dead.state == "dead_lettered"
+    record = await stack.commands.get_dead_letter(TENANT, command.command_id)
+    assert (record.reason_code, record.attempt_number) == ("terminal_failure", 0)
+    adapter.connector_ids = ("test-syn",)
+    replay_key = "idem-pg-" + uuid4().hex  # a fresh REEXECUTE idempotency key
+    with pytest.raises(ReplayNotAllowed, match="platform-operator"):
+        await stack.platform.kernel.replay(TENANT, command.command_id, principal=_principal(), mode=ReplayMode.REEXECUTE, idempotency_key="replay-pg-0001", expected_version=dead.resource_version, reason="never sent", new_idempotency_key=replay_key)
+    replayed = await stack.platform.kernel.replay(TENANT, command.command_id, principal=_operator(), mode=ReplayMode.REEXECUTE, idempotency_key="replay-pg-0001", expected_version=dead.resource_version, reason="never sent", new_idempotency_key=replay_key)
+    assert replayed.command_id != command.command_id
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT replay_command_id, state FROM middleware_command_replays WHERE original_command_id=$1", str(command.command_id))
+    assert row is not None and row["replay_command_id"] == replayed.command_id and row["state"] == "submitted"

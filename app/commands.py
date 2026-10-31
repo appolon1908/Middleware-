@@ -140,6 +140,20 @@ def _mutation_evidence(mutation_correlation_id: str | None) -> dict[str, str]:
     return {"mutation_correlation_id": mutation_correlation_id[:180]} if mutation_correlation_id else {}
 
 
+def _refuse_unsafe_retry(*, cancellation_reason: str | None, destination: str | None, reexecution_safe: bool) -> None:
+    """``failed -> queued`` by request repeats the provider call for an adapter
+    command, so it is refused unless the caller vouches (from the adapter
+    registry) that re-execution is safe; it defaults closed for callers that
+    cannot, such as the compatibility route. A standing cancel request is never
+    overridden by a retry (OD-3)."""
+    if cancellation_reason is not None:
+        raise CommandConflict("operation has a standing cancel request; retry would override it")
+    if destination == ADAPTER_COMMAND_DESTINATION and not reexecution_safe:
+        raise CommandConflict(
+            "adapter does not support safe re-execution; retry would resend the provider request"
+        )
+
+
 class CommandConflict(CommandError):
     status_code = 409
     code = "command_conflict"
@@ -545,7 +559,7 @@ class CommandStore(Protocol):
     async def list_operations(self, tenant_id: str, *, limit: int, position: tuple[datetime, UUID] | None = None, state: str | None = None, command_type: str | None = None) -> list[CommandOperation]: ...
     async def list_events(self, tenant_id: str, command_id: UUID, *, limit: int, position: tuple[datetime, int] | None = None) -> list[OperationEvent]: ...
     async def list_attempts(self, tenant_id: str, command_id: UUID, *, limit: int, position: tuple[int, int] | None = None) -> list[OperationAttempt]: ...
-    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None) -> CommandOperation: ...
+    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None, reexecution_safe: bool = False) -> CommandOperation: ...
     async def record_dead_letter(self, tenant_id: str, command_id: UUID, *, actor_id: str, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool = False, retry_exhausted: bool = False) -> DeadLetterRecord: ...
     async def list_dead_letters(self, tenant_id: str, *, limit: int = 100) -> list[DeadLetterRecord]: ...
     async def get_dead_letter(self, tenant_id: str, command_id: UUID) -> DeadLetterRecord: ...
@@ -846,7 +860,7 @@ class MemoryCommandStore:
             ]
         return rows[:limit]
 
-    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None) -> CommandOperation:
+    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None, reexecution_safe: bool = False) -> CommandOperation:
         key = (tenant_id, command_id)
         entry = self._commands.get(key)
         if entry is None:
@@ -873,8 +887,10 @@ class MemoryCommandStore:
                 "cancelled",
             }:
                 raise CommandConflict("operation is not cancellable")
-            active_lease = any(item.lease_owner is not None and item.completed_at is None for item in intents)
-            state = "cancelled" if operation.state in {"persisted", "queued"} and not active_lease else "reconciliation_required"
+            # No attempt can open once this commits: queued -> dispatching
+            # refuses a cancelled command, so a leased-but-undispatched intent
+            # is a real cancel. Its lease owner closes the row.
+            state = "cancelled" if operation.state in {"persisted", "queued"} else "reconciliation_required"
             updates = {"state": state, "cancelled_at": datetime.now().astimezone() if state == "cancelled" else None, "cancellation_reason": reason}
             if state == "cancelled":
                 for item in intents:
@@ -896,8 +912,13 @@ class MemoryCommandStore:
                     item.lease_owner = None
                     item.lease_until = None
         else:
-            if operation.state not in {"failed", "dead_lettered"}:
+            if operation.state != "failed":
                 raise CommandConflict("operation is not safely retryable")
+            _refuse_unsafe_retry(
+                cancellation_reason=operation.cancellation_reason,
+                destination=intents[-1].destination if intents else None,
+                reexecution_safe=reexecution_safe,
+            )
             updates = {"state": "queued", "last_error": None}
             source = intents[-1] if intents else None
             self._outbox.append(
@@ -1486,7 +1507,7 @@ class PostgresCommandStore:
             )
         return [OperationAttempt(attempt_id=row["id"], operation_id=row["command_id"], attempt_number=row["attempt_number"], state=row["state"], provider_operation_id=row["provider_operation_id"], safe_error_code=row["error_code"], started_at=row["started_at"], finished_at=row["finished_at"], worker_id=row["worker_id"], fencing_token=row["fencing_token"]) for row in rows]
 
-    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None) -> CommandOperation:
+    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None, reexecution_safe: bool = False) -> CommandOperation:
         request_digest = hashlib.sha256(json.dumps({"expected_version": expected_version, "reason": reason}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         async with self.pool.acquire() as conn:
             async with conn.transaction():
@@ -1516,11 +1537,12 @@ class PostgresCommandStore:
                         "cancelled",
                     }:
                         raise CommandConflict("operation is not cancellable")
-                    if previous in {"persisted", "queued"}:
-                        active_lease = await conn.fetchval("""SELECT EXISTS(SELECT 1 FROM middleware_outbox WHERE tenant_id=$1 AND command_id=$2 AND lease_owner IS NOT NULL AND lease_until > now() AND completed_at IS NULL)""", tenant_id, str(command_id))
-                        new_state = "reconciliation_required" if active_lease else "cancelled"
-                    else:
-                        new_state = "reconciliation_required"
+                    # The command row lock is the dispatch boundary: queued -> dispatching
+                    # takes the same FOR UPDATE and refuses cancelled -> dispatching, so an
+                    # intent that is leased but not yet dispatched never reaches the
+                    # provider once this commits. Only unleased outbox rows are marked
+                    # cancelled below; a leased row is closed by its owner.
+                    new_state = "cancelled" if previous in {"persisted", "queued"} else "reconciliation_required"
                     row = await conn.fetchrow("""UPDATE middleware_commands SET state=$3, resource_version=resource_version+1,
                         cancelled_at=CASE WHEN $3='cancelled' THEN now() ELSE cancelled_at END,
                         cancellation_reason=$4, updated_at=now() WHERE tenant_id=$1 AND command_id=$2 RETURNING *""", tenant_id, str(command_id), new_state, reason)
@@ -1555,14 +1577,19 @@ class PostgresCommandStore:
                 else:
                     if previous != "failed":
                         raise CommandConflict("operation is not safely retryable")
+                    retry_destination = await conn.fetchval("""SELECT destination FROM middleware_outbox WHERE tenant_id=$1 AND command_id=$2
+                        AND destination = ANY($3::text[]) ORDER BY id DESC LIMIT 1""", tenant_id, str(command_id), [TEMPORAL_COMMAND_DESTINATION, ADAPTER_COMMAND_DESTINATION])
+                    _refuse_unsafe_retry(
+                        cancellation_reason=current["cancellation_reason"],
+                        destination=retry_destination,
+                        reexecution_safe=reexecution_safe,
+                    )
                     new_state = "queued"
                     work_key = "operation-retry:" + hashlib.sha256(f"{tenant_id}:{command_id}:{actor_id}:{idempotency_key}".encode()).hexdigest()
                     retry_envelope = json.loads(current["payload"]) if isinstance(current["payload"], str) else dict(current["payload"])
                     retry_envelope["idempotency_key"] = work_key
                     row = await conn.fetchrow("""UPDATE middleware_commands SET state='queued', resource_version=resource_version+1,
                         last_error=NULL, queued_at=now(), updated_at=now() WHERE tenant_id=$1 AND command_id=$2 RETURNING *""", tenant_id, str(command_id))
-                    retry_destination = await conn.fetchval("""SELECT destination FROM middleware_outbox WHERE tenant_id=$1 AND command_id=$2
-                        AND destination = ANY($3::text[]) ORDER BY id DESC LIMIT 1""", tenant_id, str(command_id), [TEMPORAL_COMMAND_DESTINATION, ADAPTER_COMMAND_DESTINATION])
                     await conn.execute("""INSERT INTO middleware_outbox (tenant_id, command_id, destination, event_type, payload, idempotency_key)
                         VALUES ($1,$2,$3,$4,$5::jsonb,$6) ON CONFLICT DO NOTHING""", tenant_id, str(command_id), retry_destination or TEMPORAL_COMMAND_DESTINATION, current["command_type"], json.dumps(retry_envelope), work_key)
                 assert row is not None
