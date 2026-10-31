@@ -11,6 +11,7 @@ RUNTIME_INTEGRATION_TESTS=1 with a disposable DATABASE_URL (see conftest).
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import os
 from pathlib import Path
 from typing import Any
@@ -424,38 +425,100 @@ async def test_cancel_before_dispatch_while_worker_holds_lease(pool: asyncpg.Poo
     assert await _stranded(pool) == []
 
 
+RACE_STEP_TIMEOUT = 10.0
+RACE_ROUND_TIMEOUT = 30.0
+# Set inside the cancelling task so G2 only ever holds the worker's dispatch
+# (the outbox worker runs its handler in a child task of its own).
+_IN_CANCEL: contextvars.ContextVar[bool] = contextvars.ContextVar("in_cancel", default=False)
+
+
 @pytest.mark.asyncio
 async def test_concurrent_cancel_never_executes_after_a_committed_cancel(pool: asyncpg.Pool, monkeypatch) -> None:
+    """20 rounds of a cancel against a worker holding the lease, with two gates:
+    G1 in readiness (before queued -> dispatching) and G2 right after the
+    attempt opened (the bus's ``latest_attempt`` read, before the provider
+    call). Rounds rotate between cancelling at G1, cancelling at G2 and a free
+    race that releases G1 concurrently with the cancel, so both branches are
+    exercised deterministically and tallied from the observed outcome."""
     stack = _racing_stack(_settings(monkeypatch), pool)
     adapter = stack.test_syn
+    original_latest_attempt = stack.store.latest_attempt
+    tally = {"cancel_before_dispatch": 0, "cancel_after_attempt_open": 0}
     for index in range(20):
+        mode = ("at_readiness", "after_open", "race")[index % 3]
         command = _envelope()
         await stack.submit(command)
-        entered, release = asyncio.Event(), asyncio.Event()
+        at_g1, release_g1 = asyncio.Event(), asyncio.Event()
+        at_g2, cancel_done = asyncio.Event(), asyncio.Event()
 
-        async def gate() -> None:
-            entered.set()
-            await release.wait()
+        async def gate_readiness() -> None:
+            at_g1.set()
+            await asyncio.wait_for(release_g1.wait(), RACE_STEP_TIMEOUT)
 
-        async def cancel_racing_release(command_id: UUID = command.command_id, key: str = f"cancel-race-{index:04d}") -> Any:
-            await entered.wait()
-            release.set()
-            return await _cancel(stack, command_id, key)
+        async def latest_attempt_gate(tenant_id: str, cid: UUID, command_id: UUID = command.command_id) -> int:
+            value = await original_latest_attempt(tenant_id, cid)
+            if cid == command_id and not _IN_CANCEL.get() and not at_g2.is_set():
+                # The attempt is open (dispatching committed); hold before the
+                # pre-send re-read until the racing cancel has returned.
+                at_g2.set()
+                await asyncio.wait_for(cancel_done.wait(), RACE_STEP_TIMEOUT)
+            return value
 
-        adapter.before_readiness = gate  # type: ignore[attr-defined]
-        claimed, cancelled = await asyncio.gather(stack.worker.run_once(), cancel_racing_release())
+        async def cancel_round(command_id: UUID = command.command_id, key: str = f"cancel-race-{index:04d}", mode: str = mode) -> Any:
+            _IN_CANCEL.set(True)
+            try:
+                await asyncio.wait_for(at_g1.wait(), RACE_STEP_TIMEOUT)
+                if mode == "at_readiness":
+                    result = await _cancel(stack, command_id, key)
+                    release_g1.set()
+                elif mode == "after_open":
+                    release_g1.set()
+                    await asyncio.wait_for(at_g2.wait(), RACE_STEP_TIMEOUT)
+                    result = await _cancel(stack, command_id, key)
+                else:
+                    release_g1.set()
+                    result = await _cancel(stack, command_id, key)
+                return result
+            finally:
+                release_g1.set()
+                cancel_done.set()
+
+        adapter.before_readiness = gate_readiness  # type: ignore[attr-defined]
+        monkeypatch.setattr(stack.store, "latest_attempt", latest_attempt_gate)
+        try:
+            claimed, cancelled = await asyncio.wait_for(asyncio.gather(stack.worker.run_once(), cancel_round()), RACE_ROUND_TIMEOUT)
+        finally:
+            monkeypatch.setattr(stack.store, "latest_attempt", original_latest_attempt)
         assert claimed is True
         executed = [item for item in adapter.executed if item[0] == str(command.command_id)]
+        effects = adapter.effects.get(str(command.command_id), 0)
         if cancelled.state == "cancelled":
-            assert executed == []
+            tally["cancel_before_dispatch"] += 1
+            assert cancelled.cancelled_at is not None
+            assert executed == [] and effects == 0
+            assert await stack.commands.latest_attempt(TENANT, command.command_id) == 0
         else:
+            tally["cancel_after_attempt_open"] += 1
             assert cancelled.state == "reconciliation_required" and cancelled.cancelled_at is None
+            assert at_g2.is_set()
+            assert len(executed) <= 1 and effects <= 1
+        if mode == "at_readiness":
+            assert cancelled.state == "cancelled"
+        if mode == "after_open":
+            # Cancelled after the attempt opened, before the provider call: the
+            # pre-send re-read stops the send and records it as never sent.
+            assert cancelled.state == "reconciliation_required" and executed == [] and effects == 0
+            final = await stack.commands.get(TENANT, command.command_id)
+            assert final.state == "dead_lettered"
         final = await stack.commands.get(TENANT, command.command_id)
         if final.state == "dead_lettered":
             record = await stack.commands.get_dead_letter(TENANT, command.command_id)
             assert record.reason_code == "cancel_requested_provider_missing"
             if record.error_class == "cancelled_before_send":
-                assert executed == []
+                assert executed == [] and effects == 0
+    assert tally["cancel_before_dispatch"] > 0, tally
+    assert tally["cancel_after_attempt_open"] > 0, tally
+    assert sum(tally.values()) == 20
     assert await _stranded(pool) == []
 
 
