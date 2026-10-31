@@ -42,6 +42,15 @@ from app.api.internal.ai_jobs import router as internal_ai_jobs_router
 from app.api.internal.database import router as internal_database_router
 from app.api.internal.klyrow_events import router as klyrow_events_router
 from app.api.internal.klyrow_mail import router as klyrow_mail_router
+from app.api.internal.provider_canaries import (
+    router as internal_provider_canaries_router,
+)
+from app.api.internal.production_decision import (
+    router as internal_production_decision_router,
+)
+from app.api.internal.release_certification import (
+    router as internal_release_certification_router,
+)
 from app.api.internal.telnexa_events import router as telnexa_events_router
 from app.api.v1.activity import router as activity_router
 from app.api.v1.agent_provisioning import router as agent_provisioning_router
@@ -58,6 +67,7 @@ from app.api.v1.callbacks import router as callbacks_router
 from app.api.v1.calls import router as calls_router
 from app.api.v1.campaign_search import router as campaign_search_router
 from app.api.v1.campaigns import router as campaigns_router
+from app.api.v1.campaign_recycling import router as campaign_recycling_router
 from app.api.v1.commands import router as commands_router
 from app.api.v1.contacts import router as contacts_router
 from app.api.v1.control import legacy_events_router as control_legacy_events_router
@@ -127,6 +137,12 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     # Private read-only database operational evidence; explicit auth,
     # edge-denied under /internal/*, and shared by every profile.
     internal_database_router,
+    # Private fail-closed release certification: candidate, backup, restore
+    # rehearsal, rollback readiness, seal and lock readback; evaluation only.
+    internal_release_certification_router,
+    # Private production GO/NO_GO decision readback; read-only, explicit
+    # scopes, edge-denied under /internal/*, and shared by every profile.
+    internal_production_decision_router,
     # The V3 command kernel: the six /platform/v1 kernel routes, on every profile.
     platform_kernel_router,
     automation_v2_router,
@@ -145,6 +161,7 @@ CANONICAL_ROUTERS: tuple[APIRouter, ...] = (
     tickets_router,
     tenants_router,
     campaigns_router,
+    campaign_recycling_router,
     monitoring_router,
     observability_sync_router,
     integrations_router,
@@ -177,6 +194,10 @@ INTEGRATION_ROUTERS: tuple[APIRouter, ...] = (
     sales_router,
     booking_router,
     platform_router,
+    social_router,
+    # PAS-57 synthetic provider-canary controller; explicit auth, edge-denied
+    # under /internal/*, disabled by default.
+    internal_provider_canaries_router,
 )
 
 APPOLON_ROUTERS: tuple[APIRouter, ...] = (
@@ -208,15 +229,14 @@ MONOLITH_ROUTERS: tuple[APIRouter, ...] = (
     registry_router,
     recordings_router,
     recording_identity_router,
-    social_router,
 )
 
 # Deprecated routers that exist only on the in-process monolith. The canonical
 # edge contract classifies their paths as ``denied``: Kong and Caddy answer 404,
 # and the deployed application never mounts them (the release endpoint audit
-# fails if a denied path is mounted there). They stay on the monolith until
-# their published sunset so existing in-process callers keep receiving
-# Deprecation/Sunset/Link metadata; new use is prohibited.
+# fails if a denied path is mounted there). Their mutations are permanently
+# denied by config/legacy-effect-registry.v1.json (410 before any effect); only
+# the registered read-only compatibility reads still execute until the sunset.
 LEGACY_MONOLITH_ONLY_ROUTERS: tuple[APIRouter, ...] = (
     n8n_control_plane_router,
     domain_legacy_n8n_router,
@@ -313,7 +333,11 @@ def route_operations(app: FastAPI) -> list[tuple[str, str]]:
             methods = getattr(route, "methods", None)
             if not methods:
                 # Starlette Mount / WebSocketRoute
-                methods = ("WEBSOCKET",) if not hasattr(route, "app") or isinstance(route, APIRoute) else ("MOUNT",)
+                methods = (
+                    ("WEBSOCKET",)
+                    if not hasattr(route, "app") or isinstance(route, APIRoute)
+                    else ("MOUNT",)
+                )
             for method in sorted(methods):
                 operations.append((method, prefix + path))
 
@@ -321,12 +345,36 @@ def route_operations(app: FastAPI) -> list[tuple[str, str]]:
     return operations
 
 
-def assert_unique_routes(app: FastAPI) -> None:
-    """Refuse an application that registers the same operation twice."""
+def assert_unique_routes(app: FastAPI, *, deployed: bool = False) -> None:
+    """Refuse an application that registers the same operation twice.
+
+    ``deployed`` marks a non-monolith profile (the :8095 integration process
+    included): it must also never mount an edge-denied legacy route.
+    """
     counts = Counter(route_operations(app))
     duplicates = sorted(op for op, count in counts.items() if count > 1)
     if duplicates:
         raise DuplicateRouteError(
             "duplicate route registrations: "
             + ", ".join(f"{method} {path}" for method, path in duplicates)
+        )
+    if deployed:
+        assert_no_legacy_monolith_routes(app)
+
+
+def assert_no_legacy_monolith_routes(app: FastAPI) -> None:
+    """Fail startup, rather than wait for the release endpoint audit, when a
+    deployed composition mounts a LEGACY_MONOLITH_ONLY_ROUTERS route."""
+    forbidden = {
+        (method, path)
+        for router in LEGACY_MONOLITH_ONLY_ROUTERS
+        for route in router.routes
+        for path in [getattr(route, "path", None)]
+        for method in (getattr(route, "methods", None) or ())
+        if path is not None
+    }
+    leaked = sorted(forbidden & set(route_operations(app)))
+    if leaked:
+        raise RuntimeError(
+            f"deployed composition leaked legacy monolith-only routes: {leaked}"
         )

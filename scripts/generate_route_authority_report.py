@@ -60,6 +60,7 @@ KERNEL_CALLS = (
     ("platform.kernel.timeline(", "CommandKernel.timeline"),
     ("commands.submit(", "CommandService.submit"),
     ("commands.mutate_operation(", "CommandService.mutate_operation"),
+    ("commands.resolve_reconciliation(", "CommandService.resolve_reconciliation"),
     (".mutate_operation(", "CommandStore.mutate_operation"),
     ("active.commands", "CommandService"),
 )
@@ -88,6 +89,9 @@ READ_ONLY_POSTS = (
     r"/search$",
     r"/context/select$",
     r"/audit$",
+    # The no-effect rehearsal runs in an in-memory sandbox; the live ledger,
+    # outbox and providers are never written (app.platform.rehearsal).
+    r"^/platform/v1/rehearsals/no-effect$",
 )
 
 
@@ -166,6 +170,8 @@ def classify(method: str, path: str, route, overrides: dict[str, Any]) -> dict[s
             row["effectful"] = True
             if path.startswith("/platform/v1/commands") or path.startswith("/platform/v1/operations"):
                 row["scope"] = "platform.command.replay" if path.endswith("/replay") else "platform.command"
+            elif path.startswith(("/platform/v1/reconciliation/", "/platform/v1/dead-letters/")):
+                row["scope"] = "platform.command.replay"
             return row
     if any(re.search(pattern, path) for pattern in READ_ONLY_POSTS):
         row["classification"] = "READ_ONLY"

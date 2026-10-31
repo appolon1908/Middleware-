@@ -4,7 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Annotated
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request
+from app.factory import create_service_app
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -38,7 +39,7 @@ def executor() -> AgentExecutor:
     return AgentExecutor(roots)
 
 
-app = FastAPI(title="Codestra Server A Restricted Agent", version="1.0.0")
+app = create_service_app("Codestra Server A Restricted Agent", version="1.0.0")
 
 
 @app.post("/api/v1/tools/execute", status_code=202)

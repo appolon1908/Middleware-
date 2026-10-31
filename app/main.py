@@ -11,6 +11,7 @@ handling are owned by ``app.application``.
 from __future__ import annotations
 
 from app.application import AppProfile, create_app
+from app.core.bootstrap import StartupError
 from app.core.config import ConfigurationError
 from app.core.request_guard import (
     AI_CONSOLE_SELF_AUTHENTICATED_PATHS,
@@ -37,5 +38,5 @@ __all__ = [
 
 try:
     app = create_app(profile=AppProfile.MONOLITH)
-except ConfigurationError as exc:  # pragma: no cover - surfaced by the process entrypoint
+except (ConfigurationError, StartupError) as exc:  # pragma: no cover - surfaced by the process entrypoint
     raise RuntimeError(f"monolith configuration is invalid: {exc}") from exc

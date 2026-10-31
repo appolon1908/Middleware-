@@ -275,6 +275,11 @@ def evaluate_command(request: CommandPolicyRequest) -> CommandPolicyDecision:
         now = now.replace(tzinfo=timezone.utc)
     reasons: list[str] = []
 
+    # Highest-priority invariant: synthetic commands may never run in
+    # production, even when the caller also lacks other authority.
+    if request.environment == "production" and request.effect_classification == "synthetic":
+        reasons.append("synthetic_command_in_production")
+
     if request.required_scope not in request.scopes:
         reasons.append("scope_missing")
     if "*" in request.authorized_tenants:
@@ -298,12 +303,6 @@ def evaluate_command(request: CommandPolicyRequest) -> CommandPolicyDecision:
         reasons.append("campaign_scope_required")
     if request.operator_required and PLATFORM_OPERATOR_ROLE not in request.roles:
         reasons.append("operator_role_required")
-    if (
-        request.environment == "production"
-        and request.effect_classification == "synthetic"
-    ):
-        reasons.append("synthetic_command_in_production")
-
     allow = not reasons
     return CommandPolicyDecision(
         decision_id=str(uuid4()),

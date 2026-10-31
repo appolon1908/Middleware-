@@ -117,6 +117,16 @@ def caller_for_authorization(authorization: str) -> ControlPlaneCaller:
     return CONTROL_PLANE_CALLERS[_unverified_client_id(authorization)]
 
 
+def caller_for_client_id(client_id: str) -> ControlPlaneCaller:
+    """The *current* registry entry for a client, for execution-time
+    re-authorization of a durably persisted principal; a caller removed from
+    the registry after acceptance is no longer authorized."""
+    caller = CONTROL_PLANE_CALLERS.get(client_id)
+    if caller is None:
+        raise AuthorizationError("control-plane caller is no longer registered")
+    return caller
+
+
 def authorize_command(caller: ControlPlaneCaller, *, command_type: str, target: str) -> None:
     if not caller.connector_commands_allowed:
         raise AuthorizationError("caller has no connector command authority")
