@@ -8,7 +8,7 @@ No VEX signature, release tag, migration, production deployment, call, email,
 SMS, extension reservation, SIP activation, or n8n activation occurred.
 
 This pull request is review-only. It must remain open until an independent
-review is submitted by a GitHub user other than appolon1908-hue.
+review is submitted by a GitHub user other than appolon1908.
 
 ## Exact state under review
 

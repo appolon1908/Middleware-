@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .api_inputs import authorization_header
+
 import asyncio
 import base64
 import hashlib
@@ -14,6 +16,11 @@ from typing import Any, Literal, Mapping, Protocol
 from uuid import UUID, uuid5, NAMESPACE_URL
 
 import asyncpg
+
+from app.db.tenant_context import (
+    asyncpg_tenant_connection,
+    set_asyncpg_transaction_tenant_context,
+)
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -37,7 +44,7 @@ from .storage import (
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTING_PATH = ROOT / "config" / "automation-workflow-routing.v1.json"
-AUTOMATION_SCHEMA_VERSION = 1
+AUTOMATION_SCHEMA_VERSION = 3
 LEASE_SECONDS = 60
 MAX_SAFE_METADATA_BYTES = 16_384
 MAX_AUTOMATION_PAYLOAD_BYTES = 262_144
@@ -99,6 +106,10 @@ class AutomationNotFound(AutomationError):
 class AutomationConflict(AutomationError):
     code = "automation_conflict"
     status_code = 409
+
+
+class AutomationCancellationUnsupported(AutomationConflict):
+    code = "automation_cancel_unsupported"
 
 
 class AutomationCapabilityDisabled(AutomationAuthorizationDenied):
@@ -1267,14 +1278,13 @@ class PostgresAutomationStore:
         *,
         source_client_id: str,
     ) -> None:
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                await self.enqueue_event_on_connection(
-                    conn,
-                    envelope,
-                    route,
-                    source_client_id=source_client_id,
-                )
+        async with asyncpg_tenant_connection(self.pool, envelope.tenant_id) as conn:
+            await self.enqueue_event_on_connection(
+                conn,
+                envelope,
+                route,
+                source_client_id=source_client_id,
+            )
 
     async def enqueue_event_on_connection(
         self,
@@ -1284,6 +1294,7 @@ class PostgresAutomationStore:
         *,
         source_client_id: str,
     ) -> None:
+        await set_asyncpg_transaction_tenant_context(conn, envelope.tenant_id)
         job_id = _job_id(envelope.tenant_id, envelope.event_id, route)
         delivery_token = secrets.token_urlsafe(32)
         now = _utcnow()
@@ -1369,8 +1380,7 @@ class PostgresAutomationStore:
         lease_hash = _token_digest(lease_token)
         now = _utcnow()
         expires = now + timedelta(seconds=LEASE_SECONDS)
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 current = await conn.fetchrow(
                     """
                     SELECT * FROM middleware_automation_jobs
@@ -1460,7 +1470,7 @@ class PostgresAutomationStore:
                 )
 
     async def get_job(self, tenant_id: str, job_id: UUID) -> AutomationJob:
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM middleware_automation_jobs WHERE tenant_id=$1 AND job_id=$2",
                 tenant_id,
@@ -1516,8 +1526,7 @@ class PostgresAutomationStore:
     ) -> AutomationJob:
         now = _utcnow()
         expires = now + timedelta(seconds=LEASE_SECONDS)
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 current = await self._lease_row(
                     conn,
                     tenant_id=body.tenant_id,
@@ -1570,8 +1579,7 @@ class PostgresAutomationStore:
                 "safe_metadata": body.safe_metadata,
             }
         )
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 await self._lease_row(
                     conn,
                     tenant_id=body.tenant_id,
@@ -1666,8 +1674,7 @@ class PostgresAutomationStore:
                 "safe_result": body.safe_result,
             }
         )
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 current = await conn.fetchrow(
                     "SELECT * FROM middleware_automation_jobs WHERE tenant_id=$1 AND job_id=$2 FOR UPDATE",
                     body.tenant_id,
@@ -1740,8 +1747,7 @@ class PostgresAutomationStore:
                 "safe_error": body.safe_error,
             }
         )
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 current = await conn.fetchrow(
                     "SELECT * FROM middleware_automation_jobs WHERE tenant_id=$1 AND job_id=$2 FOR UPDATE",
                     body.tenant_id,
@@ -1899,8 +1905,7 @@ class PostgresAutomationStore:
             NAMESPACE_URL,
             f"codestra-approval:{body.tenant_id}:{body.job_id}:{body.idempotency_key}",
         )
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 job = await conn.fetchrow(
                     "SELECT * FROM middleware_automation_jobs WHERE tenant_id=$1 AND job_id=$2 FOR UPDATE",
                     body.tenant_id,
@@ -1958,8 +1963,7 @@ class PostgresAutomationStore:
         return self._approval_from_row(row, duplicate=duplicate)
 
     async def get_approval(self, tenant_id: str, approval_id: UUID) -> ApprovalRecord:
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
                 await conn.execute(
                     """
                     UPDATE middleware_automation_approvals
@@ -1979,7 +1983,7 @@ class PostgresAutomationStore:
         return self._approval_from_row(row)
 
     async def get_dead_letter(self, tenant_id: str, dead_letter_id: UUID) -> DeadLetterRecord:
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM middleware_automation_dead_letters WHERE tenant_id=$1 AND dead_letter_id=$2",
                 tenant_id,
@@ -1999,8 +2003,7 @@ class PostgresAutomationStore:
         if client_id != "n8n-operations-automation":
             raise AutomationAuthorizationDenied("only operations automation may request replay")
         request_digest = _digest(body.model_dump(mode="json"))
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 prior = await conn.fetchrow(
                     """
                     SELECT request_sha256,response_payload FROM middleware_automation_replay_requests
@@ -2136,8 +2139,7 @@ class PostgresAutomationStore:
             NAMESPACE_URL,
             f"codestra-automation-reconcile:{body.tenant_id}:{body.idempotency_key}",
         )
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        async with asyncpg_tenant_connection(self.pool, body.tenant_id) as conn:
                 existing = await conn.fetchrow(
                     """
                     SELECT * FROM middleware_automation_reconciliation_runs
@@ -2467,7 +2469,7 @@ async def _authorized(
     service: AutomationService,
     required_scope: str,
 ) -> tuple[dict[str, Any], str, AutomationClientPolicy]:
-    authorization = request.headers.get("Authorization", "")
+    authorization = authorization_header(request)
     client_id = _peek_client_id(authorization)
     claims = await request.app.state.runtime.tokens.verify(
         authorization,
@@ -2543,6 +2545,78 @@ async def read_automation_job(job_id: UUID, request: Request) -> JSONResponse:
     return _json_response(job, correlation_id=correlation_id)
 
 
+def _execution_status(job: AutomationJob) -> dict[str, Any]:
+    terminal = job.state in {"COMPLETED", "FAILED_TERMINAL", "DEAD_LETTER", "CANCELLED"}
+    unknown = job.state == "DEAD_LETTER"
+    return {
+        "execution_id": str(job.job_id),
+        "command_id": None,
+        "workflow": job.workflow_key,
+        "state": job.state,
+        "result_available": terminal and not unknown,
+        "result_code": job.result_code,
+        "error_code": job.error_code,
+        "provider_execution_reference": str(job.execution_id) if job.execution_id else None,
+        "reconciliation_state": "required" if unknown else "not_required",
+        "created_at": job.created_at.isoformat(),
+        "updated_at": job.updated_at.isoformat(),
+        "correlation_id": job.correlation_id,
+    }
+
+
+@v2_router.get("/executions/{job_id}")
+async def read_automation_execution(job_id: UUID, request: Request) -> JSONResponse:
+    tenant_id, correlation_id = _read_headers(request)
+    service = _automation(request)
+    claims, _, _ = await _authorized(request, service, "automation.job.read")
+    job = await service.store.get_job(tenant_id, job_id)
+    _authorize_family(service, claims, "automation.job.read", job.workflow_family)
+    return JSONResponse(
+        status_code=200,
+        content=_execution_status(job),
+        headers={"X-Correlation-ID": correlation_id},
+    )
+
+
+@v2_router.get("/executions/{job_id}/result")
+async def read_automation_execution_result(job_id: UUID, request: Request) -> JSONResponse:
+    tenant_id, correlation_id = _read_headers(request)
+    service = _automation(request)
+    claims, _, _ = await _authorized(request, service, "automation.job.read")
+    job = await service.store.get_job(tenant_id, job_id)
+    _authorize_family(service, claims, "automation.job.read", job.workflow_family)
+    status = _execution_status(job)
+    if job.state in {"PENDING", "DISPATCHING", "CLAIMED", "RUNNING", "WAITING_APPROVAL", "WAITING_TIMER", "WAITING_COMMAND", "RETRY_SCHEDULED"}:
+        status["result_state"] = "pending"
+    elif job.state == "COMPLETED":
+        status["result_state"] = "success"
+    elif job.state == "CANCELLED":
+        status["result_state"] = "cancelled"
+    elif job.state == "DEAD_LETTER":
+        status["result_state"] = "unknown"
+    else:
+        status["result_state"] = "failure"
+    return JSONResponse(
+        status_code=200,
+        content=status,
+        headers={"X-Correlation-ID": correlation_id},
+    )
+
+
+@v2_router.post("/executions/{job_id}/cancel")
+async def cancel_automation_execution(job_id: UUID, request: Request) -> JSONResponse:
+    tenant_id, _ = _read_headers(request)
+    service = _automation(request)
+    claims, _, _ = await _authorized(request, service, "automation.job.read")
+    job = await service.store.get_job(tenant_id, job_id)
+    _authorize_family(service, claims, "automation.job.read", job.workflow_family)
+    if job.state in {"COMPLETED", "FAILED_TERMINAL", "DEAD_LETTER", "CANCELLED"}:
+        raise AutomationConflict("terminal automation execution cannot be cancelled")
+    raise AutomationCancellationUnsupported(
+        "automation cancellation is not supported by the current connector/runtime capability"
+    )
+
+
 @v2_router.post("/jobs/{job_id}/heartbeat")
 async def heartbeat_automation_job(job_id: UUID, body: HeartbeatRequest, request: Request) -> JSONResponse:
     _assert_header_body_mirror(request, body)
@@ -2591,7 +2665,7 @@ async def fail_automation_job(job_id: UUID, body: FailureResult, request: Reques
 async def submit_automation_command(body: AutomationCommandRequest, request: Request) -> JSONResponse:
     _assert_header_body_mirror(request, body)
     service = _automation(request)
-    authorization = request.headers.get("Authorization", "")
+    authorization = authorization_header(request)
     client_id = _peek_client_id(authorization)
     try:
         command_family = service.policy.resolve_command_family(body.command_type)

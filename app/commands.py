@@ -13,6 +13,11 @@ from uuid import UUID
 import asyncpg
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.db.tenant_context import (
+    asyncpg_tenant_connection,
+    set_asyncpg_transaction_tenant_context,
+)
+
 from .canonical_contracts import validate_contract
 from .provider_canary import provider_evidence_digest
 
@@ -27,6 +32,31 @@ COMMAND_DESTINATIONS = frozenset(
 )
 ACTIVE_COMMAND_STATES = ("persisted", "queued", "dispatching", "accepted", "readback_pending")
 AUTHENTICATED_CLIENT_ID_KEY = "_authenticated_client_id"
+RESOLVE_RECONCILIATION_ACTION = "resolve_reconciliation"
+
+
+def _resolution_digest(
+    matched: bool,
+    expected_version: int,
+    reason: str,
+    provider_operation_id: str | None,
+    evidence: Mapping[str, Any],
+    mutation_correlation_id: str | None,
+) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "matched": matched,
+                "expected_version": expected_version,
+                "reason": reason[:2048],
+                "provider_operation_id": provider_operation_id,
+                "evidence_sha256": provider_evidence_digest(dict(evidence)),
+                "mutation_correlation_id": mutation_correlation_id,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
 CommandState = Literal[
     "persisted",
     "queued",
@@ -67,6 +97,18 @@ class OperationAttempt(BaseModel):
     safe_error_code: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
+    # The outbox lease the attempt executed under (worker identity + fencing
+    # token), so provider effects are attributable to one leased execution.
+    worker_id: str | None = None
+    fencing_token: int | None = None
+
+
+# The verified principal facts the kernel persists with a submission so the
+# worker can re-evaluate authorization against the *current* registry before
+# the provider effect. Never a token, never a secret.
+PRINCIPAL_SNAPSHOT_KEY = "_principal"
+
+
 ALLOWED_COMMAND_TRANSITIONS: dict[str, set[str]] = {
     "persisted": {"queued", "cancelled"},
     "queued": {"dispatching", "dead_lettered", "cancelled"},
@@ -90,6 +132,12 @@ class CommandError(RuntimeError):
 class CommandCapabilityDisabled(CommandError):
     status_code = 403
     code = "capability_disabled"
+
+
+def _mutation_evidence(mutation_correlation_id: str | None) -> dict[str, str]:
+    """Audit evidence naming the request that mutated an operation. The
+    operation keeps its original correlation_id; this records the operator's."""
+    return {"mutation_correlation_id": mutation_correlation_id[:180]} if mutation_correlation_id else {}
 
 
 class CommandConflict(CommandError):
@@ -137,6 +185,12 @@ class CommandEnvelope(BaseModel):
 
     @model_validator(mode="after")
     def enforce_canonical_contract(self) -> "CommandEnvelope":
+        from app.identity_service_contract import validate_service_command
+
+        validate_service_command(self.command_type, self.target, self.capability, self.payload)
+        from app.identity_missions import validate_event_idempotency
+
+        validate_event_idempotency(self.command_type, self.payload, self.idempotency_key)
         validate_contract("command", self.model_dump(mode="json"))
         return self
 
@@ -171,6 +225,44 @@ class OperationMutationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_version: int = Field(ge=1)
     reason: str = Field(min_length=1, max_length=500, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.: -]*$")
+
+
+class DeadLetterRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    dead_letter_id: int
+    tenant_id: str
+    command_id: UUID
+    attempt_number: int
+    reason_code: str
+    error_class: str
+    terminal_reason: str
+    correlation_id: str
+    principal_id: str
+    capability: str
+    poisoned: bool
+    retry_exhausted: bool
+    created_at: datetime
+
+
+def _dead_letter_from_row(row: Mapping[str, Any]) -> DeadLetterRecord:
+    data = dict(row)
+    data["dead_letter_id"] = data.pop("id")
+    return DeadLetterRecord(**data)
+
+
+class ReplayRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    replay_id: UUID
+    tenant_id: str
+    original_command_id: UUID
+    replay_command_id: UUID | None = None
+    requested_by: str
+    idempotency_key: str
+    reason: str
+    state: str
+    created_at: datetime
+    scheduled_at: datetime | None = None
+    cancelled_at: datetime | None = None
 
 
 def decode_readback_evidence(value: object) -> dict[str, Any] | None:
@@ -415,16 +507,52 @@ class CommandStore(Protocol):
         destination: str = TEMPORAL_COMMAND_DESTINATION,
         decision_evidence: Mapping[str, Any] | None = None,
         trace: Mapping[str, str] | None = None,
+        principal_snapshot: Mapping[str, Any] | None = None,
     ) -> CommandOperation:
+        ...
+
+    async def find_existing(
+        self,
+        command: CommandEnvelope,
+        *,
+        authenticated_client_id: str,
+    ) -> CommandOperation | None:
         ...
 
     async def get(self, tenant_id: str, command_id: UUID) -> CommandOperation:
         ...
 
+    async def principal_snapshot(self, tenant_id: str, command_id: UUID) -> dict[str, Any] | None:
+        ...
+
+    async def dead_letter(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        actor_id: str,
+        reason: str,
+        reason_code: str,
+        error_class: str,
+        terminal_reason: str,
+        poisoned: bool = False,
+        retry_exhausted: bool = False,
+        expected_attempt: int | None = None,
+        terminal_state: Literal["dead_lettered", "failed"] = "dead_lettered",
+    ) -> DeadLetterRecord:
+        ...
+
     async def list_operations(self, tenant_id: str, *, limit: int, position: tuple[datetime, UUID] | None = None, state: str | None = None, command_type: str | None = None) -> list[CommandOperation]: ...
     async def list_events(self, tenant_id: str, command_id: UUID, *, limit: int, position: tuple[datetime, int] | None = None) -> list[OperationEvent]: ...
     async def list_attempts(self, tenant_id: str, command_id: UUID, *, limit: int, position: tuple[int, int] | None = None) -> list[OperationAttempt]: ...
-    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str) -> CommandOperation: ...
+    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None) -> CommandOperation: ...
+    async def record_dead_letter(self, tenant_id: str, command_id: UUID, *, actor_id: str, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool = False, retry_exhausted: bool = False) -> DeadLetterRecord: ...
+    async def list_dead_letters(self, tenant_id: str, *, limit: int = 100) -> list[DeadLetterRecord]: ...
+    async def get_dead_letter(self, tenant_id: str, command_id: UUID) -> DeadLetterRecord: ...
+    async def create_replay(self, tenant_id: str, command_id: UUID, *, replay_id: UUID, actor_id: str, idempotency_key: str, reason: str, scheduled_at: datetime | None = None) -> ReplayRecord: ...
+    async def complete_replay(self, tenant_id: str, replay_id: UUID, replay_command_id: UUID) -> ReplayRecord: ...
+    async def cancel_replay(self, tenant_id: str, replay_id: UUID, *, actor_id: str) -> ReplayRecord: ...
+    async def list_replays(self, tenant_id: str, command_id: UUID) -> list[ReplayRecord]: ...
 
     async def ready(self) -> bool:
         ...
@@ -440,6 +568,8 @@ class CommandStore(Protocol):
         provider_operation_id: str | None = None,
         readback_evidence: Mapping[str, Any] | None = None,
         expected_attempt: int | None = None,
+        worker_id: str | None = None,
+        fencing_token: int | None = None,
     ) -> CommandOperation:
         ...
 
@@ -453,6 +583,24 @@ class CommandStore(Protocol):
         reason: str,
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
+        expected_version: int | None = None,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        ...
+
+    async def resolve_reconciliation(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        idempotency_key: str,
+        expected_version: int,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         ...
 
@@ -462,7 +610,7 @@ class CommandStore(Protocol):
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
         ...
 
-    async def backlog(self, tenant_id: str) -> tuple[int, int]:
+    async def backlog(self, tenant_id: str) -> tuple[int, int | None]:
         ...
 
     async def close(self) -> None:
@@ -478,19 +626,18 @@ class MemoryCommandStore:
         self._mutations: dict[tuple[str, UUID, str, str, str], tuple[str, CommandOperation]] = {}
         self._payloads: dict[tuple[str, UUID], dict[str, Any]] = {}
         self._outbox: list[MemoryOutboxIntent] = []
+        self._dead_letters: dict[tuple[str, UUID], DeadLetterRecord] = {}
+        self._replays: dict[tuple[str, UUID], ReplayRecord] = {}
+        self._replay_keys: dict[tuple[str, UUID, str], UUID] = {}
 
-    async def submit(
+    async def find_existing(
         self,
         command: CommandEnvelope,
         *,
         authenticated_client_id: str,
-        destination: str = TEMPORAL_COMMAND_DESTINATION,
-        decision_evidence: Mapping[str, Any] | None = None,
-        trace: Mapping[str, str] | None = None,
-    ) -> CommandOperation:
-        if destination not in COMMAND_DESTINATIONS:
-            raise CommandConflict(f"unsupported command destination {destination}")
-        digest = authenticated_command_digest(command, authenticated_client_id)
+    ) -> CommandOperation | None:
+        """The operation an exact replay refers to, ``None`` when the identity
+        is new, ``CommandConflict`` when the identity was reused differently."""
         command_key = (command.tenant_id, command.command_id)
         idempotency_key = (command.tenant_id, command.idempotency_key)
         existing_by_id = self._commands.get(command_key)
@@ -504,14 +651,30 @@ class MemoryCommandStore:
                 "command and idempotency identities refer to different operations"
             )
         existing = existing_by_id or existing_by_idempotency
+        if existing is None:
+            return None
+        if not command_digest_matches(existing[0], command, authenticated_client_id):
+            raise CommandConflict("command identity was reused with different content")
+        return existing[1].model_copy(update={"duplicate": True})
+
+    async def submit(
+        self,
+        command: CommandEnvelope,
+        *,
+        authenticated_client_id: str,
+        destination: str = TEMPORAL_COMMAND_DESTINATION,
+        decision_evidence: Mapping[str, Any] | None = None,
+        trace: Mapping[str, str] | None = None,
+        principal_snapshot: Mapping[str, Any] | None = None,
+    ) -> CommandOperation:
+        if destination not in COMMAND_DESTINATIONS:
+            raise CommandConflict(f"unsupported command destination {destination}")
+        digest = authenticated_command_digest(command, authenticated_client_id)
+        command_key = (command.tenant_id, command.command_id)
+        idempotency_key = (command.tenant_id, command.idempotency_key)
+        existing = await self.find_existing(command, authenticated_client_id=authenticated_client_id)
         if existing is not None:
-            if not command_digest_matches(
-                existing[0], command, authenticated_client_id
-            ):
-                raise CommandConflict(
-                    "command identity was reused with different content"
-                )
-            return existing[1].model_copy(update={"duplicate": True})
+            return existing
 
         now = datetime.now().astimezone()
         operation = CommandOperation(
@@ -523,13 +686,18 @@ class MemoryCommandStore:
         entry = (digest, operation)
         self._commands[command_key] = entry
         self._idempotency[idempotency_key] = entry
-        self._events[command_key] = [OperationEvent(event_id=1, operation_id=command.command_id, previous_state=None, new_state="persisted", actor_id=command.requested_by, reason="validated command and persisted delivery intent", safe_metadata={"authenticated_client_id": authenticated_client_id, **redact_metadata(dict(decision_evidence or {}))}, created_at=now)]
+        submission_metadata: dict[str, Any] = {"authenticated_client_id": authenticated_client_id, **redact_metadata(dict(decision_evidence or {}))}
+        if principal_snapshot:
+            submission_metadata["principal"] = redact_metadata(dict(principal_snapshot))
+        self._events[command_key] = [OperationEvent(event_id=1, operation_id=command.command_id, previous_state=None, new_state="persisted", actor_id=command.requested_by, reason="validated command and persisted delivery intent", safe_metadata=submission_metadata, created_at=now)]
         self._attempts[command_key] = []
         payload = authenticated_command_payload(command, authenticated_client_id)
         self._payloads[command_key] = payload
         intent_payload = dict(payload)
         if trace:
             intent_payload["_trace"] = dict(trace)
+        if principal_snapshot:
+            intent_payload[PRINCIPAL_SNAPSHOT_KEY] = redact_metadata(dict(principal_snapshot))
         self._outbox.append(
             MemoryOutboxIntent(
                 id=len(self._outbox) + 1,
@@ -550,6 +718,12 @@ class MemoryCommandStore:
         await self.get(tenant_id, command_id)
         return len(self._attempts.get((tenant_id, command_id), []))
 
+    async def principal_snapshot(self, tenant_id: str, command_id: UUID) -> dict[str, Any] | None:
+        await self.get(tenant_id, command_id)
+        events = self._events.get((tenant_id, command_id), [])
+        snapshot = events[0].safe_metadata.get("principal") if events else None
+        return dict(snapshot) if isinstance(snapshot, Mapping) else None
+
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
         await self.get(tenant_id, command_id)
         return command_envelope_from_payload(self._payloads[(tenant_id, command_id)])
@@ -568,6 +742,8 @@ class MemoryCommandStore:
         reason: str,
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
+        expected_version: int | None = None,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         key = (tenant_id, command_id)
         entry = self._commands.get(key)
@@ -576,6 +752,8 @@ class MemoryCommandStore:
         digest, operation = entry
         if operation.state != "reconciliation_required":
             raise CommandConflict("operation is no longer awaiting reconciliation")
+        if expected_version is not None and operation.resource_version != expected_version:
+            raise CommandConflict("expected_version is stale")
         now = datetime.now().astimezone()
         safe_evidence = dict(evidence)
         evidence_digest = provider_evidence_digest(safe_evidence)
@@ -594,11 +772,42 @@ class MemoryCommandStore:
         self._commands[key] = (digest, updated)
         self._idempotency[(tenant_id, updated.idempotency_key)] = (digest, updated)
         events = self._events[key]
-        events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state="reconciliation_required", new_state=updated.state, actor_id=actor_id, reason=reason[:2048], safe_metadata={"provider_operation_id": provider_operation_id, "readback_evidence_sha256": evidence_digest, "reconciliation_status": "matched" if matched else "mismatch"}, created_at=now))
+        events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state="reconciliation_required", new_state=updated.state, actor_id=actor_id, reason=reason[:2048], safe_metadata={"provider_operation_id": provider_operation_id, "readback_evidence_sha256": evidence_digest, "reconciliation_status": "matched" if matched else "mismatch", **({"mutation_correlation_id": mutation_correlation_id} if mutation_correlation_id else {})}, created_at=now))
         attempts = self._attempts[key]
         if attempts:
             attempts[-1] = attempts[-1].model_copy(update={"state": updated.state, "provider_operation_id": provider_operation_id or attempts[-1].provider_operation_id, "safe_error_code": None if matched else "provider_readback_mismatch", "finished_at": now})
         return updated
+
+    async def resolve_reconciliation(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        idempotency_key: str,
+        expected_version: int,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        if (tenant_id, command_id) not in self._commands:
+            raise CommandNotFound("command operation was not found")
+        request_digest = _resolution_digest(matched, expected_version, reason, provider_operation_id, evidence, mutation_correlation_id)
+        mutation_key = (tenant_id, command_id, RESOLVE_RECONCILIATION_ACTION, actor_id, idempotency_key)
+        replay = self._mutations.get(mutation_key)
+        if replay:
+            if replay[0] != request_digest:
+                raise CommandConflict("idempotency key was reused with different mutation content")
+            return replay[1].model_copy(update={"duplicate": True})
+        operation = await self.reconcile(
+            tenant_id, command_id, matched=matched, actor_id=actor_id, reason=reason,
+            provider_operation_id=provider_operation_id, evidence=evidence, expected_version=expected_version,
+            mutation_correlation_id=mutation_correlation_id,
+        )
+        self._mutations[mutation_key] = (request_digest, operation)
+        return operation
 
     async def get(self, tenant_id: str, command_id: UUID) -> CommandOperation:
         entry = self._commands.get((tenant_id, command_id))
@@ -637,7 +846,7 @@ class MemoryCommandStore:
             ]
         return rows[:limit]
 
-    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str) -> CommandOperation:
+    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None) -> CommandOperation:
         key = (tenant_id, command_id)
         entry = self._commands.get(key)
         if entry is None:
@@ -687,7 +896,7 @@ class MemoryCommandStore:
                     item.lease_owner = None
                     item.lease_until = None
         else:
-            if operation.state != "failed":
+            if operation.state not in {"failed", "dead_lettered"}:
                 raise CommandConflict("operation is not safely retryable")
             updates = {"state": "queued", "last_error": None}
             source = intents[-1] if intents else None
@@ -706,7 +915,7 @@ class MemoryCommandStore:
         updated = operation.model_copy(update={**updates, "resource_version": operation.resource_version + 1, "updated_at": now})
         self._commands[key] = (digest, updated)
         events = self._events[key]
-        events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state=operation.state, new_state=updated.state, actor_id=actor_id, reason=reason, safe_metadata={"action": action, "resource_version": updated.resource_version}, created_at=now))
+        events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state=operation.state, new_state=updated.state, actor_id=actor_id, reason=reason, safe_metadata={"action": action, "resource_version": updated.resource_version, **_mutation_evidence(mutation_correlation_id)}, created_at=now))
         self._mutations[mutation_key] = (request_digest, updated)
         return updated
 
@@ -724,6 +933,8 @@ class MemoryCommandStore:
         provider_operation_id: str | None = None,
         readback_evidence: Mapping[str, Any] | None = None,
         expected_attempt: int | None = None,
+        worker_id: str | None = None,
+        fencing_token: int | None = None,
     ) -> CommandOperation:
         if readback_evidence is not None and new_state not in {
             "completed", "reconciliation_required",
@@ -770,13 +981,121 @@ class MemoryCommandStore:
         events.append(OperationEvent(event_id=len(events) + 1, operation_id=command_id, previous_state=operation.state, new_state=new_state, actor_id=actor_id, reason=reason[:2048], safe_metadata={"provider_operation_id": provider_operation_id}, created_at=now))
         attempts = self._attempts[key]
         if new_state == "dispatching":
-            attempts.append(OperationAttempt(attempt_id=len(attempts) + 1, operation_id=command_id, attempt_number=len(attempts) + 1, state=new_state, provider_operation_id=provider_operation_id, started_at=now))
-        elif attempts:
-            attempts[-1] = attempts[-1].model_copy(update={"state": new_state, "provider_operation_id": provider_operation_id or attempts[-1].provider_operation_id, "safe_error_code": "operation_failed" if new_state in {"failed", "reconciliation_required"} else None, "finished_at": now if new_state in {"completed", "failed", "reconciliation_required"} else None})
+            attempts.append(OperationAttempt(attempt_id=len(attempts) + 1, operation_id=command_id, attempt_number=len(attempts) + 1, state=new_state, provider_operation_id=provider_operation_id, started_at=now, worker_id=worker_id, fencing_token=fencing_token))
+        elif new_state in {"accepted", "readback_pending", "completed", "failed", "reconciliation_required"}:
+            # Only the open attempt changes; terminal attempts are immutable
+            # history (runtime SQL 0015), exactly as the PostgreSQL twin.
+            open_index = next((index for index in range(len(attempts) - 1, -1, -1) if attempts[index].state not in {"completed", "failed"}), None)
+            if open_index is not None:
+                current_attempt = attempts[open_index]
+                attempts[open_index] = current_attempt.model_copy(update={"state": new_state, "provider_operation_id": provider_operation_id or current_attempt.provider_operation_id, "safe_error_code": "operation_failed" if new_state in {"failed", "reconciliation_required"} else None, "finished_at": now if new_state in {"completed", "failed", "reconciliation_required"} else None})
         return updated
 
     async def close(self) -> None:
         return None
+
+    async def dead_letter(self, tenant_id: str, command_id: UUID, *, actor_id: str, reason: str, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool = False, retry_exhausted: bool = False, expected_attempt: int | None = None, terminal_state: Literal["dead_lettered", "failed"] = "dead_lettered") -> DeadLetterRecord:
+        """The terminal transition and its dead-letter record as one durable step.
+
+        ``terminal_state="failed"`` closes the open attempt as a deterministic
+        provider rejection (retryable by an operator) while still recording it
+        for recovery; the default parks the operation as dead-lettered."""
+        operation = await self.get(tenant_id, command_id)
+        if terminal_state == "failed":
+            if operation.state != "failed":
+                await self.transition(tenant_id, command_id, new_state="failed", actor_id=actor_id, reason=reason, expected_attempt=expected_attempt)
+        else:
+            if operation.state == "persisted":
+                await self.transition(tenant_id, command_id, new_state="queued", actor_id=actor_id, reason="claimed for dead-lettering")
+                operation = await self.get(tenant_id, command_id)
+            if operation.state != "dead_lettered":
+                await self.transition(tenant_id, command_id, new_state="dead_lettered", actor_id=actor_id, reason=reason, expected_attempt=expected_attempt)
+        return await self.record_dead_letter(
+            tenant_id, command_id, actor_id=actor_id, reason_code=reason_code, error_class=error_class,
+            terminal_reason=terminal_reason, poisoned=poisoned, retry_exhausted=retry_exhausted,
+        )
+
+    async def record_dead_letter(self, tenant_id: str, command_id: UUID, *, actor_id: str, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool = False, retry_exhausted: bool = False) -> DeadLetterRecord:
+        operation = await self.get(tenant_id, command_id)
+        key = (tenant_id, command_id)
+        existing = self._dead_letters.get(key)
+        if existing is not None:
+            return existing
+        record = DeadLetterRecord(
+            dead_letter_id=len(self._dead_letters) + 1,
+            tenant_id=tenant_id,
+            command_id=command_id,
+            attempt_number=await self.latest_attempt(tenant_id, command_id),
+            reason_code=reason_code,
+            error_class=error_class,
+            terminal_reason=terminal_reason[:2048],
+            correlation_id=operation.correlation_id,
+            principal_id=operation.requested_by,
+            capability=operation.capability,
+            poisoned=poisoned,
+            retry_exhausted=retry_exhausted,
+            created_at=datetime.now().astimezone(),
+        )
+        self._dead_letters[key] = record
+        return record
+
+    async def list_dead_letters(self, tenant_id: str, *, limit: int = 100) -> list[DeadLetterRecord]:
+        rows = [row for (row_tenant, _), row in self._dead_letters.items() if row_tenant == tenant_id]
+        rows.sort(key=lambda row: (row.created_at, row.dead_letter_id), reverse=True)
+        return rows[:limit]
+
+    async def get_dead_letter(self, tenant_id: str, command_id: UUID) -> DeadLetterRecord:
+        row = self._dead_letters.get((tenant_id, command_id))
+        if row is None:
+            raise CommandNotFound("dead-letter record was not found")
+        return row
+
+    async def create_replay(self, tenant_id: str, command_id: UUID, *, replay_id: UUID, actor_id: str, idempotency_key: str, reason: str, scheduled_at: datetime | None = None) -> ReplayRecord:
+        await self.get_dead_letter(tenant_id, command_id)
+        key = (tenant_id, command_id, idempotency_key)
+        existing_id = self._replay_keys.get(key)
+        if existing_id is not None:
+            existing = self._replays[(tenant_id, existing_id)]
+            if existing.reason != reason:
+                raise CommandConflict("replay idempotency key was reused with different content")
+            return existing
+        record = ReplayRecord(
+            replay_id=replay_id, tenant_id=tenant_id, original_command_id=command_id,
+            requested_by=actor_id, idempotency_key=idempotency_key, reason=reason,
+            state="scheduled" if scheduled_at else "requested", scheduled_at=scheduled_at,
+            created_at=datetime.now().astimezone(),
+        )
+        self._replays[(tenant_id, replay_id)] = record
+        self._replay_keys[key] = replay_id
+        return record
+
+    async def complete_replay(self, tenant_id: str, replay_id: UUID, replay_command_id: UUID) -> ReplayRecord:
+        key = (tenant_id, replay_id)
+        row = self._replays.get(key)
+        if row is None:
+            raise CommandNotFound("replay request was not found")
+        if row.state == "cancelled":
+            raise CommandConflict("cancelled replay cannot execute")
+        updated = row.model_copy(update={"state": "submitted", "replay_command_id": replay_command_id})
+        self._replays[key] = updated
+        return updated
+
+    async def cancel_replay(self, tenant_id: str, replay_id: UUID, *, actor_id: str) -> ReplayRecord:
+        key = (tenant_id, replay_id)
+        row = self._replays.get(key)
+        if row is None:
+            raise CommandNotFound("replay request was not found")
+        if row.state not in {"requested", "scheduled"}:
+            raise CommandConflict("replay can only be cancelled before execution")
+        updated = row.model_copy(update={"state": "cancelled", "cancelled_at": datetime.now().astimezone()})
+        self._replays[key] = updated
+        return updated
+
+    async def list_replays(self, tenant_id: str, command_id: UUID) -> list[ReplayRecord]:
+        await self.get(tenant_id, command_id)
+        rows = [row for (row_tenant, _), row in self._replays.items() if row_tenant == tenant_id and row.original_command_id == command_id]
+        rows.sort(key=lambda row: row.created_at)
+        return rows
 
 
 class PostgresCommandStore:
@@ -817,6 +1136,8 @@ class PostgresCommandStore:
             "error_detail",
             "started_at",
             "finished_at",
+            "worker_id",
+            "fencing_token",
         },
         "middleware_command_audit": {
             "id",
@@ -830,6 +1151,8 @@ class PostgresCommandStore:
             "created_at",
         },
         "middleware_operation_mutations": {"id", "tenant_id", "command_id", "action", "actor_id", "idempotency_key", "request_sha256", "response_status", "response_payload", "created_at"},
+        "middleware_command_dead_letters": {"id", "tenant_id", "command_id", "attempt_number", "reason_code", "error_class", "terminal_reason", "correlation_id", "principal_id", "capability", "poisoned", "retry_exhausted", "created_at"},
+        "middleware_command_replays": {"replay_id", "tenant_id", "original_command_id", "replay_command_id", "requested_by", "idempotency_key", "reason", "state", "scheduled_at", "cancelled_at", "created_at"},
     }
     REQUIRED_KEYS = {
         ("middleware_commands", "PRIMARY KEY", ("tenant_id", "command_id")),
@@ -847,8 +1170,17 @@ class PostgresCommandStore:
         ("middleware_command_audit", "PRIMARY KEY", ("id",)),
         ("middleware_operation_mutations", "PRIMARY KEY", ("id",)),
         ("middleware_operation_mutations", "UNIQUE", ("tenant_id", "command_id", "action", "actor_id", "idempotency_key")),
+        ("middleware_command_dead_letters", "PRIMARY KEY", ("id",)),
+        ("middleware_command_dead_letters", "UNIQUE", ("tenant_id", "command_id")),
+        ("middleware_command_replays", "PRIMARY KEY", ("replay_id",)),
+        ("middleware_command_replays", "UNIQUE", ("tenant_id", "original_command_id", "idempotency_key")),
     }
-    REQUIRED_TRIGGERS = {"middleware_command_audit_immutable", "middleware_operation_mutations_immutable"}
+    REQUIRED_TRIGGERS = {
+        "middleware_command_audit_immutable",
+        "middleware_operation_mutations_immutable",
+        "middleware_command_dead_letters_immutable",
+        "middleware_command_attempts_immutable_history",
+    }
 
     def __init__(self, pool: asyncpg.Pool, *, owns_pool: bool = True) -> None:
         self.pool = pool
@@ -917,17 +1249,48 @@ class PostgresCommandStore:
         destination: str = TEMPORAL_COMMAND_DESTINATION,
         decision_evidence: Mapping[str, Any] | None = None,
         trace: Mapping[str, str] | None = None,
+        principal_snapshot: Mapping[str, Any] | None = None,
     ) -> CommandOperation:
+        async with asyncpg_tenant_connection(self.pool, command.tenant_id) as conn:
+            return await self.submit_on_connection(
+                conn,
+                command,
+                authenticated_client_id=authenticated_client_id,
+                destination=destination,
+                decision_evidence=decision_evidence,
+                trace=trace,
+                principal_snapshot=principal_snapshot,
+            )
+
+    async def find_existing(
+        self,
+        command: CommandEnvelope,
+        *,
+        authenticated_client_id: str,
+    ) -> CommandOperation | None:
+        """The operation an exact replay refers to (same tenant, key and
+        provenance-bound digest), ``None`` for a new identity, and
+        ``CommandConflict`` when the key or command id was reused differently."""
         async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                return await self.submit_on_connection(
-                    conn,
-                    command,
-                    authenticated_client_id=authenticated_client_id,
-                    destination=destination,
-                    decision_evidence=decision_evidence,
-                    trace=trace,
-                )
+            rows = await conn.fetch(
+                """
+                SELECT * FROM middleware_commands
+                WHERE (tenant_id=$1 AND command_id=$2)
+                   OR (tenant_id=$1 AND idempotency_key=$3)
+                ORDER BY created_at ASC
+                """,
+                command.tenant_id,
+                str(command.command_id),
+                command.idempotency_key,
+            )
+        if not rows:
+            return None
+        identities = {(item["command_id"], item["idempotency_key"]) for item in rows}
+        if len(identities) != 1 or not command_digest_matches(
+            rows[0]["payload_sha256"], command, authenticated_client_id
+        ):
+            raise CommandConflict("command identity was reused with different content")
+        return self._operation(rows[0], duplicate=True)
 
     async def submit_on_connection(
         self,
@@ -939,6 +1302,7 @@ class PostgresCommandStore:
         destination: str = TEMPORAL_COMMAND_DESTINATION,
         decision_evidence: Mapping[str, Any] | None = None,
         trace: Mapping[str, str] | None = None,
+        principal_snapshot: Mapping[str, Any] | None = None,
     ) -> CommandOperation:
         """Persist a command using the caller's transaction.
 
@@ -949,11 +1313,21 @@ class PostgresCommandStore:
 
         if destination not in COMMAND_DESTINATIONS:
             raise CommandConflict(f"unsupported command destination {destination}")
+        await set_asyncpg_transaction_tenant_context(conn, command.tenant_id)
         digest = authenticated_command_digest(command, authenticated_client_id)
         payload = authenticated_command_payload(command, authenticated_client_id)
         intent_payload = dict(payload)
         if trace:
             intent_payload["_trace"] = {str(key): str(value) for key, value in trace.items()}
+        safe_principal = redact_metadata(dict(principal_snapshot)) if principal_snapshot else None
+        if safe_principal:
+            intent_payload[PRINCIPAL_SNAPSHOT_KEY] = safe_principal
+        submission_metadata: dict[str, Any] = {
+            "authenticated_client_id": authenticated_client_id,
+            **redact_metadata(dict(decision_evidence or {})),
+        }
+        if safe_principal:
+            submission_metadata["principal"] = safe_principal
         row = await conn.fetchrow(
             """
             INSERT INTO middleware_commands (
@@ -989,10 +1363,7 @@ class PostgresCommandStore:
                 command.requested_by,
                 "validated command and persisted delivery intent",
                 json.dumps(
-                    {
-                        "authenticated_client_id": authenticated_client_id,
-                        **redact_metadata(dict(decision_evidence or {})),
-                    },
+                    submission_metadata,
                     separators=(",", ":"),
                     sort_keys=True,
                     default=str,
@@ -1043,7 +1414,7 @@ class PostgresCommandStore:
         return self._operation(existing_rows[0], duplicate=True)
 
     async def get(self, tenant_id: str, command_id: UUID) -> CommandOperation:
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
                 tenant_id,
@@ -1079,7 +1450,7 @@ class PostgresCommandStore:
         )
 
     async def list_operations(self, tenant_id: str, *, limit: int, position: tuple[datetime, UUID] | None = None, state: str | None = None, command_type: str | None = None) -> list[CommandOperation]:
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             rows = await conn.fetch(
                 """SELECT * FROM middleware_commands WHERE tenant_id=$1
                    AND ($2::text IS NULL OR state=$2)
@@ -1093,7 +1464,7 @@ class PostgresCommandStore:
 
     async def list_events(self, tenant_id: str, command_id: UUID, *, limit: int, position: tuple[datetime, int] | None = None) -> list[OperationEvent]:
         await self.get(tenant_id, command_id)
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             rows = await conn.fetch(
                 """SELECT id, command_id, previous_state, new_state, actor_id, reason, metadata, created_at
                    FROM middleware_command_audit WHERE tenant_id=$1 AND command_id=$2
@@ -1105,20 +1476,21 @@ class PostgresCommandStore:
 
     async def list_attempts(self, tenant_id: str, command_id: UUID, *, limit: int, position: tuple[int, int] | None = None) -> list[OperationAttempt]:
         await self.get(tenant_id, command_id)
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             rows = await conn.fetch(
-                """SELECT id, command_id, attempt_number, state, provider_operation_id, error_code, started_at, finished_at
+                """SELECT id, command_id, attempt_number, state, provider_operation_id, error_code, started_at, finished_at, worker_id, fencing_token
                    FROM middleware_command_attempts WHERE tenant_id=$1 AND command_id=$2
                      AND ($3::integer IS NULL OR (attempt_number, id) > ($3, $4))
                    ORDER BY attempt_number ASC, id ASC LIMIT $5""",
                 tenant_id, str(command_id), position[0] if position else None, position[1] if position else None, limit,
             )
-        return [OperationAttempt(attempt_id=row["id"], operation_id=row["command_id"], attempt_number=row["attempt_number"], state=row["state"], provider_operation_id=row["provider_operation_id"], safe_error_code=row["error_code"], started_at=row["started_at"], finished_at=row["finished_at"]) for row in rows]
+        return [OperationAttempt(attempt_id=row["id"], operation_id=row["command_id"], attempt_number=row["attempt_number"], state=row["state"], provider_operation_id=row["provider_operation_id"], safe_error_code=row["error_code"], started_at=row["started_at"], finished_at=row["finished_at"], worker_id=row["worker_id"], fencing_token=row["fencing_token"]) for row in rows]
 
-    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str) -> CommandOperation:
+    async def mutate_operation(self, tenant_id: str, command_id: UUID, *, action: Literal["cancel", "reconcile", "retry"], actor_id: str, idempotency_key: str, expected_version: int, reason: str, mutation_correlation_id: str | None = None) -> CommandOperation:
         request_digest = hashlib.sha256(json.dumps({"expected_version": expected_version, "reason": reason}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         async with self.pool.acquire() as conn:
             async with conn.transaction():
+                await set_asyncpg_transaction_tenant_context(conn, tenant_id)
                 current = await conn.fetchrow("SELECT * FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE", tenant_id, str(command_id))
                 if current is None:
                     raise CommandNotFound("command operation was not found")
@@ -1195,13 +1567,133 @@ class PostgresCommandStore:
                         VALUES ($1,$2,$3,$4,$5::jsonb,$6) ON CONFLICT DO NOTHING""", tenant_id, str(command_id), retry_destination or TEMPORAL_COMMAND_DESTINATION, current["command_type"], json.dumps(retry_envelope), work_key)
                 assert row is not None
                 await conn.execute("""INSERT INTO middleware_command_audit (tenant_id, command_id, previous_state, new_state, actor_id, reason, metadata)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)""", tenant_id, str(command_id), previous, new_state, actor_id, reason, json.dumps({"action": action, "resource_version": row["resource_version"]}))
+                    VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)""", tenant_id, str(command_id), previous, new_state, actor_id, reason, json.dumps({"action": action, "resource_version": row["resource_version"], **_mutation_evidence(mutation_correlation_id)}))
                 operation = self._operation(row)
                 payload = operation.model_dump(mode="json")
                 payload["state"] = operation.state
                 await conn.execute("""INSERT INTO middleware_operation_mutations (tenant_id, command_id, action, actor_id, idempotency_key, request_sha256, response_status, response_payload)
                     VALUES ($1,$2,$3,$4,$5,$6,200,$7::jsonb)""", tenant_id, str(command_id), action, actor_id, idempotency_key, request_digest, json.dumps(payload, separators=(",", ":"), sort_keys=True))
                 return operation
+
+    async def record_dead_letter(self, tenant_id: str, command_id: UUID, *, actor_id: str, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool = False, retry_exhausted: bool = False) -> DeadLetterRecord:
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                row = await self._record_dead_letter_on_connection(
+                    conn, tenant_id, command_id, reason_code=reason_code, error_class=error_class,
+                    terminal_reason=terminal_reason, poisoned=poisoned, retry_exhausted=retry_exhausted,
+                )
+        return _dead_letter_from_row(row)
+
+    async def _record_dead_letter_on_connection(self, conn: asyncpg.Connection, tenant_id: str, command_id: UUID, *, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool, retry_exhausted: bool) -> asyncpg.Record:
+        command = await conn.fetchrow("SELECT correlation_id,requested_by,capability FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE", tenant_id, str(command_id))
+        if command is None:
+            raise CommandNotFound("command operation was not found")
+        attempt = await conn.fetchval("SELECT COALESCE(max(attempt_number),0) FROM middleware_command_attempts WHERE tenant_id=$1 AND command_id=$2", tenant_id, str(command_id))
+        row = await conn.fetchrow("""INSERT INTO middleware_command_dead_letters
+            (tenant_id,command_id,attempt_number,reason_code,error_class,terminal_reason,correlation_id,principal_id,capability,poisoned,retry_exhausted)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            ON CONFLICT(tenant_id,command_id) DO NOTHING RETURNING *""",
+            tenant_id,str(command_id),int(attempt or 0),reason_code[:100],error_class[:100],terminal_reason[:2048],
+            command["correlation_id"],command["requested_by"],command["capability"],poisoned,retry_exhausted)
+        if row is None:
+            row = await conn.fetchrow("SELECT * FROM middleware_command_dead_letters WHERE tenant_id=$1 AND command_id=$2",tenant_id,str(command_id))
+        assert row is not None
+        return row
+
+    async def dead_letter(self, tenant_id: str, command_id: UUID, *, actor_id: str, reason: str, reason_code: str, error_class: str, terminal_reason: str, poisoned: bool = False, retry_exhausted: bool = False, expected_attempt: int | None = None, terminal_state: Literal["dead_lettered", "failed"] = "dead_lettered") -> DeadLetterRecord:
+        """The terminal transition, its audit row and the dead-letter record
+        commit together: a command can never be terminal without its recovery
+        record, nor recorded without being terminal.
+
+        ``terminal_state="failed"`` closes the open attempt as a deterministic
+        provider rejection (retryable by an operator) while still recording it
+        for recovery; the default parks the operation as dead-lettered."""
+        safe_reason = reason[:2048]
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                current = await conn.fetchval(
+                    "SELECT state FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+                    tenant_id,
+                    str(command_id),
+                )
+                if current is None:
+                    raise CommandNotFound("command operation was not found")
+                if terminal_state == "failed":
+                    if current != "failed":
+                        await self._transition_on_connection(
+                            conn, tenant_id, command_id, new_state="failed", actor_id=actor_id,
+                            safe_reason=safe_reason, provider_operation_id=None, safe_readback=None,
+                            safe_readback_digest=None, expected_attempt=expected_attempt,
+                            worker_id=None, fencing_token=None,
+                        )
+                else:
+                    if current == "persisted":
+                        await self._transition_on_connection(
+                            conn, tenant_id, command_id, new_state="queued", actor_id=actor_id,
+                            safe_reason="claimed for dead-lettering", provider_operation_id=None,
+                            safe_readback=None, safe_readback_digest=None, expected_attempt=None,
+                            worker_id=None, fencing_token=None,
+                        )
+                        current = "queued"
+                    if current != "dead_lettered":
+                        await self._transition_on_connection(
+                            conn, tenant_id, command_id, new_state="dead_lettered", actor_id=actor_id,
+                            safe_reason=safe_reason, provider_operation_id=None, safe_readback=None,
+                            safe_readback_digest=None, expected_attempt=expected_attempt,
+                            worker_id=None, fencing_token=None,
+                        )
+                row = await self._record_dead_letter_on_connection(
+                    conn, tenant_id, command_id, reason_code=reason_code, error_class=error_class,
+                    terminal_reason=terminal_reason, poisoned=poisoned, retry_exhausted=retry_exhausted,
+                )
+        return _dead_letter_from_row(row)
+
+    async def list_dead_letters(self, tenant_id: str, *, limit: int = 100) -> list[DeadLetterRecord]:
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM middleware_command_dead_letters WHERE tenant_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2",tenant_id,limit)
+        return [_dead_letter_from_row(row) for row in rows]
+
+    async def get_dead_letter(self, tenant_id: str, command_id: UUID) -> DeadLetterRecord:
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM middleware_command_dead_letters WHERE tenant_id=$1 AND command_id=$2",tenant_id,str(command_id))
+        if row is None:
+            raise CommandNotFound("dead-letter record was not found")
+        return _dead_letter_from_row(row)
+
+    async def create_replay(self, tenant_id: str, command_id: UUID, *, replay_id: UUID, actor_id: str, idempotency_key: str, reason: str, scheduled_at: datetime | None = None) -> ReplayRecord:
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                if await conn.fetchval("SELECT 1 FROM middleware_command_dead_letters WHERE tenant_id=$1 AND command_id=$2",tenant_id,str(command_id)) is None:
+                    raise CommandNotFound("dead-letter record was not found")
+                row = await conn.fetchrow("""INSERT INTO middleware_command_replays(replay_id,tenant_id,original_command_id,requested_by,idempotency_key,reason,state,scheduled_at)
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(tenant_id,original_command_id,idempotency_key) DO NOTHING RETURNING *""",
+                    replay_id,tenant_id,str(command_id),actor_id,idempotency_key,reason,"scheduled" if scheduled_at else "requested",scheduled_at)
+                if row is None:
+                    row = await conn.fetchrow("SELECT * FROM middleware_command_replays WHERE tenant_id=$1 AND original_command_id=$2 AND idempotency_key=$3",tenant_id,str(command_id),idempotency_key)
+                    if row is None or row["reason"] != reason:
+                        raise CommandConflict("replay idempotency key was reused with different content")
+        assert row is not None
+        return ReplayRecord(**dict(row))
+
+    async def complete_replay(self, tenant_id: str, replay_id: UUID, replay_command_id: UUID) -> ReplayRecord:
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("UPDATE middleware_command_replays SET state='submitted',replay_command_id=$3 WHERE tenant_id=$1 AND replay_id=$2 AND state IN ('requested','scheduled') RETURNING *",tenant_id,replay_id,replay_command_id)
+        if row is None:
+            raise CommandConflict("replay is not executable")
+        return ReplayRecord(**dict(row))
+
+    async def cancel_replay(self, tenant_id: str, replay_id: UUID, *, actor_id: str) -> ReplayRecord:
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("UPDATE middleware_command_replays SET state='cancelled',cancelled_at=now() WHERE tenant_id=$1 AND replay_id=$2 AND state IN ('requested','scheduled') RETURNING *",tenant_id,replay_id)
+        if row is None:
+            raise CommandConflict("replay can only be cancelled before execution")
+        return ReplayRecord(**dict(row))
+
+    async def list_replays(self, tenant_id: str, command_id: UUID) -> list[ReplayRecord]:
+        await self.get(tenant_id, command_id)
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM middleware_command_replays WHERE tenant_id=$1 AND original_command_id=$2 ORDER BY created_at,replay_id",tenant_id,str(command_id))
+        return [ReplayRecord(**dict(row)) for row in rows]
 
     async def transition(
         self,
@@ -1214,6 +1706,8 @@ class PostgresCommandStore:
         provider_operation_id: str | None = None,
         readback_evidence: Mapping[str, Any] | None = None,
         expected_attempt: int | None = None,
+        worker_id: str | None = None,
+        fencing_token: int | None = None,
     ) -> CommandOperation:
         if readback_evidence is not None and new_state not in {
             "completed", "reconciliation_required",
@@ -1232,144 +1726,24 @@ class PostgresCommandStore:
         )
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                current = await conn.fetchrow(
-                    """
-                    SELECT * FROM middleware_commands
-                    WHERE tenant_id=$1 AND command_id=$2
-                    FOR UPDATE
-                    """,
+                await set_asyncpg_transaction_tenant_context(conn, tenant_id)
+                row = await self._transition_on_connection(
+                    conn,
                     tenant_id,
-                    str(command_id),
+                    command_id,
+                    new_state=new_state,
+                    actor_id=actor_id,
+                    safe_reason=safe_reason,
+                    provider_operation_id=provider_operation_id,
+                    safe_readback=safe_readback,
+                    safe_readback_digest=safe_readback_digest,
+                    expected_attempt=expected_attempt,
+                    worker_id=worker_id,
+                    fencing_token=fencing_token,
                 )
-                if current is None:
-                    raise CommandNotFound("command operation was not found")
-                previous_state = current["state"]
-                if expected_attempt is not None and new_state != "dispatching":
-                    newest = await conn.fetchval(
-                        """
-                        SELECT COALESCE(max(attempt_number), 0)
-                        FROM middleware_command_attempts
-                        WHERE tenant_id=$1 AND command_id=$2
-                        """,
-                        tenant_id,
-                        str(command_id),
-                    )
-                    if int(newest or 0) != expected_attempt:
-                        raise CommandConflict("stale attempt fencing token")
-                if new_state not in ALLOWED_COMMAND_TRANSITIONS[previous_state]:
-                    raise CommandConflict(
-                        f"invalid command transition {previous_state} -> {new_state}"
-                    )
-                row = await conn.fetchrow(
-                    """
-                    UPDATE middleware_commands
-                    SET state=$3,
-                        provider_operation_id=COALESCE($4, provider_operation_id),
-                        last_error=CASE
-                            WHEN $3 IN ('failed','reconciliation_required') THEN $5
-                            ELSE NULL
-                        END,
-                        updated_at=now(),
-                        queued_at=CASE WHEN $3='queued' THEN now() ELSE queued_at END,
-                        accepted_at=CASE WHEN $3='accepted' THEN now() ELSE accepted_at END,
-                        completed_at=CASE WHEN $3='completed' THEN now() ELSE completed_at END,
-                        failed_at=CASE WHEN $3='failed' THEN now() ELSE failed_at END
-                    WHERE tenant_id=$1 AND command_id=$2
-                    RETURNING *
-                    """,
-                    tenant_id,
-                    str(command_id),
-                    new_state,
-                    provider_operation_id,
-                    safe_reason,
-                )
-                await conn.execute(
-                    """
-                    INSERT INTO middleware_command_audit (
-                        tenant_id, command_id, previous_state, new_state,
-                        actor_id, reason, metadata
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
-                    """,
-                    tenant_id,
-                    str(command_id),
-                    previous_state,
-                    new_state,
-                    actor_id,
-                    safe_reason,
-                    json.dumps(
-                        {
-                            "provider_operation_id": provider_operation_id,
-                            "readback_evidence_sha256": safe_readback_digest,
-                        },
-                        separators=(",", ":"),
-                        sort_keys=True,
-                    ),
-                )
-                if new_state == "dispatching":
-                    attempt_number = await conn.fetchval(
-                        """
-                        SELECT COALESCE(max(attempt_number), 0) + 1
-                        FROM middleware_command_attempts
-                        WHERE tenant_id=$1 AND command_id=$2
-                        """,
-                        tenant_id,
-                        str(command_id),
-                    )
-                    await conn.execute(
-                        """
-                        INSERT INTO middleware_command_attempts (
-                            tenant_id, command_id, attempt_number, state
-                        ) VALUES ($1,$2,$3,'dispatching')
-                        """,
-                        tenant_id,
-                        str(command_id),
-                        attempt_number,
-                    )
-                elif new_state in {
-                    "accepted",
-                    "readback_pending",
-                    "completed",
-                    "failed",
-                    "reconciliation_required",
-                }:
-                    await conn.execute(
-                        """
-                        UPDATE middleware_command_attempts
-                        SET state=$3,
-                            provider_operation_id=COALESCE($4, provider_operation_id),
-                            result_payload=COALESCE($6::jsonb, result_payload),
-                            error_detail=CASE
-                                WHEN $3 IN ('failed','reconciliation_required') THEN $5
-                                ELSE error_detail
-                            END,
-                            finished_at=CASE
-                                WHEN $3 IN ('completed','failed','reconciliation_required')
-                                THEN now() ELSE finished_at
-                            END
-                        WHERE id=(
-                            SELECT id FROM middleware_command_attempts
-                            WHERE tenant_id=$1 AND command_id=$2
-                            ORDER BY attempt_number DESC LIMIT 1
-                        )
-                        """,
-                        tenant_id,
-                        str(command_id),
-                        new_state,
-                        provider_operation_id,
-                        safe_reason,
-                        (
-                            json.dumps(
-                                safe_readback,
-                                separators=(",", ":"),
-                                sort_keys=True,
-                            )
-                            if safe_readback is not None
-                            else None
-                        ),
-                    )
         assert row is not None
         if safe_readback is None:
-            async with self.pool.acquire() as conn:
+            async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
                 persisted = await conn.fetchrow(
                     """
                     SELECT
@@ -1398,8 +1772,195 @@ class PostgresCommandStore:
             readback_evidence_sha256=safe_readback_digest,
         )
 
-    async def latest_attempt(self, tenant_id: str, command_id: UUID) -> int:
+    async def _transition_on_connection(
+        self,
+        conn: asyncpg.Connection,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        new_state: CommandState,
+        actor_id: str,
+        safe_reason: str,
+        provider_operation_id: str | None,
+        safe_readback: dict[str, Any] | None,
+        safe_readback_digest: str | None,
+        expected_attempt: int | None,
+        worker_id: str | None,
+        fencing_token: int | None,
+    ) -> asyncpg.Record:
+        """One fenced state transition inside the caller's transaction: the
+        command row, its audit row and its attempt row change together."""
+        current = await conn.fetchrow(
+            """
+            SELECT * FROM middleware_commands
+            WHERE tenant_id=$1 AND command_id=$2
+            FOR UPDATE
+            """,
+            tenant_id,
+            str(command_id),
+        )
+        if current is None:
+            raise CommandNotFound("command operation was not found")
+        previous_state = current["state"]
+        if expected_attempt is not None and new_state != "dispatching":
+            newest = await conn.fetchval(
+                """
+                SELECT COALESCE(max(attempt_number), 0)
+                FROM middleware_command_attempts
+                WHERE tenant_id=$1 AND command_id=$2
+                """,
+                tenant_id,
+                str(command_id),
+            )
+            if int(newest or 0) != expected_attempt:
+                raise CommandConflict("stale attempt fencing token")
+        if new_state not in ALLOWED_COMMAND_TRANSITIONS[previous_state]:
+            raise CommandConflict(
+                f"invalid command transition {previous_state} -> {new_state}"
+            )
+        row = await conn.fetchrow(
+            """
+            UPDATE middleware_commands
+            SET state=$3,
+                provider_operation_id=COALESCE($4, provider_operation_id),
+                last_error=CASE
+                    WHEN $3 IN ('failed','reconciliation_required') THEN $5
+                    ELSE NULL
+                END,
+                updated_at=now(),
+                queued_at=CASE WHEN $3='queued' THEN now() ELSE queued_at END,
+                accepted_at=CASE WHEN $3='accepted' THEN now() ELSE accepted_at END,
+                completed_at=CASE WHEN $3='completed' THEN now() ELSE completed_at END,
+                failed_at=CASE WHEN $3='failed' THEN now() ELSE failed_at END
+            WHERE tenant_id=$1 AND command_id=$2
+            RETURNING *
+            """,
+            tenant_id,
+            str(command_id),
+            new_state,
+            provider_operation_id,
+            safe_reason,
+        )
+        await conn.execute(
+            """
+            INSERT INTO middleware_command_audit (
+                tenant_id, command_id, previous_state, new_state,
+                actor_id, reason, metadata
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+            """,
+            tenant_id,
+            str(command_id),
+            previous_state,
+            new_state,
+            actor_id,
+            safe_reason,
+            json.dumps(
+                {
+                    "provider_operation_id": provider_operation_id,
+                    "readback_evidence_sha256": safe_readback_digest,
+                    "worker_id": worker_id,
+                    "fencing_token": fencing_token,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+        if new_state == "dispatching":
+            attempt_number = await conn.fetchval(
+                """
+                SELECT COALESCE(max(attempt_number), 0) + 1
+                FROM middleware_command_attempts
+                WHERE tenant_id=$1 AND command_id=$2
+                """,
+                tenant_id,
+                str(command_id),
+            )
+            await conn.execute(
+                """
+                INSERT INTO middleware_command_attempts (
+                    tenant_id, command_id, attempt_number, state, worker_id, fencing_token
+                ) VALUES ($1,$2,$3,'dispatching',$4,$5)
+                """,
+                tenant_id,
+                str(command_id),
+                attempt_number,
+                worker_id,
+                fencing_token,
+            )
+        elif new_state in {
+            "accepted",
+            "readback_pending",
+            "completed",
+            "failed",
+            "reconciliation_required",
+        }:
+            # Only the open (non-terminal) attempt may change; runtime SQL 0015
+            # rejects a rewrite of a completed or failed attempt.
+            await conn.execute(
+                """
+                UPDATE middleware_command_attempts
+                SET state=$3,
+                    provider_operation_id=COALESCE($4, provider_operation_id),
+                    result_payload=COALESCE($6::jsonb, result_payload),
+                    error_detail=CASE
+                        WHEN $3 IN ('failed','reconciliation_required') THEN $5
+                        ELSE error_detail
+                    END,
+                    finished_at=CASE
+                        WHEN $3 IN ('completed','failed','reconciliation_required')
+                        THEN now() ELSE finished_at
+                    END
+                WHERE id=(
+                    SELECT id FROM middleware_command_attempts
+                    WHERE tenant_id=$1 AND command_id=$2
+                      AND state NOT IN ('completed','failed')
+                    ORDER BY attempt_number DESC LIMIT 1
+                )
+                """,
+                tenant_id,
+                str(command_id),
+                new_state,
+                provider_operation_id,
+                safe_reason,
+                (
+                    json.dumps(
+                        safe_readback,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                    if safe_readback is not None
+                    else None
+                ),
+            )
+        assert row is not None
+        return row
+
+    async def principal_snapshot(self, tenant_id: str, command_id: UUID) -> dict[str, Any] | None:
+        """The verified principal persisted with the submission audit row."""
         async with self.pool.acquire() as conn:
+            exists = await conn.fetchval(
+                "SELECT 1 FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
+                tenant_id,
+                str(command_id),
+            )
+            if exists is None:
+                raise CommandNotFound("command operation was not found")
+            raw = await conn.fetchval(
+                """
+                SELECT metadata->'principal' FROM middleware_command_audit
+                WHERE tenant_id=$1 AND command_id=$2 AND previous_state IS NULL
+                ORDER BY id ASC LIMIT 1
+                """,
+                tenant_id,
+                str(command_id),
+            )
+        if raw is None:
+            return None
+        value = json.loads(raw) if isinstance(raw, str) else raw
+        return dict(value) if isinstance(value, Mapping) else None
+
+    async def latest_attempt(self, tenant_id: str, command_id: UUID) -> int:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             exists = await conn.fetchval(
                 "SELECT 1 FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
                 tenant_id,
@@ -1419,7 +1980,7 @@ class PostgresCommandStore:
         return int(newest or 0)
 
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope:
-        async with self.pool.acquire() as conn:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
             raw = await conn.fetchval(
                 "SELECT payload FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2",
                 tenant_id,
@@ -1430,19 +1991,15 @@ class PostgresCommandStore:
         payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
         return command_envelope_from_payload(payload)
 
-    async def backlog(self, tenant_id: str) -> tuple[int, int]:
-        async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT count(*) FILTER (WHERE tenant_id=$1) AS tenant_active,
-                       count(*) AS global_active
-                FROM middleware_commands
-                WHERE state = ANY($2::text[])
-                """,
+    async def backlog(self, tenant_id: str) -> tuple[int, int | None]:
+        async with asyncpg_tenant_connection(self.pool, tenant_id) as conn:
+            tenant_active = await conn.fetchval(
+                """SELECT count(*) FROM middleware_commands
+                   WHERE tenant_id=$1 AND state = ANY($2::text[])""",
                 tenant_id,
                 list(ACTIVE_COMMAND_STATES),
             )
-        return int(row["tenant_active"] or 0), int(row["global_active"] or 0)
+        return int(tenant_active or 0), None
 
     async def reconcile(
         self,
@@ -1454,6 +2011,8 @@ class PostgresCommandStore:
         reason: str,
         provider_operation_id: str | None,
         evidence: Mapping[str, Any],
+        expected_version: int | None = None,
+        mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
         """Close (or keep parked) an operation awaiting reconciliation.
 
@@ -1462,101 +2021,175 @@ class PostgresCommandStore:
         activity records; a mismatch keeps the operation parked with the reason
         and the evidence so an operator (or the bounded reconciler budget) decides.
         """
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await set_asyncpg_transaction_tenant_context(conn, tenant_id)
+                return await self._reconcile_in_transaction(
+                    conn, tenant_id, command_id, matched=matched, actor_id=actor_id, reason=reason,
+                    provider_operation_id=provider_operation_id, evidence=evidence,
+                    expected_version=expected_version, mutation_correlation_id=mutation_correlation_id,
+                )
+
+    async def _reconcile_in_transaction(
+        self,
+        conn: Any,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        expected_version: int | None,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
         safe_reason = reason[:2048]
         safe_evidence = dict(evidence)
         evidence_digest = provider_evidence_digest(safe_evidence)
         next_state = "completed" if matched else "reconciliation_required"
+        current = await conn.fetchrow(
+            "SELECT state, resource_version FROM middleware_commands "
+            "WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+            tenant_id,
+            str(command_id),
+        )
+        if current is None:
+            raise CommandNotFound("command operation was not found")
+        if current["state"] != "reconciliation_required":
+            raise CommandConflict("operation is no longer awaiting reconciliation")
+        if (
+            expected_version is not None
+            and current["resource_version"] != expected_version
+        ):
+            raise CommandConflict("expected_version is stale")
+        if matched:
+            row = await conn.fetchrow(
+                """
+                UPDATE middleware_commands
+                SET state='completed',
+                    provider_operation_id=COALESCE($3, provider_operation_id),
+                    last_error=NULL,
+                    completed_at=now(),
+                    updated_at=now(),
+                    resource_version=resource_version+1
+                WHERE tenant_id=$1 AND command_id=$2
+                RETURNING *
+                """,
+                tenant_id,
+                str(command_id),
+                provider_operation_id,
+            )
+        else:
+            row = await conn.fetchrow(
+                """
+                UPDATE middleware_commands
+                SET provider_operation_id=COALESCE($3, provider_operation_id),
+                    last_error=$4,
+                    reconciliation_reason=$4,
+                    updated_at=now(),
+                    resource_version=resource_version+1
+                WHERE tenant_id=$1 AND command_id=$2
+                RETURNING *
+                """,
+                tenant_id,
+                str(command_id),
+                provider_operation_id,
+                safe_reason,
+            )
+        assert row is not None
+        await conn.execute(
+            """
+            INSERT INTO middleware_command_audit (
+                tenant_id, command_id, previous_state, new_state,
+                actor_id, reason, metadata
+            ) VALUES ($1,$2,'reconciliation_required',$3,$4,$5,$6::jsonb)
+            """,
+            tenant_id,
+            str(command_id),
+            next_state,
+            actor_id,
+            safe_reason,
+            json.dumps(
+                {
+                    "provider_operation_id": provider_operation_id,
+                    "readback_evidence_sha256": evidence_digest,
+                    "reconciliation_status": "matched" if matched else "mismatch",
+                    **({"mutation_correlation_id": mutation_correlation_id} if mutation_correlation_id else {}),
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+        await conn.execute(
+            """
+            UPDATE middleware_command_attempts
+            SET state=$3,
+                provider_operation_id=COALESCE($4, provider_operation_id),
+                result_payload=$5::jsonb,
+                error_code=CASE WHEN $3='reconciliation_required' THEN 'provider_readback_mismatch' ELSE NULL END,
+                error_detail=CASE WHEN $3='reconciliation_required' THEN $6 ELSE NULL END,
+                finished_at=now()
+            WHERE id=(
+                SELECT id FROM middleware_command_attempts
+                WHERE tenant_id=$1 AND command_id=$2
+                ORDER BY attempt_number DESC LIMIT 1
+            )
+            """,
+            tenant_id,
+            str(command_id),
+            next_state,
+            provider_operation_id,
+            json.dumps(safe_evidence, separators=(",", ":"), sort_keys=True),
+            safe_reason,
+        )
+        return self._operation(row, readback_evidence=safe_evidence, readback_evidence_sha256=evidence_digest)
+
+    async def resolve_reconciliation(
+        self,
+        tenant_id: str,
+        command_id: UUID,
+        *,
+        matched: bool,
+        actor_id: str,
+        reason: str,
+        provider_operation_id: str | None,
+        evidence: Mapping[str, Any],
+        idempotency_key: str,
+        expected_version: int,
+        mutation_correlation_id: str | None = None,
+    ) -> CommandOperation:
+        """Operator resolution: an idempotent ``reconcile`` recorded in the mutation ledger."""
+        request_digest = _resolution_digest(matched, expected_version, reason, provider_operation_id, evidence, mutation_correlation_id)
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                current = await conn.fetchrow(
-                    "SELECT state FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
+                await set_asyncpg_transaction_tenant_context(conn, tenant_id)
+                # Lock first so concurrent identical requests serialize and the
+                # second one replays the first one's recorded outcome.
+                locked = await conn.fetchval(
+                    "SELECT 1 FROM middleware_commands WHERE tenant_id=$1 AND command_id=$2 FOR UPDATE",
                     tenant_id,
                     str(command_id),
                 )
-                if current is None:
+                if locked is None:
                     raise CommandNotFound("command operation was not found")
-                if current["state"] != "reconciliation_required":
-                    raise CommandConflict("operation is no longer awaiting reconciliation")
-                if matched:
-                    row = await conn.fetchrow(
-                        """
-                        UPDATE middleware_commands
-                        SET state='completed',
-                            provider_operation_id=COALESCE($3, provider_operation_id),
-                            last_error=NULL,
-                            completed_at=now(),
-                            updated_at=now(),
-                            resource_version=resource_version+1
-                        WHERE tenant_id=$1 AND command_id=$2
-                        RETURNING *
-                        """,
-                        tenant_id,
-                        str(command_id),
-                        provider_operation_id,
-                    )
-                else:
-                    row = await conn.fetchrow(
-                        """
-                        UPDATE middleware_commands
-                        SET provider_operation_id=COALESCE($3, provider_operation_id),
-                            last_error=$4,
-                            reconciliation_reason=$4,
-                            updated_at=now(),
-                            resource_version=resource_version+1
-                        WHERE tenant_id=$1 AND command_id=$2
-                        RETURNING *
-                        """,
-                        tenant_id,
-                        str(command_id),
-                        provider_operation_id,
-                        safe_reason,
-                    )
-                assert row is not None
-                await conn.execute(
-                    """
-                    INSERT INTO middleware_command_audit (
-                        tenant_id, command_id, previous_state, new_state,
-                        actor_id, reason, metadata
-                    ) VALUES ($1,$2,'reconciliation_required',$3,$4,$5,$6::jsonb)
-                    """,
-                    tenant_id,
-                    str(command_id),
-                    next_state,
-                    actor_id,
-                    safe_reason,
-                    json.dumps(
-                        {
-                            "provider_operation_id": provider_operation_id,
-                            "readback_evidence_sha256": evidence_digest,
-                            "reconciliation_status": "matched" if matched else "mismatch",
-                        },
-                        separators=(",", ":"),
-                        sort_keys=True,
-                    ),
+                replay = await conn.fetchrow("""SELECT request_sha256, response_payload FROM middleware_operation_mutations
+                    WHERE tenant_id=$1 AND command_id=$2 AND action=$3 AND actor_id=$4 AND idempotency_key=$5""",
+                    tenant_id, str(command_id), RESOLVE_RECONCILIATION_ACTION, actor_id, idempotency_key)
+                if replay:
+                    if replay["request_sha256"] != request_digest:
+                        raise CommandConflict("idempotency key was reused with different mutation content")
+                    payload = json.loads(replay["response_payload"]) if isinstance(replay["response_payload"], str) else dict(replay["response_payload"])
+                    return CommandOperation.model_validate(payload).model_copy(update={"duplicate": True})
+                operation = await self._reconcile_in_transaction(
+                    conn, tenant_id, command_id, matched=matched, actor_id=actor_id, reason=reason,
+                    provider_operation_id=provider_operation_id, evidence=evidence,
+                    expected_version=expected_version, mutation_correlation_id=mutation_correlation_id,
                 )
-                await conn.execute(
-                    """
-                    UPDATE middleware_command_attempts
-                    SET state=$3,
-                        provider_operation_id=COALESCE($4, provider_operation_id),
-                        result_payload=$5::jsonb,
-                        error_code=CASE WHEN $3='reconciliation_required' THEN 'provider_readback_mismatch' ELSE NULL END,
-                        error_detail=CASE WHEN $3='reconciliation_required' THEN $6 ELSE NULL END,
-                        finished_at=now()
-                    WHERE id=(
-                        SELECT id FROM middleware_command_attempts
-                        WHERE tenant_id=$1 AND command_id=$2
-                        ORDER BY attempt_number DESC LIMIT 1
-                    )
-                    """,
-                    tenant_id,
-                    str(command_id),
-                    next_state,
-                    provider_operation_id,
-                    json.dumps(safe_evidence, separators=(",", ":"), sort_keys=True),
-                    safe_reason,
-                )
-        return self._operation(row, readback_evidence=safe_evidence, readback_evidence_sha256=evidence_digest)
+                payload = operation.model_dump(mode="json")
+                await conn.execute("""INSERT INTO middleware_operation_mutations (tenant_id, command_id, action, actor_id, idempotency_key, request_sha256, response_status, response_payload)
+                    VALUES ($1,$2,$3,$4,$5,$6,200,$7::jsonb)""", tenant_id, str(command_id), RESOLVE_RECONCILIATION_ACTION, actor_id, idempotency_key, request_digest, json.dumps(payload, separators=(",", ":"), sort_keys=True))
+                return operation
 
     async def ready(self) -> bool:
         try:
@@ -1650,6 +2283,7 @@ class CommandService:
         destination: str = TEMPORAL_COMMAND_DESTINATION,
         decision_evidence: Mapping[str, Any] | None = None,
         trace: Mapping[str, str] | None = None,
+        principal_snapshot: Mapping[str, Any] | None = None,
     ) -> CommandOperation:
         self.validate_submission(
             command,
@@ -1662,7 +2296,17 @@ class CommandService:
             destination=destination,
             decision_evidence=decision_evidence,
             trace=trace,
+            principal_snapshot=principal_snapshot,
         )
+
+    async def find_existing(
+        self,
+        command: CommandEnvelope,
+        *,
+        authenticated_client_id: str,
+    ) -> CommandOperation | None:
+        """The persisted operation an exact replay of ``command`` refers to."""
+        return await self.store.find_existing(command, authenticated_client_id=authenticated_client_id)
 
     def validate_submission(
         self,
@@ -1691,8 +2335,18 @@ class CommandService:
     async def list_events(self, *args: Any, **kwargs: Any) -> list[OperationEvent]: return await self.store.list_events(*args, **kwargs)
     async def list_attempts(self, *args: Any, **kwargs: Any) -> list[OperationAttempt]: return await self.store.list_attempts(*args, **kwargs)
     async def mutate_operation(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.mutate_operation(*args, **kwargs)
+    async def record_dead_letter(self, *args: Any, **kwargs: Any) -> DeadLetterRecord: return await self.store.record_dead_letter(*args, **kwargs)
+    async def dead_letter(self, *args: Any, **kwargs: Any) -> DeadLetterRecord: return await self.store.dead_letter(*args, **kwargs)
+    async def list_dead_letters(self, *args: Any, **kwargs: Any) -> list[DeadLetterRecord]: return await self.store.list_dead_letters(*args, **kwargs)
+    async def get_dead_letter(self, *args: Any, **kwargs: Any) -> DeadLetterRecord: return await self.store.get_dead_letter(*args, **kwargs)
+    async def create_replay(self, *args: Any, **kwargs: Any) -> ReplayRecord: return await self.store.create_replay(*args, **kwargs)
+    async def complete_replay(self, *args: Any, **kwargs: Any) -> ReplayRecord: return await self.store.complete_replay(*args, **kwargs)
+    async def cancel_replay(self, *args: Any, **kwargs: Any) -> ReplayRecord: return await self.store.cancel_replay(*args, **kwargs)
+    async def list_replays(self, *args: Any, **kwargs: Any) -> list[ReplayRecord]: return await self.store.list_replays(*args, **kwargs)
     async def transition(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.transition(*args, **kwargs)
     async def reconcile(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.reconcile(*args, **kwargs)
+    async def resolve_reconciliation(self, *args: Any, **kwargs: Any) -> CommandOperation: return await self.store.resolve_reconciliation(*args, **kwargs)
     async def latest_attempt(self, tenant_id: str, command_id: UUID) -> int: return await self.store.latest_attempt(tenant_id, command_id)
+    async def principal_snapshot(self, tenant_id: str, command_id: UUID) -> dict[str, Any] | None: return await self.store.principal_snapshot(tenant_id, command_id)
     async def load_envelope(self, tenant_id: str, command_id: UUID) -> CommandEnvelope: return await self.store.load_envelope(tenant_id, command_id)
-    async def backlog(self, tenant_id: str) -> tuple[int, int]: return await self.store.backlog(tenant_id)
+    async def backlog(self, tenant_id: str) -> tuple[int, int | None]: return await self.store.backlog(tenant_id)

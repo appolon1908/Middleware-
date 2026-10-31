@@ -25,7 +25,7 @@ def test_operation_policy_has_exact_authorization_shape() -> None:
     policy = AutomationPolicy.from_path()
 
     assert len(policy.clients) == 10
-    assert len(policy.operations) == 13
+    assert len(policy.operations) == 16
     assert len(policy.command_families) == 18
     assert policy.scope_resolution == "client_scopes_are_exact_no_implicit_union"
     assert policy.authoritative_context["tenant"] == "automation_job.tenant_id"

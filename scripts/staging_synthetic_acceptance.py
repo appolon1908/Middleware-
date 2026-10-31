@@ -46,6 +46,7 @@ REQUIRED_EFFECT_CONTROLS = {
     "SMS_DELIVERY_ENABLED",
     "EMAIL_DELIVERY_ENABLED",
     "SOCIAL_DELIVERY_ENABLED",
+    "WHATSAPP_DELIVERY_ENABLED",
     "CRAWLER_EXECUTION_ENABLED",
     "SCRAPPER_EXECUTION_ENABLED",
     "LIVE_SMS_DELIVERY",
@@ -118,7 +119,7 @@ def validate_runtime_safety(
         raise AcceptanceError(
             "deployed image digest does not match the approved release"
         )
-    if release["schema_head"] != "0067_service_catalog_monitoring_state":
+    if release["schema_head"] != "0074_mcr_odoo_handoff":
         raise AcceptanceError("deployed migration head is not current")
     if persistence != {"in_memory": False}:
         raise AcceptanceError("staging must use durable persistence")
@@ -214,7 +215,7 @@ def build_signed_event(
         "X-Codestra-Tenant-Id": tenant_id,
         "X-Codestra-Timestamp": timestamp,
         "X-Codestra-Signature": f"sha256={signature}",
-        "X-Correlation-Id": event["correlation_id"],
+        "X-Correlation-ID": event["correlation_id"],
     }
     return event, body, headers
 

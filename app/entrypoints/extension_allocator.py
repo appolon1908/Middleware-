@@ -1,6 +1,6 @@
 """Narrow extension inventory and reservation API."""
 
-from fastapi import FastAPI
+from app.factory import create_service_app
 
 from app.api.v1.telephony import router
 from app.entrypoints.runtime import add_api_runtime, run_api
@@ -12,8 +12,8 @@ OWNED = {
     "/v1/telephony/extensions/availability",
     "/v1/telephony/extensions/reserve",
 }
-app = FastAPI(
-    title=SERVICE,
+app = create_service_app(
+    SERVICE,
     routes=[route for route in router.routes if getattr(route, "path", "") in OWNED],
 )
 add_api_runtime(app, SERVICE)

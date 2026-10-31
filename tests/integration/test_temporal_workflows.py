@@ -52,6 +52,7 @@ class DeterministicActivities:
         self.execute_attempts = 0
         self.readback_attempts = 0
         self.execute_outcome_unknown = False
+        self.execute_outcome_retryable = False
         self.execute_status = "accepted"
         self.execute_provider_operation_id = "provider-op-1"
         self.readback_evidence: dict[str, Any] | None = None
@@ -142,6 +143,13 @@ class DeterministicActivities:
         request: CommandExecutionRequest,
     ) -> ActivityResult:
         self.execute_attempts += 1
+        if self.execute_outcome_retryable:
+            # The shape real adapters raise: a *retryable* ProviderAdapterError
+            # after a request that may have reached the provider.
+            raise ApplicationError(
+                "provider connection reset after the request was sent",
+                type="ProviderAdapterError",
+            )
         if self.execute_outcome_unknown:
             raise ApplicationError(
                 "provider timed out after possible acceptance",
@@ -451,3 +459,39 @@ async def test_critical_workflows_retry_wait_compensate_and_require_approval() -
             ]
             assert activities.execute_attempts == execute_attempts_before + 1
             assert activities.readback_attempts == readback_attempts_before
+
+            # A retryable adapter error must not re-run the provider effect:
+            # execute_command is single-attempt and an unknown outcome is
+            # parked for read-back/reconciliation, never resent by Temporal.
+            activities.command_transitions.clear()
+            activities.execute_outcome_unknown = False
+            activities.execute_outcome_retryable = True
+            execute_attempts_before = activities.execute_attempts
+            readback_attempts_before = activities.readback_attempts
+            retryable_unknown = await environment.client.execute_workflow(
+                CommandExecutionWorkflow.run,
+                CommandExecutionRequest(
+                    command_id="00000000-0000-4000-8000-000000000004",
+                    command_type="sms.message.submit.v1",
+                    command_version="1.0",
+                    target="telnexa-sms",
+                    tenant_id="tenant-test",
+                    requested_by="user-1",
+                    correlation_id="sms-correlation-retryable",
+                    idempotency_key="test-sms-retryable-1",
+                    capability="SMS_DELIVERY",
+                    payload={"message_id": "message-3"},
+                    authenticated_client_id="test-client",
+                ),
+                id="test-sms-command-retryable-unknown-outcome",
+                task_queue=TASK_QUEUE,
+            )
+            assert retryable_unknown.status == "reconciliation_required"
+            assert activities.command_transitions == [
+                "queued",
+                "dispatching",
+                "reconciliation_required",
+            ]
+            assert activities.execute_attempts == execute_attempts_before + 1
+            assert activities.readback_attempts == readback_attempts_before
+            activities.execute_outcome_retryable = False

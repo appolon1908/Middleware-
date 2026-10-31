@@ -216,6 +216,27 @@
       "constraints": ["tenant_from_job", "workflow_family_match"]
     },
     {
+      "method": "GET",
+      "path": "/v2/automation/executions/{job_id}",
+      "scope": "automation.job.read",
+      "allowed_clients": "job_family_client_only",
+      "constraints": ["tenant_from_job", "workflow_family_match", "safe_status_only"]
+    },
+    {
+      "method": "GET",
+      "path": "/v2/automation/executions/{job_id}/result",
+      "scope": "automation.job.read",
+      "allowed_clients": "job_family_client_only",
+      "constraints": ["tenant_from_job", "workflow_family_match", "safe_result_only"]
+    },
+    {
+      "method": "POST",
+      "path": "/v2/automation/executions/{job_id}/cancel",
+      "scope": "automation.job.read",
+      "allowed_clients": "job_family_client_only",
+      "constraints": ["tenant_from_job", "workflow_family_match", "capability_checked", "unsupported_is_conflict"]
+    },
+    {
       "method": "POST",
       "path": "/v2/automation/jobs/{job_id}/heartbeat",
       "scope": "automation.job.heartbeat",
@@ -359,8 +380,8 @@
   ],
   "product_boundaries": {
     "product.beyvra-nonfinancial": {
-      "backend_repository": "appolon1908-hue/beyvra-backend",
-      "frontend_repository": "appolon1908-hue/beyvra-frontend",
+      "backend_repository": "appolon1908/beyvra-backend",
+      "frontend_repository": "appolon1908/beyvra-frontend",
       "frontend_is_automation_client": false,
       "allowed_command_prefixes": ["beyvra.operations."],
       "prohibited_prefixes": [
