@@ -45,6 +45,7 @@ from app.core.policy_engine import (
     evaluate_command,
 )
 from app.platform.metrics import KernelMetrics
+from app.platform.outcome_codes import NO_EFFECT_DEAD_LETTER_CODES, proven_not_sent
 from app.platform.principal import KernelPrincipal
 from app.platform.registry import AdapterRegistry
 from app.platform.resilience import ReplayMode
@@ -436,6 +437,13 @@ class CommandKernel:
         reason: str,
         mutation_correlation_id: str | None = None,
     ) -> CommandOperation:
+        # RETRY repeats the provider call under the same command id. The store
+        # refuses it for adapter commands unless this registry vouches for safe
+        # re-execution; an owner this process cannot resolve fails closed.
+        # REEXECUTE stays the operator path for non-reexecutable adapters.
+        original = await self.commands.get(tenant_id, operation_id)
+        ownership = self.registry.ownership(original.command_type)
+        reexecution_safe = ownership is not None and self.registry.advertised(ownership.adapter_id).safe_reexecution
         operation = await self.commands.mutate_operation(
             tenant_id,
             operation_id,
@@ -445,6 +453,7 @@ class CommandKernel:
             expected_version=expected_version,
             reason=reason,
             mutation_correlation_id=mutation_correlation_id,
+            reexecution_safe=reexecution_safe,
         )
         self.metrics.replays.labels(mode="RETRY").inc()
         return operation
@@ -495,7 +504,7 @@ class CommandKernel:
         ownership = self.registry.ownership(original.command_type)
         if ownership is not None:
             advertised = self.registry.advertised(ownership.adapter_id)
-            if not advertised.safe_reexecution:
+            if not advertised.safe_reexecution and not await self._proven_not_sent(tenant_id, original):
                 raise ReplayNotAllowed(f"adapter {ownership.adapter_id} does not support safe re-execution")
         await self.commands.get_dead_letter(tenant_id, operation_id)
         replay_id = uuid4()
@@ -519,6 +528,20 @@ class CommandKernel:
         self.metrics.replays.labels(mode="REEXECUTE").inc()
         self.metrics.replay_outcomes.labels(result="submitted").inc()
         return result.operation
+
+    async def _proven_not_sent(self, tenant_id: str, original: CommandOperation) -> bool:
+        """The REEXECUTE waiver for a non-reexecutable adapter: only a
+        dead-lettered operation whose recovery record proves no provider
+        request exists (``outcome_codes.proven_not_sent``). Operator role and a
+        new idempotency key are still required by the caller."""
+        if original.state != "dead_lettered":
+            return False
+        try:
+            record = await self.commands.get_dead_letter(tenant_id, original.command_id)
+        except CommandNotFound:
+            return False
+        latest = await self.commands.latest_attempt(tenant_id, original.command_id)
+        return proven_not_sent(record, latest_attempt=latest)
 
     # ------------------------------------------------------------------
     # Describe (Phase 13)
@@ -596,6 +619,7 @@ __all__ = [
     "DenialAuditSink",
     "KernelSaturated",
     "MemoryDenialAuditSink",
+    "NO_EFFECT_DEAD_LETTER_CODES",
     "PolicyDenied",
     "ReplayNotAllowed",
     "SafetyDenied",
