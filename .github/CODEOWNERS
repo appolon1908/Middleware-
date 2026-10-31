@@ -10,6 +10,9 @@
 /Dockerfile.runtime @appolon1908
 /requirements-*.txt @appolon1908
 
+# Writer file-scope registry and promotion policy: both owners review.
+/governance/ @appolon1908 @kazan555
+
 # Isolated-staging security governance
 /.github/workflows/security-owner-decision-*.yml @kazan555
 /security/ @kazan555

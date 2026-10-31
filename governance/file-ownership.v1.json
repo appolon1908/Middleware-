@@ -1,0 +1,390 @@
+{
+  "schema": "codestra.middleware.file-ownership.v1",
+  "scope_version": 1,
+  "description": "Phase-1 file scopes for parallel fix/* writers (owner decision @appolon1908 2026-10-30; effective only after @kazan555 review and merge). Every path not owned by a lane falls to 'unassigned' and is writable by no lane. Evolution-API work is in its own repository and is not registered here.",
+  "base": "main",
+  "base_sha": "db8d3208cb502b4d0fefa3e2d6e0d79b1adf0480",
+  "max_concurrent_writers": 2,
+  "coverage": "partial",
+  "approvals": [],
+  "lanes": [
+    {
+      "id": "fix-lane::governance",
+      "description": "This governance PR (parallel writers by declared file scope). Owns the registry, its validator and the AGENTS.md/CODEOWNERS/workflow lines that enforce it, and is first in the merge-queue handoff for the release pin and promotion policy. Registry changes ship only as governance PRs reviewed by both owners.",
+      "branch": "fix/governance-parallel-writers",
+      "worktree": "/home/codestra/Development/repos/Middleware-gov",
+      "status": "ACTIVE",
+      "file_scope": {
+        "owns": [
+          "AGENTS.md",
+          ".github/CODEOWNERS",
+          ".github/workflows/single-lane-agent-governance.yml",
+          "governance/file-ownership.v1.json",
+          "scripts/validate_lane_file_scope.py",
+          "tests/test_validate_lane_file_scope.py",
+          "governance/promotion-policy.json",
+          ".codestra/validate-release-intent.py"
+        ],
+        "reads": [
+          "scripts/derive_trust_pins.py",
+          "scripts/agent_preflight.sh"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::p1-whatsapp",
+      "description": "P1, PR #463: treat post-forward WhatsApp gateway errors as ambiguous.",
+      "branch": "fix/whatsapp-gateway-ambiguous-20261030",
+      "worktree": "/home/codestra/Development/repos/Middleware-p1",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-06-adapters::04-messaging",
+      "file_scope": {
+        "owns": [
+          "app/platform/adapters/whatsapp.py",
+          "tests/test_whatsapp_ambiguous_status.py"
+        ],
+        "reads": [
+          "tests/test_platform_adapter_conformance.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::p3-kernel",
+      "description": "P3, PR #464: authorize tenant before idempotency lookup.",
+      "branch": "fix/kernel-tenant-before-idempotency-20261030",
+      "worktree": "/home/codestra/Development/repos/Middleware-p3",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-02-command-kernel::01-kernel",
+      "file_scope": {
+        "owns": [
+          "app/platform/kernel.py",
+          "tests/test_platform_kernel.py",
+          "tests/test_tenant_isolation_v3_commands.py"
+        ],
+        "reads": [
+          "tests/test_platform_rehearsal.py",
+          "tests/test_platform_api.py",
+          "tests/test_replay.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::supply-chain",
+      "description": "Supply-chain writer (P-a). Preserved local head 801c722f; its content is routed through #448 (option A, trust/* branch, outside this registry). Owns the declared supply-chain list plus the five extra files its worktree already modifies. Holds the merge-queue files only by handoff.",
+      "branch": "fix/supply-chain-20261030",
+      "worktree": "/home/codestra/Development/repos/Middleware-supply-chain",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-08-release::03-ci-certification",
+      "file_scope": {
+        "owns": [
+          "Dockerfile",
+          "Dockerfile.runtime",
+          "deploy/beyvra-email/Dockerfile",
+          "requirements*",
+          "websocket_gateway/requirements.lock",
+          "scripts/validate_release_supply_chain.py",
+          "tests/test_python_runtime_build.py",
+          "pyproject.toml",
+          "contracts/release-manifest.v1.schema.json",
+          "scripts/release_manifest.py",
+          "security/python312/README.md"
+        ],
+        "reads": [
+          "scripts/derive_trust_pins.py",
+          "tests/test_release_authority.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::delivery-cancellation",
+      "description": "Delivery W3: cancellation race / fencing (design evidence/2026-10-30-designs/cancellation-race-design.md). Lands first among W3, C1, C6; hands bus.py, commands.py and tests/test_platform_kernel.py to C1 and reconciler.py to C6 by recorded handoff.",
+      "branch": "fix/delivery-w3-cancellation",
+      "worktree": "/home/codestra/Development/repos/Middleware-w3",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-02-command-kernel::05-dlq",
+      "file_scope": {
+        "owns": [
+          "app/commands.py",
+          "app/platform/bus.py",
+          "app/platform/reconciler.py",
+          "tests/integration/test_platform_kernel_postgres.py"
+        ],
+        "reads": [
+          "app/worker.py",
+          "workers/run_outbox.py",
+          "app/platform/persistence.py",
+          "app/platform/memory.py",
+          "app/platform/adapters/fixtures.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::delivery-c1",
+      "description": "Delivery C1 rev 2: budgets, terminal consistency, worker drain (designs c1-design-revision-2.md, c1-terminal-consistency-and-worker-entrypoint-design.md). app/platform/kernel.py stays with P3 unless the REEXECUTE waiver is accepted (registry PR first). Hands memory.py to C6.",
+      "branch": "fix/delivery-c1-budgets",
+      "worktree": "/home/codestra/Development/repos/Middleware-c1",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-02-command-kernel::05-dlq",
+      "file_scope": {
+        "owns": [
+          "app/worker.py",
+          "app/storage.py",
+          "app/platform/resilience.py",
+          "app/platform/metrics.py",
+          "app/platform/memory.py",
+          "workers/run_outbox.py",
+          "deploy/compose.runtime.yaml",
+          "docs/build/RUNTIME-IMAGE-BUILD-MATRIX.md",
+          "tests/test_worker.py",
+          "tests/test_runtime_compose.py",
+          "tests/test_run_outbox_modes.py",
+          "tests/test_kernel_execution_fencing.py",
+          "tests/test_bus_terminal_consistency.py",
+          "tests/integration/test_bus_terminal_consistency_postgres.py"
+        ],
+        "reads": [
+          "app/platform/kernel.py",
+          "app/platform/reconciler.py",
+          "app/platform/persistence.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::delivery-c6",
+      "description": "Delivery C6: reconciler backoff policy (design c6-reconciler-backoff-design.md). Receives reconciler.py from W3 and memory.py (MemoryReconciliationSource) from C1 by recorded handoff.",
+      "branch": "fix/delivery-c6-reconciler-backoff",
+      "worktree": "/home/codestra/Development/repos/Middleware-c6",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-03-connectors::04-reconcile",
+      "file_scope": {
+        "owns": [
+          "app/platform/persistence.py",
+          "tests/test_reconciler_backoff.py",
+          "tests/test_reconciler_backoff_postgres.py",
+          "docs/evidence/v3-command-kernel-20260919/11-reconciliation.md"
+        ],
+        "reads": [
+          "app/platform/adapters/whatsapp.py",
+          "tests/test_whatsapp_ambiguous_status.py",
+          "app/storage.py",
+          "app/platform/bus.py",
+          "app/entrypoints/reconciliation_worker.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::deploy-blockers",
+      "branch": "fix/deploy-blockers-20261030",
+      "worktree": "/home/codestra/Development/repos/Middleware-deploy-blockers",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-08-release::04-promotion-rollback",
+      "file_scope": {
+        "owns": [
+          "deploy/production/server/codestra-middleware-deploy",
+          "scripts/migrate_runtime.py",
+          "tests/test_production_runtime_deployment.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::identity",
+      "branch": "fix/identity-async-auth-20261030",
+      "worktree": "/home/codestra/Development/repos/Middleware-identity",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-04-identity::01-jwt-jwks",
+      "file_scope": {
+        "owns": [
+          "app/core/jwt_auth.py",
+          "app/control_plane_auth.py",
+          "app/api/v1/campaign_search.py",
+          "app/api/v1/sales.py",
+          "app/api/v1/n8n_transport.py",
+          "app/api/v1/webphone.py",
+          "tests/test_campaign_search_api.py",
+          "tests/test_sales_api.py",
+          "tests/test_webphone.py",
+          "tests/test_n8n_transport_ack.py",
+          "tests/test_control_plane_product_auth.py"
+        ],
+        "reads": [
+          "app/adapters/n8n/transport.py",
+          "app/core/route_policy.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    },
+    {
+      "id": "fix-lane::adapters",
+      "branch": "fix/adapters-20261030",
+      "worktree": "/home/codestra/Development/repos/Middleware-adapters",
+      "status": "PLANNED",
+      "d1_lane": "middleware::mw-06-adapters::03-n8n",
+      "file_scope": {
+        "owns": [
+          "app/platform/adapters/n8n.py",
+          "app/adapters/n8n/transport.py",
+          "app/telnexa_provider_adapter.py",
+          "app/postly_social_adapter.py",
+          "tests/test_telnexa_provider_adapter.py",
+          "tests/test_postly_social_adapter.py"
+        ],
+        "reads": [
+          "app/api/v1/n8n_transport.py",
+          "app/platform/adapter.py"
+        ]
+      },
+      "review_authority": [
+        "@appolon1908",
+        "@kazan555"
+      ]
+    }
+  ],
+  "shared_files": [
+    {
+      "path": ".codestra/validate-release-intent.py",
+      "description": "Release closure pin. Every fix/* PR re-derives it as its last step, so it is held only by the PR at the head of the merge queue.",
+      "owner": "fix-lane::governance",
+      "handoff_order": [
+        "fix-lane::governance",
+        "fix-lane::p1-whatsapp",
+        "fix-lane::p3-kernel",
+        "fix-lane::supply-chain",
+        "fix-lane::delivery-cancellation",
+        "fix-lane::delivery-c1",
+        "fix-lane::delivery-c6",
+        "fix-lane::deploy-blockers",
+        "fix-lane::identity",
+        "fix-lane::adapters"
+      ],
+      "holder": "fix-lane::governance",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "governance/promotion-policy.json",
+      "description": "Each fix/* PR adds its own dated migration_exceptions row; held only by the PR at the head of the merge queue.",
+      "owner": "fix-lane::governance",
+      "handoff_order": [
+        "fix-lane::governance",
+        "fix-lane::p1-whatsapp",
+        "fix-lane::p3-kernel",
+        "fix-lane::supply-chain",
+        "fix-lane::delivery-cancellation",
+        "fix-lane::delivery-c1",
+        "fix-lane::delivery-c6",
+        "fix-lane::deploy-blockers",
+        "fix-lane::identity",
+        "fix-lane::adapters"
+      ],
+      "holder": "fix-lane::governance",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "tests/test_platform_kernel.py",
+      "description": "Kernel unit tests: edited by P3 (#464), then the W3 cancellation fix, then C1.",
+      "owner": "fix-lane::p3-kernel",
+      "handoff_order": [
+        "fix-lane::p3-kernel",
+        "fix-lane::delivery-cancellation",
+        "fix-lane::delivery-c1"
+      ],
+      "holder": "fix-lane::p3-kernel",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "app/commands.py",
+      "description": "Both command-store twins; W3 cancellation first, then C1 (deferral_count, reason codes).",
+      "owner": "fix-lane::delivery-cancellation",
+      "handoff_order": [
+        "fix-lane::delivery-cancellation",
+        "fix-lane::delivery-c1"
+      ],
+      "holder": "fix-lane::delivery-cancellation",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "app/platform/bus.py",
+      "description": "AdapterDispatch.dispatch: W3 cancellation first, then C1 budgets. PR #448 (trust/*, outside this registry) also edits it; whichever merges later merges main in.",
+      "owner": "fix-lane::delivery-cancellation",
+      "handoff_order": [
+        "fix-lane::delivery-cancellation",
+        "fix-lane::delivery-c1"
+      ],
+      "holder": "fix-lane::delivery-cancellation",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "app/platform/reconciler.py",
+      "description": "W3 cancellation branch first, then C6 backoff policy.",
+      "owner": "fix-lane::delivery-cancellation",
+      "handoff_order": [
+        "fix-lane::delivery-cancellation",
+        "fix-lane::delivery-c6"
+      ],
+      "holder": "fix-lane::delivery-cancellation",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "app/platform/memory.py",
+      "description": "C1 edits MemoryExecutionBus, then C6 edits MemoryReconciliationSource.",
+      "owner": "fix-lane::delivery-c1",
+      "handoff_order": [
+        "fix-lane::delivery-c1",
+        "fix-lane::delivery-c6"
+      ],
+      "holder": "fix-lane::delivery-c1",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    }
+  ],
+  "unassigned": [
+    "**"
+  ]
+}
