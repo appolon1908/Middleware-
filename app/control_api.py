@@ -424,6 +424,15 @@ async def _mutate(
 
                     raise CommandConflict("ambiguous delivery requires reconciliation")
                 if action == "cancel":
+                    if row["command_id"] is not None:
+                        # Cancelling only the intent would leave its command
+                        # active (holding tenant capacity) with no live row.
+                        from .commands import CommandConflict
+
+                        raise CommandConflict(
+                            "command intents are cancelled through the operation: "
+                            "POST /platform/v1/operations/{id}/cancel"
+                        )
                     sql = "UPDATE middleware_outbox SET cancelled_at=now(),lease_owner=NULL,lease_until=NULL,resource_version=resource_version+1 WHERE tenant_id=$1 AND id=$2 AND (lease_until IS NULL OR lease_until<now()) RETURNING *"
                 elif action == "reconcile":
                     sql = "UPDATE middleware_outbox SET reconciliation_required_at=now(),lease_owner=NULL,lease_until=NULL,resource_version=resource_version+1,last_error='manual reconciliation requested' WHERE tenant_id=$1 AND id=$2 AND (lease_until IS NULL OR lease_until<now()) RETURNING *"
