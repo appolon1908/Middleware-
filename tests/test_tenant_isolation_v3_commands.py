@@ -499,14 +499,14 @@ def test_receipt_style_resolution_naming_a_foreign_provider_reference_is_denied(
         own_tenant = client.post(
             f"/platform/v1/reconciliation/{op}/resolve",
             json=body,
-            headers=mutation_headers(attacker, key="attack-resolve-0001"),
+            headers=mutation_headers(attacker, key="resolve-aaaa"),
         )
         assert_non_disclosing(own_tenant, owner, status=404)
         named_victim = client.post(
             f"/platform/v1/reconciliation/{op}/resolve",
             json=body,
             headers=mutation_headers(
-                attacker, key="attack-resolve-0002", tenant_header=TENANT_A
+                attacker, key="resolve-bbbb", tenant_header=TENANT_A
             ),
         )
         assert_non_disclosing(named_victim, owner, status=403)
