@@ -22,7 +22,7 @@ from uuid import UUID
 
 import pytest
 
-from app.commands import ACTIVE_COMMAND_STATES, CommandConflict
+from app.commands import ACTIVE_COMMAND_STATES, CommandConflict, CommandNotFound
 from app.core.config import Settings
 from app.platform import outcome_codes
 from app.platform.adapter import AdapterContext, AdapterReadiness, AdapterResult, ReadbackResult, ReadbackStatus
@@ -551,6 +551,69 @@ async def test_bulkhead_exhaustion_dead_letters_with_retry_exhausted(test_settin
     record = await harness.commands.get_dead_letter(TENANT, command.command_id)
     assert record.reason_code == "retry_exhausted" and record.attempt_number >= 1
     assert adapter.executed == []
+    assert_no_stranded_command(harness)
+
+
+@pytest.mark.asyncio
+async def test_deferral_after_reconciliation_requeue_is_not_terminalized(test_settings: Settings) -> None:
+    """N1: a command that was quarantined (reconciliation_required) and then
+    re-queued must never be dead-lettered as exhausted "without a provider
+    effect" by a readiness deferral on the final outbox attempt."""
+    adapter = racing()
+    harness = make(test_settings, adapter, max_attempts=2)
+    command = envelope(payload={"fixture": "unknown"})
+    await harness.submit(command)
+    await harness.bus.run_once()  # outbox attempt 1: unknown outcome, quarantined
+    assert (await harness.commands.get(TENANT, command.command_id)).state == "reconciliation_required"
+    adapter.effects.pop(str(command.command_id), None)
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()  # NOT_FOUND + safe adapter: re-queued
+    assert decision is not None and decision.final_state == "queued"
+    assert (await harness.commands.get(TENANT, command.command_id)).state == "queued"
+
+    adapter.readiness_error = True
+    make_claimable(harness, command.command_id)
+    executed_before = list(adapter.executed)
+    assert await harness.bus.run_once()  # outbox attempt 2 == max_attempts: readiness fails
+    assert harness.intents(command.command_id)[0].attempt_count == 2
+    operation = await harness.commands.get(TENANT, command.command_id)
+    assert operation.state == "queued"  # left for reconciliation, not terminalized
+    with pytest.raises(CommandNotFound):
+        await harness.commands.get_dead_letter(TENANT, command.command_id)
+    assert adapter.executed == executed_before
+
+
+@pytest.mark.asyncio
+async def test_deferral_of_queued_command_at_final_attempt_still_terminalizes(test_settings: Settings) -> None:
+    """N1 (b): a queued command whose only history is classified no-effect
+    closes keeps the B2 budget: deferral_exhausted at attempt 0,
+    retry_exhausted after a known-safe opened attempt."""
+    adapter = racing()
+    harness = make(test_settings, adapter, max_attempts=2)
+    never_opened = envelope()
+    await harness.submit(never_opened)
+    await harness.commands.transition(TENANT, never_opened.command_id, new_state="queued", actor_id="w", reason="queued")
+    adapter.readiness_error = True
+    for _ in range(2):
+        make_claimable(harness, never_opened.command_id)
+        assert await harness.bus.run_once()
+    record = await harness.commands.get_dead_letter(TENANT, never_opened.command_id)
+    assert (record.reason_code, record.attempt_number) == ("deferral_exhausted", 0)
+    assert (await harness.commands.get(TENANT, never_opened.command_id)).state == "dead_lettered"
+
+    adapter.readiness_error = False
+    transient = envelope()
+    adapter.scripts[str(transient.command_id)] = ["transient"]
+    await harness.submit(transient)
+    assert await harness.bus.run_once()  # attempt 1 closes known-safe; command back to queued
+    assert (await harness.commands.get(TENANT, transient.command_id)).state == "queued"
+    adapter.readiness_error = True
+    make_claimable(harness, transient.command_id)
+    assert await harness.bus.run_once()
+    record = await harness.commands.get_dead_letter(TENANT, transient.command_id)
+    assert (record.reason_code, record.attempt_number) == ("retry_exhausted", 1)
+    assert (await harness.commands.get(TENANT, transient.command_id)).state == "dead_lettered"
+    assert adapter.provider_effects == 0
     assert_no_stranded_command(harness)
 
 

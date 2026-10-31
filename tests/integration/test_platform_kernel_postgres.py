@@ -565,6 +565,36 @@ async def test_deferral_at_final_attempt_terminalizes_command_and_intent(pool: a
 
 
 @pytest.mark.asyncio
+async def test_deferral_after_reconciliation_requeue_is_not_terminalized(pool: asyncpg.Pool, monkeypatch) -> None:
+    """N1 on PostgreSQL: a re-queued command that was once quarantined is not
+    dead-lettered "without a provider effect" by a final-attempt deferral."""
+    from app.commands import CommandNotFound
+
+    stack = _racing_stack(_settings(monkeypatch), pool, max_attempts=2)
+    adapter = stack.test_syn
+    reconciler = stack.platform.reconciler
+    assert reconciler is not None
+    command = _envelope(payload={"fixture": "unknown"})
+    await stack.submit(command)
+    await stack.worker.run_once()  # outbox attempt 1: unknown outcome, quarantined
+    assert (await stack.commands.get(TENANT, command.command_id)).state == "reconciliation_required"
+    adapter.effects.pop(str(command.command_id), None)
+    await _expire(pool, command.command_id)
+    decision = await reconciler.run_once()  # NOT_FOUND + safe adapter: re-queued
+    assert decision is not None and decision.final_state == "queued"
+
+    adapter.readiness_error = True  # type: ignore[attr-defined]
+    executed_before = list(adapter.executed)
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE middleware_outbox SET next_attempt_at=now() WHERE command_id=$1", str(command.command_id))
+    assert await stack.worker.run_once() is True  # outbox attempt 2 == max_attempts: readiness fails
+    assert (await stack.commands.get(TENANT, command.command_id)).state == "queued"
+    with pytest.raises(CommandNotFound):
+        await stack.commands.get_dead_letter(TENANT, command.command_id)
+    assert adapter.executed == executed_before
+
+
+@pytest.mark.asyncio
 async def test_reexecute_waiver_for_never_sent_dead_letter(pool: asyncpg.Pool, monkeypatch) -> None:
     from app.platform.kernel import ReplayNotAllowed
     from app.platform.resilience import ReplayMode

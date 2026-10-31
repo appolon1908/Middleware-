@@ -83,6 +83,11 @@ from app.worker import KnownSafeRetryError
 
 logger = logging.getLogger("codestra.platform.bus")
 
+# Command states whose presence anywhere in the audit history means a provider
+# effect may exist (an acknowledgement, a read-back or an unknown outcome).
+POSSIBLE_EFFECT_STATES = frozenset({"accepted", "readback_pending", "reconciliation_required", "completed"})
+_EVENT_PAGE = 200
+
 TRANSIENT_EXECUTION_DENIALS = frozenset(
     {
         "adapter_not_ready",
@@ -622,14 +627,32 @@ class AdapterDispatch:
         """A known-safe deferral (nothing sent on this claim). On the final
         outbox attempt the command is terminalized *before* the worker
         dead-letters the intent, so the command never stays active behind a
-        dead outbox row (interim budget until C1's deferral counter)."""
+        dead outbox row (interim budget until C1's deferral counter).
+
+        Terminalization is fail-closed: only a freshly re-read ``persisted``
+        or ``queued`` command whose history never reached a state in which a
+        provider effect may exist is dead-lettered. A command that was ever
+        acknowledged, read back or quarantined (for example re-queued after
+        reconciliation) keeps the previous behaviour: the deferral is raised
+        and the command is left for reconciliation, never recorded as
+        exhausted "without a provider effect"."""
         if outbox_attempt >= self.bus.max_attempts:
             tenant_id, command_id = operation.tenant_id, operation.command_id
+            current = await self.commands.get(tenant_id, command_id)
+            if current.state not in {"persisted", "queued"} or await self._possible_effect_recorded(tenant_id, command_id):
+                logger.warning(
+                    "adapter_deferral_terminalization_refused",
+                    extra={"command_id": str(command_id), "state": current.state},
+                )
+                raise KnownSafeRetryError(reason) from cause
             opened = await self.commands.latest_attempt(tenant_id, command_id)
             try:
                 await self.commands.dead_letter(
                     tenant_id, command_id, actor_id=self.worker_id,
-                    reason=f"dispatch budget exhausted without a provider effect: {reason}",
+                    reason=(
+                        f"dispatch budget exhausted without a provider effect: {reason}" if opened == 0
+                        else f"dispatch budget exhausted; every opened attempt closed with a classified no-effect outcome: {reason}"
+                    ),
                     reason_code=DEFERRAL_EXHAUSTED if opened == 0 else RETRY_EXHAUSTED,
                     error_class="deferred", terminal_reason=reason, retry_exhausted=True,
                     expected_attempt=opened,
@@ -638,6 +661,20 @@ class AdapterDispatch:
                 # A newer attempt or a cancel owns the command now; leave it.
                 logger.warning("adapter_deferral_terminalization_skipped", extra={"command_id": str(command_id)})
         raise KnownSafeRetryError(reason) from cause
+
+    async def _possible_effect_recorded(self, tenant_id: str, command_id: UUID) -> bool:
+        """True when the command's audit history shows it ever entered a state
+        in which a provider effect may exist. ``dispatching -> failed`` is a
+        classified known-safe close (rejection, transient-before-effect,
+        bulkhead, lost lease) and does not count."""
+        position: tuple[datetime, int] | None = None
+        while True:
+            events = await self.commands.list_events(tenant_id, command_id, limit=_EVENT_PAGE, position=position)
+            if any(event.new_state in POSSIBLE_EFFECT_STATES for event in events):
+                return True
+            if len(events) < _EVENT_PAGE:
+                return False
+            position = (events[-1].created_at, events[-1].event_id)
 
     async def _fail(self, operation: CommandOperation, *, reason: str, attempt: int | None, retryable: bool = False) -> None:
         tenant_id, command_id = operation.tenant_id, operation.command_id
