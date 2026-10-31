@@ -35,6 +35,11 @@ from app.commands import CommandConflict, CommandNotFound, CommandService, redac
 from app.core.config import Settings
 from app.platform.adapter import AdapterContext, ReadbackResult, ReadbackStatus
 from app.platform.metrics import KernelMetrics
+from app.platform.outcome_codes import (
+    CANCEL_REQUESTED_PROVIDER_MISSING,
+    PROVIDER_MISSING_MANUAL_REPAIR,
+    RECONCILIATION_DEAD_LETTER_UNRECORDED,
+)
 from app.platform.registry import AdapterRegistry
 from app.platform.bus import status_readback, worker_identity
 
@@ -180,7 +185,17 @@ class Reconciler:
         envelope = await self.commands.load_envelope(claim.tenant_id, claim.command_id)
         if envelope.target not in adapter.capabilities().connector_ids:
             reason = "connector unavailable during reconciliation"
-            await self.commands.transition(claim.tenant_id, claim.command_id, new_state="dead_lettered", actor_id=self.reconciler_id, reason=reason)
+            # Through dead_letter so the terminal state and its recovery record
+            # commit together (REEXECUTE and the dead-letter feed need it).
+            try:
+                await self.commands.dead_letter(
+                    claim.tenant_id, claim.command_id, actor_id=self.reconciler_id, reason=reason,
+                    reason_code=RECONCILIATION_DEAD_LETTER_UNRECORDED, error_class="configuration",
+                    terminal_reason=reason, expected_attempt=attempt,
+                )
+            except CommandConflict:
+                await self.source.release(claim, reconciler_id=self.reconciler_id, reason="operation changed before dead-lettering; re-read next pass")
+                return ReconciliationDecision(claim.command_id, adapter.adapter_id, None, "release", operation.state, "operation_changed_during_readback")
             await self.source.resolve(claim, reconciler_id=self.reconciler_id, action="dead_letter", reason=reason)
             return ReconciliationDecision(claim.command_id, adapter.adapter_id, None, "dead_letter", "dead_lettered")
         context = AdapterContext(
@@ -232,7 +247,10 @@ class Reconciler:
             self.metrics.commands_completed.labels(command_family=family, adapter=adapter.adapter_id).inc()
             return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "complete", "completed")
 
-        if readback.status is ReadbackStatus.NOT_FOUND and not exhausted and advertised.safe_reexecution:
+        # A persisted cancel request (cancellation_reason) is honoured: absence
+        # never re-queues a command somebody asked to cancel.
+        cancel_requested = operation.cancellation_reason is not None
+        if readback.status is ReadbackStatus.NOT_FOUND and not exhausted and advertised.safe_reexecution and not cancel_requested:
             # Absence is repairable only when the adapter explicitly advertises
             # that repeating the provider effect is safe.
             await self.commands.transition(
@@ -243,25 +261,32 @@ class Reconciler:
             self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="requeued").inc()
             return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "retry", "queued", "provider_missing_repairable")
 
-        if readback.status is ReadbackStatus.NOT_FOUND and not advertised.safe_reexecution:
+        if readback.status is ReadbackStatus.NOT_FOUND and (not advertised.safe_reexecution or cancel_requested):
             if not await self._fenced_reconcile(
                 claim, operation, matched=False, actor_id=actor,
                 reason="provider state missing; automatic repair is not safe",
                 provider_operation_id=readback.provider_operation_id, evidence=evidence,
             ):
                 return ReconciliationDecision(claim.command_id, adapter.adapter_id, readback, "release", operation.state, "operation_changed_during_readback")
-            reason = "provider state missing and adapter does not permit safe automatic re-execution"
+            if cancel_requested:
+                reason = (
+                    "cancel was requested while the provider outcome was unknown; the provider shows no record. "
+                    "This is not proof that nothing was sent"
+                )
+                reason_code, result = CANCEL_REQUESTED_PROVIDER_MISSING, "cancel_requested_missing"
+            else:
+                reason = "provider state missing and adapter does not permit safe automatic re-execution"
+                reason_code, result = PROVIDER_MISSING_MANUAL_REPAIR, "missing_unsafe"
             await self.commands.dead_letter(
                 claim.tenant_id, claim.command_id, actor_id=actor, reason=reason,
-                reason_code="provider_missing_manual_repair", error_class="not_found",
+                reason_code=reason_code, error_class="not_found",
                 terminal_reason=reason, retry_exhausted=False,
             )
             await self.source.resolve(claim, reconciler_id=actor, action="dead_letter", reason=reason)
-            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result="missing_unsafe").inc()
+            self.metrics.reconciliation_decisions.labels(adapter=adapter.adapter_id, result=result).inc()
             self.metrics.commands_failed.labels(command_family=family, adapter=adapter.adapter_id, result="dead_lettered").inc()
             return ReconciliationDecision(
-                claim.command_id, adapter.adapter_id, readback, "dead_letter", "dead_lettered",
-                "provider_missing_manual_repair",
+                claim.command_id, adapter.adapter_id, readback, "dead_letter", "dead_lettered", reason_code,
             )
 
         if readback.status is ReadbackStatus.MISMATCH:
