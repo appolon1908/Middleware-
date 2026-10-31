@@ -15,7 +15,7 @@ the command (B2 deferral budget, B3 reconciler dead-letter record).
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
@@ -452,6 +452,37 @@ async def test_reexecute_waiver_covers_pre_send_cancel(test_settings: Settings) 
 
 
 @pytest.mark.asyncio
+async def test_reexecute_waiver_refuses_pre_send_cancel_after_an_earlier_send(test_settings: Settings) -> None:
+    """N2: a pre-send cancel on attempt 2 does not prove attempt 1 sent nothing."""
+    adapter = racing()  # safe, so the reconciler re-queues after NOT_FOUND
+    harness = make(test_settings, adapter)
+    command = envelope()
+    adapter.scripts[str(command.command_id)] = ["unknown"]
+    await harness.submit(command)
+    await harness.bus.run_once()  # attempt 1 reaches the provider; outcome unknown
+    assert adapter.effects[str(command.command_id)] == 1
+    adapter.effects.pop(str(command.command_id))  # the provider's record is lost
+    harness.bus.expire_leases()
+    decision = await harness.reconciler.run_once()
+    assert decision is not None and decision.final_state == "queued"
+    make_claimable(harness, command.command_id)
+    await _cancel_between_attempt_open_and_send(harness, command.command_id)
+    record = await harness.commands.get_dead_letter(TENANT, command.command_id)
+    assert (record.reason_code, record.error_class, record.attempt_number) == (
+        "cancel_requested_provider_missing", "cancelled_before_send", 2,
+    )
+    assert [item for item in adapter.executed if item[0] == str(command.command_id)] == [(str(command.command_id), 1)]
+
+    # The adapter is not safely re-executable: only the waiver could allow REEXECUTE.
+    registry = harness.kernel.registry
+    unsafe = replace(registry.advertised("test-syn"), safe_reexecution=False)
+    original_advertised = registry.advertised
+    registry.advertised = lambda adapter_id: unsafe if adapter_id == "test-syn" else original_advertised(adapter_id)  # type: ignore[method-assign]
+    with pytest.raises(ReplayNotAllowed, match="safe re-execution"):
+        await _reexecute(harness, command.command_id)
+
+
+@pytest.mark.asyncio
 async def test_reexecute_waiver_refuses_cancel_requested_and_provider_missing(test_settings: Settings) -> None:
     adapter = racing(safe=False)
     harness = make(test_settings, adapter)
@@ -500,6 +531,8 @@ def test_waiver_predicate_is_closed_and_excludes_poisoned() -> None:
     pre_send = facts(attempt_number=1, reason_code="cancel_requested_provider_missing", error_class="cancelled_before_send")
     assert outcome_codes.proven_not_sent(pre_send, latest_attempt=1)
     assert not outcome_codes.proven_not_sent(pre_send, latest_attempt=2)
+    later_pre_send = facts(attempt_number=2, reason_code="cancel_requested_provider_missing", error_class="cancelled_before_send")
+    assert not outcome_codes.proven_not_sent(later_pre_send, latest_attempt=2)  # attempt 1 may have sent
     assert not outcome_codes.proven_not_sent(facts(attempt_number=1, reason_code="cancel_requested_provider_missing", error_class="not_found"), latest_attempt=1)
     assert outcome_codes.DEAD_LETTER_REASON_CODES >= NO_EFFECT_DEAD_LETTER_CODES | {"reconciliation_dead_letter_unrecorded"}
 

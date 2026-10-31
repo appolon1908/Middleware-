@@ -58,8 +58,11 @@ def proven_not_sent(record: DeadLetterFacts, *, latest_attempt: int) -> bool:
     """True only when the stored dead letter proves no provider request exists.
 
     * attempt 0 with a no-effect code: no attempt was ever opened;
-    * the bus's pre-send cancel (owner decision S5 Q1): the attempt was opened
-      but the command was re-read and found cancelled before the provider call.
+    * the bus's pre-send cancel (owner decision S5 Q1) on the *first* attempt:
+      that attempt was opened but the command was re-read and found cancelled
+      before the provider call, and no earlier attempt exists that could have
+      reached the provider. A pre-send cancel on attempt N > 1 is not waived:
+      the stored record cannot prove that attempts 1..N-1 had no effect.
 
     ``latest_attempt`` must equal the recorded attempt, so no later attempt
     can have sent anything. Poisoned dead letters are never waived (S5 Q4).
@@ -69,7 +72,8 @@ def proven_not_sent(record: DeadLetterFacts, *, latest_attempt: int) -> bool:
     if record.attempt_number == 0:
         return record.reason_code in NO_EFFECT_DEAD_LETTER_CODES
     return (
-        record.reason_code == CANCEL_REQUESTED_PROVIDER_MISSING
+        record.attempt_number == 1
+        and record.reason_code == CANCEL_REQUESTED_PROVIDER_MISSING
         and record.error_class == CANCELLED_BEFORE_SEND
     )
 
