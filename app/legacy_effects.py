@@ -375,8 +375,8 @@ def enforce_legacy_effect_registry(app: FastAPI) -> dict[str, dict[str, bool]]:
                     violations.append(f"{entry.id} {method} {path}")
             # A denial dependency must match the operation it is mounted on.
             for effect_id in _denial_ids(route):
-                entry = active.get(effect_id)
-                if entry is None or entry.method not in route.methods or entry.path != path:
+                denial_entry = active.get(effect_id)
+                if denial_entry is None or denial_entry.method not in (route.methods or ()) or denial_entry.path != path:
                     violations.append(f"{effect_id} mounted on {method} {path}")
     if violations:
         raise LegacyEffectRegistryError(

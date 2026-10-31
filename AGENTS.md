@@ -76,6 +76,35 @@ If that comparison fails, STOP. Fetch and reconcile on the owning workstation; n
 
 The mission handoff must record host, worktree, branch, local HEAD, upstream SHA, remote SHA, dirty state, tests/validators run, and the exact next command.
 
+## Scoped CI repair exception — 2026-10-23
+
+The repository owner explicitly selected a scoped writer-lease exception for the
+current Codex CI-repair session on PRs #448, #453 and #457. This exception permits
+this session to use isolated repair worktrees, edit the diagnosed CI failures and
+this record, run validation, and publish tested fast-forward updates to those
+unprotected PR heads, or subsection repair PRs into protected PR heads, without
+an operational controller writer lease. It also covers
+the lease-dependent start/certify stop conditions and publication handoff for
+these repairs only. The recorded preflight denial remains evidence; it must not
+be represented as a successful lease, admission or certification.
+
+Before each repair, record the exact remote head and use a clean isolated
+worktree. Preserve all existing owner checkouts and uncommitted work. Before
+publication, run the applicable checks, inspect the complete diff, require the
+remote head to equal the recorded parent, and use a non-force fast-forward.
+Stop and reconcile if the remote head changes.
+
+This exception does not authorize changes to branch protection, required status
+checks, independent review, trust-transition approval, promotion eligibility,
+controller grants or database records, secrets, runtime authorization, or
+production/provider effects. Protected main/development/testing/staging/production
+refs remain untouched. It does not certify inherited failures or allow a green
+status to be fabricated.
+
+This is a session-specific owner instruction, not a standing admission fallback.
+It ends when this repair session finishes or the owner revokes it; future
+sessions require their own explicit authority. All other rules remain in effect.
+
 ## Continuation protocol
 
 Cross-repository continuation rules live in the canonical Codestra protocol:

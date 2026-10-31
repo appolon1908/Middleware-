@@ -1,6 +1,6 @@
-ARG RUNTIME_BASE=python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83
+ARG RUNTIME_BASE=python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527
 ARG TEST_BASE=python:3.14.7-bookworm@sha256:4121f1893084fd19c71df52b7a48565d47f5bf36173d2c2ce8bca626512ef3db
-ARG FINAL_BASE=python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83
+ARG FINAL_BASE=python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527
 # Test image only: the node binary that runs the generated Postman collection
 # scripts in tests/test_postman_generation_safety.py.
 ARG NODE_TEST_BASE=node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
@@ -10,8 +10,8 @@ USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libpcre2-8-0=10.42-1+deb12u2 \
-      libssl3=3.0.22-1~deb12u1 \
-      openssl=3.0.22-1~deb12u1 \
+      libssl3=3.0.22-1~deb12u2 \
+      openssl=3.0.22-1~deb12u2 \
  && rm -rf /var/lib/apt/lists/*
 
 FROM ${RUNTIME_BASE} AS runtime-dependencies
