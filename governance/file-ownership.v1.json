@@ -113,17 +113,22 @@
     },
     {
       "id": "fix-lane::delivery-cancellation",
-      "description": "Delivery W3: cancellation race / fencing (design evidence/2026-10-30-designs/cancellation-race-design.md). Lands first among W3, C1, C6; hands bus.py, commands.py and tests/test_platform_kernel.py to C1 and reconciler.py to C6 by recorded handoff.",
-      "branch": "fix/delivery-w3-cancellation",
-      "worktree": "/home/codestra/Development/repos/Middleware-w3",
-      "status": "PLANNED",
+      "description": "Delivery W3, PR #466: cancellation race / retry fencing (design evidence/2026-10-30-designs/cancellation-race-design.md). Recorded base db8d3208cb502b4d0fefa3e2d6e0d79b1adf0480, head b4db3d949c108748684abcb1d33bc49e5c94df73 (2026-10-31). Lands first among W3, C1, C6; hands bus.py, commands.py and tests/test_platform_kernel.py to C1 and reconciler.py to C6 by recorded handoff. Receives app/platform/kernel.py and tests/test_platform_kernel.py from P3 (#464) and the merge-queue files from the lanes ahead of it by recorded handoff.",
+      "branch": "fix/cancellation-retry-races-20261031",
+      "worktree": "/home/codestra/Development/repos/Middleware-cancel",
+      "status": "ACTIVE",
       "d1_lane": "middleware::mw-02-command-kernel::05-dlq",
       "file_scope": {
         "owns": [
           "app/commands.py",
+          "app/control_api.py",
           "app/platform/bus.py",
+          "app/platform/outcome_codes.py",
           "app/platform/reconciler.py",
-          "tests/integration/test_platform_kernel_postgres.py"
+          "docs/evidence/v3-command-kernel-20260919/10-cancel-replay.md",
+          "tests/integration/test_control_api.py",
+          "tests/integration/test_platform_kernel_postgres.py",
+          "tests/test_cancel_retry_races.py"
         ],
         "reads": [
           "app/worker.py",
@@ -313,6 +318,19 @@
         "fix-lane::adapters"
       ],
       "holder": "fix-lane::governance",
+      "unit": "file",
+      "requires_parent_sha": true,
+      "handoff_log": []
+    },
+    {
+      "path": "app/platform/kernel.py",
+      "description": "Command kernel: P3 (#464) tenant-before-idempotency first, then the W3 cancellation fix (#466). C1 only reads it unless the REEXECUTE waiver is accepted (registry PR first).",
+      "owner": "fix-lane::p3-kernel",
+      "handoff_order": [
+        "fix-lane::p3-kernel",
+        "fix-lane::delivery-cancellation"
+      ],
+      "holder": "fix-lane::p3-kernel",
       "unit": "file",
       "requires_parent_sha": true,
       "handoff_log": []

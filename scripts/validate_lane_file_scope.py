@@ -645,7 +645,7 @@ def run(argv: Sequence[str] | None = None) -> int:
                     tip = git(root, "rev-parse", args.base).strip()
                     mb = git(root, "merge-base", args.base, "HEAD").strip()
                     if mb != tip:
-                        rep.err("d", f"branch is not based on current {args.base} ({tip[:12]}); rebase first")
+                        rep.err("d", f"branch is not based on current {args.base} ({tip[:12]}); merge current main first")
                 changed = changed_files(root, args.base, args.include_worktree)
                 check_diff(policy, lane, changed, rep)
                 print(f"LANE_SCOPE_DIFF={'FAIL' if rep.failed('d') else 'PASS'} lane={lane.id} changed={len(changed)}")
