@@ -52,11 +52,11 @@ MIDDLEWARE_CI_JOB_NAMES = {
 SIGNING_OR_PUBLISHING_MARKERS = ("cosign sign", "id-token: write", "packages: write")
 
 
-def load(path: Path) -> dict[str, Any]:
+def load(path: Path) -> dict[Any, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def triggers(workflow: dict[str, Any]) -> Any:
+def triggers(workflow: dict[Any, Any]) -> Any:
     # PyYAML resolves the bare ``on`` key to boolean True.
     return workflow.get("on", workflow.get(True))
 

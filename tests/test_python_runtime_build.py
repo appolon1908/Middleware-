@@ -12,6 +12,11 @@ def test_python_31214_build_does_not_reverse_integrated_security_fixes() -> None
     assert "patch -p1" not in builder
     assert "upstream-patches" not in builder
     assert "COPY security/python312" not in builder
-    assert "curl=8.22.0-r0" in builder
+    assert "curl=8.23.0-r0" in builder
     assert "unfiltered.replace" in builder
-    assert 'pyexpat.EXPAT_VERSION == "expat_2.8.5"' in builder
+    assert "expat-dev=2.10.0-r0" in builder
+    assert 'pyexpat.EXPAT_VERSION == "expat_2.10.0"' in builder
+    verified = dockerfile.split("FROM ${PYTHON_BASE} AS verified-python", 1)[1].split(
+        "FROM verified-python AS builder", 1
+    )[0]
+    assert "expat=2.10.0-r0" in verified

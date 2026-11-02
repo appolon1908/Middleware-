@@ -24,6 +24,7 @@ def workflow(name: str) -> dict:
 def test_source_suites_run_for_every_pull_request_target(name: str) -> None:
     document = workflow(name)
     events = document.get("on", document.get(True))
+    assert isinstance(events, dict)
     assert "pull_request" in events
     assert events["pull_request"] in (None, {})
 
