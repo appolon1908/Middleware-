@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.validate_ci_isolation import FLAGS, validate
+from scripts.required_ci_evidence import REQUIRED_REPORTS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,7 +66,8 @@ def test_readiness_ci_preserves_positive_and_all_dependency_failure_cases():
     assert "audit_case healthy" in source and "            200" in source
     for name in ("wrong-credential", "dns-failure", "tcp-failure", "redis-failure", "keycloak-failure"):
         assert f"audit_case {name}" in source
-        assert source.count(f"readiness-{name}.json") == 2
+        assert f"readiness-{name}.json" in REQUIRED_REPORTS
+    assert '"${REQUIRED_CI_EVIDENCE_DIR}/readiness-${name}.json"' in source
 
 
 def test_manifest_gate_runs_after_locked_dependencies_and_before_pytest():
@@ -159,11 +161,12 @@ def test_pull_request_target_gates_stay_byte_pinned_on_protected_main():
         assert "runs-on: [self-hosted" not in source
 
 
-def test_required_ci_stays_on_the_governed_runner_for_its_egress_guard():
-    # The root-owned egress guard exists only on the governed host.
+def test_required_ci_installs_its_reviewed_egress_guard_on_ephemeral_runners():
     source = (ROOT / ".github/workflows/required-ci.yml").read_text()
+    assert "bash scripts/install_hosted_ci_egress_guard.sh" in source
     assert "sudo -n /usr/local/sbin/codestra-ci-egress-guard apply" in source
-    assert source.count("runs-on: [self-hosted, Linux, X64, middleware-ci]") == 2
+    assert source.count("runs-on: ubuntu-24.04") == 2
+    assert "runs-on: [self-hosted" not in source
 
 
 def test_required_ci_allocates_job_local_http_probe_ports():

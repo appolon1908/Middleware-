@@ -192,7 +192,7 @@ def test_orchestrator_classifies_the_evidence_gate_as_read_only(
 def test_repaired_candidate_requires_independent_protected_trust_transition(monkeypatch) -> None:
     import hashlib
     launcher = load_launcher()
-    repaired = "fa3aabc35be1584e6d7176fc52a2e47e19968bf819a4a0dc0d63f560ac1342fe"
+    repaired = "aac3dccedec292924fd9263b0a9359702a8fce873007d7e10de29c5ff260a63c"
     assert hashlib.sha256(ORCHESTRATOR.read_bytes()).hexdigest() == repaired
     # Until a separately reviewed launcher-only trust transition reaches
     # protected main, the unchanged launcher must reject this generation.
