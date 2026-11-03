@@ -64,15 +64,22 @@ def stack(test_settings: Settings, monkeypatch):
     return SimpleNamespace(app=app, runtime=runtime, store=store, settings=test_settings, bus=MemoryExecutionBus(store, runtime.platform.dispatch))
 
 
-def token(settings: Settings, **overrides: Any) -> str:
+def token(
+    settings: Settings,
+    *,
+    iat_offset_seconds: int = 0,
+    exp_offset_seconds: int = 120,
+    **overrides: Any,
+) -> str:
+    """Resolve timestamp offsets when creating the token, not during collection."""
     now = int(time.time())
     claims: dict[str, Any] = {
         "iss": settings.issuer,
         "aud": settings.audience,
         "azp": "middleware-api",
         "sub": "user-1",
-        "iat": now,
-        "exp": now + 120,
+        "iat": now + iat_offset_seconds,
+        "exp": now + exp_offset_seconds,
         "jti": str(uuid4()),
         "scope": "platform.command platform.command.read",
         "tenant_ids": [TENANT],
@@ -137,8 +144,8 @@ def test_real_verifier_accepts_a_valid_token(stack) -> None:
         ("wrong_azp", {"azp": "kong-gateway"}, 403),
         ("unregistered_azp", {"azp": "not-a-caller"}, 401),
         ("missing_scope", {"scope": "platform.command.read"}, 403),
-        ("expired_token", {"exp": int(time.time()) - 10, "iat": int(time.time()) - 130}, 401),
-        ("lifetime_over_policy", {"iat": int(time.time()) - 10, "exp": int(time.time()) + 1000}, 403),
+        ("expired_token", {"iat_offset_seconds": -130, "exp_offset_seconds": -10}, 401),
+        ("lifetime_over_policy", {"iat_offset_seconds": -10, "exp_offset_seconds": 1000}, 403),
         ("alg_none", {"_alg": "none"}, 401),
         ("hs256_confusion", {"_alg": "HS256"}, 401),
         ("foreign_key", {"_key": OTHER_PRIVATE}, 401),
