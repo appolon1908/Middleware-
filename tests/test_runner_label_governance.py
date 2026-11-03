@@ -1,10 +1,9 @@
 """Runner-label governance for Middleware CI execution.
 
-Portable validation/build/integration jobs run on ephemeral GitHub-hosted
-Ubuntu runners. Only jobs with host-only security or branch-materialization
-requirements may target the governed ``self-hosted, Linux, X64, middleware-ci``
-runner. Signing, publishing and release-provenance workflows never use that
-governed host.
+Validation/build/integration jobs run on ephemeral GitHub-hosted Ubuntu
+runners. Required exact-SHA CI installs its checksum-verified egress guard
+there and no longer requires a persistent governed host. Signing, publishing
+and release-provenance workflows also remain independent of that host.
 
 ``tests/test_ci_isolation.py`` pins the portable hosted-runner policy, dynamic
 service ports and the required-ci egress guard; this module pins the job set
@@ -24,17 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github/workflows"
 MIDDLEWARE_CI = WORKFLOWS / "middleware-ci.yml"
 
-GOVERNED_LABELS = ["self-hosted", "Linux", "X64", "middleware-ci"]
-CONTROL_PLANE_LABELS = ["self-hosted", "linux", "x64", "codestra-control-plane"]
 HOSTED_RUNNER = "ubuntu-24.04"
-# Jobs pinned to the governed host by exact labels. Required exact-SHA CI owns
-# the host-only egress guard; portable governance and protected-base trust
-# checks run on ephemeral GitHub-hosted Ubuntu.
-EXACT_LABEL_JOBS = {
-    ("required-ci.yml", "test"): GOVERNED_LABELS,
-    ("required-ci.yml", "publish-final-status"): GOVERNED_LABELS,
-    ("codestra-hierarchy-governance.yml", "control-plane-certification"): CONTROL_PLANE_LABELS,
-}
 # Branch-protection contexts plus the push-only main gate: rerouting must not
 # rename, drop or add a job.
 MIDDLEWARE_CI_JOB_NAMES = {
@@ -54,11 +43,11 @@ MIDDLEWARE_CI_JOB_NAMES = {
 SIGNING_OR_PUBLISHING_MARKERS = ("cosign sign", "id-token: write", "packages: write")
 
 
-def load(path: Path) -> dict[str, Any]:
+def load(path: Path) -> dict[Any, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def triggers(workflow: dict[str, Any]) -> Any:
+def triggers(workflow: dict[Any, Any]) -> Any:
     # PyYAML resolves the bare ``on`` key to boolean True.
     return workflow.get("on", workflow.get(True))
 
@@ -103,14 +92,10 @@ def test_middleware_ci_only_runs_for_trusted_event_types() -> None:
     ("workflow", "job_id", "job"),
     [pytest.param(*entry, id=f"{entry[0]}:{entry[1]}") for entry in all_jobs()],
 )
-def test_governed_host_is_reached_only_through_approved_selectors(
+def test_jobs_do_not_depend_on_the_persistent_governed_host(
     workflow: str, job_id: str, job: dict[str, Any]
 ) -> None:
-    runs_on = job.get("runs-on")
-    if not targets_governed_host(runs_on):
-        return
-    assert (workflow, job_id) in EXACT_LABEL_JOBS, f"{workflow}:{job_id} is not an approved governed-host job"
-    assert runs_on == EXACT_LABEL_JOBS[(workflow, job_id)], f"{workflow}:{job_id}"
+    assert not targets_governed_host(job.get("runs-on")), f"{workflow}:{job_id}"
 
 
 @pytest.mark.parametrize(
