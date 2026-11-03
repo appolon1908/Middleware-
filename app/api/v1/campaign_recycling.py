@@ -11,6 +11,7 @@ import json
 import logging
 import time
 from datetime import UTC, datetime, timedelta
+from typing import Literal, NoReturn
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import asyncpg
@@ -63,7 +64,7 @@ def validate_token(token: str) -> dict:
     return KeycloakValidator(**kwargs).validate(token)
 
 
-def fail(status: int, code: str):
+def fail(status: int, code: str) -> NoReturn:
     raise BoundaryError(status, code)
 
 
@@ -175,7 +176,7 @@ async def _evaluate_lead(
     tenant_id: str,
     lead_id: str,
     policy: PolicyProfile,
-    mode: str,
+    mode: Literal['plan', 'read', 'execute'],
     campaign_id: str | None = None,
     campaign_version: int | None = None,
     channels: list[str] | tuple[str, ...] | None = None,
@@ -445,6 +446,8 @@ async def dispatch(request: Request, operation: dict, params: dict, claims: dict
     } and not policy.configured:
         fail(503, 'policy_not_configured')
     if operation_id == 'campaign_engine_plan':
+        if body is None:
+            fail(400, 'invalid_request')
         return await _plan(request, params, claims, body, policy)
     if operation_id == 'lead_next_action_read':
         return await _next_action(request, params, claims, policy)
@@ -454,8 +457,12 @@ async def dispatch(request: Request, operation: dict, params: dict, claims: dict
         from app.core.campaign_recycling_readback import journey
         return 200, await journey(request, params)
     if operation_id == 'delivery_event_ingest':
+        if body is None:
+            fail(400, 'invalid_request')
         return await _ingest_delivery_event(request, body, policy)
     if operation_id == 'suppression_record':
+        if body is None:
+            fail(400, 'invalid_request')
         return await _record_suppression(request, params, body)
     fail(503, 'dependency_unavailable')
 
