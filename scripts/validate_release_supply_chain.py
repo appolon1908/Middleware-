@@ -8,16 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_BASE = (
-    "python:3.14.8-slim-bookworm@"
-    "sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83"
+    "python:3.14.10-slim-bookworm@"
+    "sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527"
 )
 TEST_BASE = (
     "python:3.14.7-bookworm@"
     "sha256:4121f1893084fd19c71df52b7a48565d47f5bf36173d2c2ce8bca626512ef3db"
 )
 FINAL_BASE = (
-    "python:3.14.8-slim-bookworm@"
-    "sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83"
+    "python:3.14.10-slim-bookworm@"
+    "sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527"
 )
 REQUIRED = (
     "requirements-runtime.in",
@@ -149,8 +149,8 @@ def main() -> int:
     )
     for package_pin, label in (
         ("libpcre2-8-0=10.42-1+deb12u2", "fixed PCRE2 runtime package"),
-        ("libssl3=3.0.22-1~deb12u1", "fixed OpenSSL runtime library"),
-        ("openssl=3.0.22-1~deb12u1", "fixed OpenSSL runtime package"),
+        ("libssl3=3.0.22-1~deb12u2", "fixed OpenSSL runtime library"),
+        ("openssl=3.0.22-1~deb12u2", "fixed OpenSSL runtime package"),
     ):
         require(dockerfile, package_pin, label, errors)
     require(dockerfile, "--require-hashes", "hashed dependency install", errors)

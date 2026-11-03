@@ -16,7 +16,7 @@ Before any commit/push handoff, run the repository's mission tests plus:
 ./scripts/agent_preflight.sh --certify --branch "$(git branch --show-current)"
 ```
 
-A failed gate is a STOP condition, not permission to weaken or bypass the gate.
+A failed gate is a STOP condition. The sole startup exception is the explicitly assigned unpublished-branch procedure in `/AGENTS.md`; record `missing_upstream`, review before publication, and verify the signed exact tree before establishing its upstream. Native GitHub source acceptance and independent production approval are separate gates, as defined there.
 
 Continuation protocol (cross-repository checkpoints and handoff):
 https://github.com/appolon1908/codestra/blob/main/docs/AGENT-CONTINUATION-PROTOCOL.md
