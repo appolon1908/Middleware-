@@ -37,7 +37,7 @@ STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
 MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
-    "39f415ea9425b818501d3e5689ccafc9ca8a8748d16220dd6acb1c3e4873f094"
+    "973c77a133edf1493d0dd7ce6afdaa33c94669d0a1c918a1e77912efdefdce8a"
 )
 BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
@@ -489,7 +489,7 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
         ),
         "scripts/nats_integration_ci.sh": "88d843c665cece68e0fb56a931c295ee10490446cad7b64d9f5356c1cbf7263d",
         "scripts/project_ci.sh": "12a529ea96f39baec5f1eeb287209dc9db355e5dca000cbbfd7494303501b2ae",
-        "scripts/release_manifest.py": "92515822529d4d8ceab6233391ab812e7c9a20761e119d8907eb7ea2f474f32b",
+        "scripts/release_manifest.py": "39dd3a9f569ba4940b36025e6aa6b4cf3f0538dcf924cc9d993e8b9910499564",
         "scripts/run_ci.sh": "64d7c92279dd442144c7e1f74c3e48f0ab5d5db105238a534dcf8ccd99e93138",
         "scripts/synthetic_acceptance_ci.sh": "087dac2c5371f2013fa0a8dd22ed4024409ab5015231fb8801c75cf3203e3a8a",
         "scripts/temporal_integration_ci.sh": "76a682cc1f5b15a0a3eb15a029d87206238dfe4a262eaf5fa2c79403f147d4d6",
@@ -654,10 +654,6 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
 }
 APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     "appolon1908/Middleware-": {
-        ".github/workflows/codestra-hierarchy-governance.yml": (
-            "246abcf82b6b25bb930f4fa4c8e9355f"
-            "4c7c91a96d8f4fb2f38ad7cd6dc4c1fb"
-        ),
         ".github/workflows/portfolio-production-ruleset-apply.yml": (
             "01c638afd5345837983556b5945a604d"
             "b09dbfc841ca3eaf7fe13c381bcd1659"
@@ -690,7 +686,7 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
             "cb89cb69636dc79a6a03e5df98abeb798"
             "6a823e30c2d52b1d03980dddac58cca"
         ),
-        ".github/workflows/required-ci.yml": "f1b02f4254fb515c94771fbb17a023fa163561d70608c90d76afd669c76c71af",
+        ".github/workflows/required-ci.yml": "c450012913805a151d5c7a82cd2afdf7ec32a0cc34c79390fadd1476b3da9fef",
         ".github/workflows/production-route-contract.yml": (
             "1c6f903907549ff12660d2380260b1d9"
             "51e0cc5a16766bf985e8f22c7dca4d85"
@@ -9378,14 +9374,14 @@ APPROVED_NARROW_MUTATION_SHA256: dict[str, dict[str, str]] = {
         # fixed runner-local egress containment wrapper. The job body is
         # exact-hash pinned; neither action grants production runtime authority.
         ".github/workflows/required-ci.yml:test": (
-            "40717c16aee84d4648f05f692bf3b035"
-            "f43759501019331335dd1b2a2679881e"
+            "642bd0a4d59a71699a38c62112271bf2"
+            "5d7f068b3f60454bccdc9e2f9be41919"
         ),
         # Final-status publication is limited to the exact tested commit and
         # the repository's statuses:write permission; the job body is pinned.
         ".github/workflows/required-ci.yml:publish-final-status": (
-            "326308325a43745e371f698a76ba2645"
-            "75f00ecc97eeec605a89a4e406b5e0ad"
+            "1ee20304640baa253c672259e618e2dc"
+            "d628c55201af1a5e67ab336bf6bc3ebc"
         ),
         # Single-lane governance mutates only runner-local Git refs/worktree
         # state to materialize the exact PR head before executing the

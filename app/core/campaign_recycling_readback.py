@@ -6,7 +6,6 @@ import hashlib
 import hmac
 import json
 from datetime import datetime
-from typing import NoReturn
 from uuid import UUID
 
 from fastapi.encoders import jsonable_encoder
@@ -14,7 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from app.core.campaign_recycling_contract import DOCUMENTS, BASE
 
 
-def _fail(status, code) -> NoReturn:
+def _fail(status, code):
     from app.api.v1.campaign_recycling import fail
     fail(status, code)
 

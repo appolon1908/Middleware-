@@ -4,9 +4,9 @@
 
 This root contract is authoritative for agent-driven development. Repository-specific rules may add constraints but may not weaken these rules.
 
-1. Every task is Product -> Section -> Subsection -> Atomic Task. Implement only in the assigned subsection worktree. Promotion is only: subsection/* -> section/* -> development -> testing -> staging -> production.
+1. Every task has an assigned product and bounded atomic scope. Implement only in its assigned worktree/branch. Source changes use protected GitHub pull requests to the approved target; production promotion requires a separate release mission and environment approval.
 2. One implementation owner per subsection. Review/test agents may inspect but do not modify the lane unless reassigned. Claim a lease before editing.
-3. Pre-work: fetch/prune, verify branch/parent, record SHA, require clean tree, know ahead/behind, safely sync parent, run preflight, require dependencies CERTIFIED, validate environment, keep production effects off. Unknown local work or divergence means BLOCKED.
+3. Pre-work: fetch, verify branch/parent, record SHA, require a clean assigned worktree, know ahead/behind, safely sync parent, run preflight, validate applicable source dependencies and test isolation, and keep production effects off. Unknown local work or divergence means BLOCKED. Follow the explicit first-publication procedure below for a newly assigned branch.
 4. Atomic tasks include implementation, tests, error handling, contract/docs/migration/observability/security changes when applicable. Do not mix unrelated changes.
 5. No placeholders, TODO-as-implementation, dead/duplicate code, bypasses, broad exception swallowing, hard-coded credentials, production secrets, unexplained suppressions, disabled tests/security checks or temporary production flags.
 6. Before push run applicable format/lint/type/unit/integration/contract/migration/security/secret checks and git diff --check. Do not knowingly push broken code.
@@ -17,7 +17,7 @@ This root contract is authoritative for agent-driven development. Repository-spe
 11. Defaults: PRODUCTION_GO=NO, LIVE_CAPABILITIES_ENABLED=NO, EXTERNAL_EFFECTS=false. Implementation must not silently enable external/production effects.
 12. COMPLETE requires final branch/SHA, parent SHA, changed files, tests, security, migration/API evidence where applicable, dependency changes, limitations/TODOs, CI and reviewer state.
 13. COMPLETE requires implementation, applicable tests/contracts/security/docs/migrations, pushed clean tree, local/remote SHA match and no blockers.
-14. CERTIFIED additionally requires exact-SHA CI, independent review, parent integration/regression/security/performance evidence as applicable, no unresolved critical/high defects, and stored completion evidence. Only CERTIFIED promotes.
+14. Source acceptance requires exact-SHA native CI, verified commit signatures, fresh independent review, parent integration/regression/security evidence as applicable, no unresolved critical/high defects, and a protected GitHub merge. Production certification and deployment additionally require their separate release evidence and environment approval.
 15. After integration archive evidence and safely clean stale worktrees/locks/refs; never delete unmerged work.
 16. Fail closed. If safety cannot be proven, stop and mark BLOCKED. Never guess around secrets, migrations, authorization, ancestry, production effects, destructive operations or incomplete CI evidence.
 
@@ -35,7 +35,17 @@ Before reading mission-specific instructions or editing a tracked file, run:
 ./scripts/agent_preflight.sh --start --branch "$(git branch --show-current)"
 ```
 
-A failing preflight is a STOP condition. Do not work around it with another worktree, host, port, route, provider, database path, or Git write path.
+A failing preflight is a STOP condition except for the explicitly assigned unpublished-branch procedure below. Do not work around an existing branch's stale remote, divergence, dirty state, or safety failure with another worktree, host, port, route, provider, database path, or Git write path.
+
+For an explicitly assigned new branch, `missing_upstream` is expected until its first publication. Record that result; verify a clean dedicated worktree at the current approved parent SHA and that the assigned remote branch does not exist. Prepare and independently review the bounded change before publication. Do not fabricate an upstream or a passing preflight. At first publication, compare the parent again, create only the assigned remote branch at that verified parent, and publish the reviewed tree as a verified signed commit with an expected-head check. Fetch the result, verify its entire tree and signature, establish the same-name upstream, and rerun preflight. Any other preflight failure remains a STOP condition.
+
+## Native GitHub source authority
+
+GitHub is the source of truth for source CI, verified signatures, fresh independent review, and protected merges. `middleware-ci.yml` runs the product, integration, image and security gates for every PR target. `required-ci.yml` runs the exact-head product suite and publishes its real result as `codestra/required-ci`; preserve both its tests and publisher. A Codestra name does not make a real native CI check obsolete.
+
+Source merges do not depend on installed `codestra-github-check` programs, controller databases, historical branch-route exceptions, or polling an already published CI result. The retired hierarchy workflow provided those dependencies and no product tests. `governance/promotion_guard.py` and its policy remain historical tooling; they do not authorize or block source acceptance. Required-check settings must use the real native jobs with GitHub Actions provenance and retain all product/security gates.
+
+Source acceptance does not authorize deployment or certify a runtime. Preserve the staging/production environments, independent release approval, immutable artifact checks, production safety defaults, and existing release workflows.
 
 ## Single writer
 
@@ -66,44 +76,20 @@ Before publication:
 ./scripts/agent_preflight.sh --certify --branch "$(git branch --show-current)"
 ```
 
-Then immediately before a normal non-force push, perform a remote-head compare-and-swap:
+For an existing published branch, immediately before a normal non-force push, verify that the remote still equals the recorded upstream and is an ancestor of the reviewed local head:
 
 ```bash
-branch="$(git branch --show-current)"; local_head="$(git rev-parse HEAD)"; upstream_head="$(git rev-parse "@{u}")"; remote_head="$(git ls-remote origin "refs/heads/$branch" | awk '{print $1}')"; test "$local_head" = "$upstream_head" && test "$remote_head" = "$upstream_head"
+branch="$(git branch --show-current)"
+local_head="$(git rev-parse HEAD)"
+upstream_head="$(git rev-parse '@{u}')"
+remote_head="$(git ls-remote origin "refs/heads/$branch" | awk '{print $1}')"
+test "$remote_head" = "$upstream_head"
+git merge-base --is-ancestor "$upstream_head" "$local_head"
 ```
 
-If that comparison fails, STOP. Fetch and reconcile on the owning workstation; never force-push or publish through a different write path.
+If that comparison fails, STOP. Fetch and reconcile on the owning workstation; never force-push. Ordinary pushes must contain verified signed commits. GitHub's authenticated signed-commit API may publish the exact independently reviewed tree using `expectedHeadOid`; verify the returned tree and signature before adopting it locally. A read-only remote comparison alone is not an atomic compare-and-swap; the push must remain fast-forward, or the API must enforce the expected head.
 
 The mission handoff must record host, worktree, branch, local HEAD, upstream SHA, remote SHA, dirty state, tests/validators run, and the exact next command.
-
-## Scoped CI repair exception — 2026-10-23
-
-The repository owner explicitly selected a scoped writer-lease exception for the
-current Codex CI-repair session on PRs #448, #453 and #457. This exception permits
-this session to use isolated repair worktrees, edit the diagnosed CI failures and
-this record, run validation, and publish tested fast-forward updates to those
-unprotected PR heads, or subsection repair PRs into protected PR heads, without
-an operational controller writer lease. It also covers
-the lease-dependent start/certify stop conditions and publication handoff for
-these repairs only. The recorded preflight denial remains evidence; it must not
-be represented as a successful lease, admission or certification.
-
-Before each repair, record the exact remote head and use a clean isolated
-worktree. Preserve all existing owner checkouts and uncommitted work. Before
-publication, run the applicable checks, inspect the complete diff, require the
-remote head to equal the recorded parent, and use a non-force fast-forward.
-Stop and reconcile if the remote head changes.
-
-This exception does not authorize changes to branch protection, required status
-checks, independent review, trust-transition approval, promotion eligibility,
-controller grants or database records, secrets, runtime authorization, or
-production/provider effects. Protected main/development/testing/staging/production
-refs remain untouched. It does not certify inherited failures or allow a green
-status to be fabricated.
-
-This is a session-specific owner instruction, not a standing admission fallback.
-It ends when this repair session finishes or the owner revokes it; future
-sessions require their own explicit authority. All other rules remain in effect.
 
 ## Continuation protocol
 
