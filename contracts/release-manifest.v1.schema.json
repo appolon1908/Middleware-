@@ -29,7 +29,7 @@
         "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
         "reference": {"type": "string", "pattern": "^ghcr\\.io/(appolon1908|appolon1908-hue)/codestra-middleware@sha256:[0-9a-f]{64}$"},
         "platforms": {"const": ["linux/amd64"]},
-        "base_image": {"const": "python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83"}
+        "base_image": {"const": "python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527"}
       }
     },
     "runtime": {

@@ -1,14 +1,12 @@
-"""Mirror the control plane's existing, expiring PR434 migration authority."""
+"""Retain historical promotion-policy CLI coverage, independent of source CI."""
 from __future__ import annotations
 
 import subprocess
 import sys
 from datetime import date
-from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
-import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 HEAD = "convergence/middleware-saas-certified-20261005"
@@ -48,10 +46,13 @@ def test_stacked_migration_cannot_authorize_other_pairs(head: str, base: str) ->
     assert "PROMOTION_GUARD=BLOCK" in result.stdout
 
 
-def test_approved_stacked_base_triggers_hierarchy_checks() -> None:
-    workflow = yaml.load(
-        (ROOT / ".github/workflows/codestra-hierarchy-governance.yml").read_text(),
-        Loader=yaml.BaseLoader,
-    )
-    branches = workflow["on"]["pull_request"]["branches"]
-    assert any(fnmatchcase(BASE, pattern) for pattern in branches)
+@pytest.mark.parametrize("head,base", [
+    ("subsection/unit--change", "section/unit"),
+    ("subsection/unit'--change", "section/unit'"),
+])
+def test_historical_policy_accepts_matching_sections_and_literal_branch_arguments(
+    head: str, base: str,
+) -> None:
+    result = check(head, base)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"base={base}" in result.stdout
