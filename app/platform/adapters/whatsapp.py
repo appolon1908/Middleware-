@@ -189,7 +189,12 @@ class WhatsAppProviderAdapter(BaseAdapter):
                 error_class=ErrorClass.PROVIDER_AUTH,
                 safe_error_code=f"adapter_http_{response.status_code}",
             )
-        if response.status_code in {408, 425, 429, 502, 503, 504}:
+        # Only statuses answered before the send was forwarded are retryable. The
+        # transport returns 502 after the upstream provider answered non-2xx, and a
+        # 504 means a proxy forwarded the request and stopped waiting. Both fall
+        # through to UNKNOWN below, because the transport ignores Idempotency-Key
+        # and a retry would be a second send.
+        if response.status_code in {408, 425, 429, 503}:
             return AdapterResult(
                 Outcome.TRANSIENT,
                 error_class=ErrorClass.RETRYABLE_BEFORE_EFFECT,
